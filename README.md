@@ -66,15 +66,6 @@ The backend API provides:
 - `GET /issues/{slug}` - Get issues for a specific project
 - `GET /health` - Health check
 
-## Contributing
-
-Contributions welcome! This project is itself open source. Feel free to:
-
-- Report bugs
-- Suggest new projects to track
-- Improve the UI/UX
-- Add new features
-
 ## License
 
 MIT
