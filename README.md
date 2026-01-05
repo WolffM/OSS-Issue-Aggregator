@@ -1,5 +1,7 @@
 # OSS Issue Aggregator
 
+> A dashboard to discover beginner-friendly issues across popular open source projects
+
 Find your first open source contribution! This dashboard aggregates beginner-friendly issues from popular open source projects, making it easy to discover opportunities to contribute.
 
 **Live at:** [hadoku.me/aggregator](https://hadoku.me/aggregator)
