@@ -73,7 +73,7 @@ jobs:
             patch=$(echo $current_version | cut -d. -f3)
             
             # Rollover at .20 to keep patch numbers manageable (matching pre-commit hook)
-            if [ $patch -eq 20 ]; then
+            if [ $patch -ge 20 ]; then
               new_minor=$((minor + 1))
               new_version="$major.$new_minor.0"
               echo "🚀 Rolling over to minor version"
