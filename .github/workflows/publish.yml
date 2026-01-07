@@ -77,7 +77,7 @@ jobs:
             echo "⚠️  Version $new_version already published, bumping..."
             
             # Rollover at .20 to keep patch numbers manageable (matching pre-commit hook)
-            if [ $patch -ge 19 ]; then
+            if [ $patch -ge 20 ]; then
               minor=$((minor + 1))
               patch=0
               echo "🚀 Rolling over to minor version"
