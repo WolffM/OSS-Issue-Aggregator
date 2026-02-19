@@ -4,7 +4,7 @@ import { THEME_ICON_MAP } from '@wolffm/themes'
 import { useTheme } from './hooks/useTheme'
 import { useProjects } from './hooks/useProjects'
 import { useIssues } from './hooks/useIssues'
-import { ProjectSelector, ProjectIssueCard, LoadingState, ErrorState, Footer } from './components'
+import { ProjectSelector, ProjectIssueCard, ErrorState, Footer } from './components'
 import type { OssAggregatorProps } from './entry'
 
 // Default selected projects by name (must match API project names exactly)
@@ -209,7 +209,26 @@ export default function App(props: OssAggregatorProps = {}) {
 
           <main className="oss-aggregator__main">
             {isLoading && issues.length === 0 ? (
-              <LoadingState />
+              <div className="project-grid">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <div key={i} className="project-card">
+                    <div className="project-card__header">
+                      <div className="skeleton-line skeleton-card__icon" />
+                      <div className="skeleton-line skeleton-card__title" />
+                      <div className="skeleton-line skeleton-card__count" />
+                    </div>
+                    {Array.from({ length: 3 }, (_, j) => (
+                      <div key={j} className="skeleton-card__issue">
+                        <div className="skeleton-line skeleton-card__issue-title" />
+                        <div className="skeleton-card__issue-meta">
+                          <div className="skeleton-line skeleton-card__badge" />
+                          <div className="skeleton-line skeleton-card__date" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             ) : error ? (
               <ErrorState
                 message={error}
