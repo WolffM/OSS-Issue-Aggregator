@@ -16,6 +16,7 @@ import type {
   MarkStatus
 } from './types'
 import { PROJECTS, POOLS, getProjectsByPool, getProjectBySlug } from './config'
+import { createReconRoutes } from './recon'
 import { byCreatedAtDesc } from './utils'
 import { createDataProvider } from './data-sources'
 import {
@@ -492,6 +493,12 @@ export function createOSSHandler(basePath = '/oss/api') {
   })
 
   // ============================================================================
+  // Recon Pipeline Routes
+  // ============================================================================
+
+  app.route('/recon', createReconRoutes())
+
+  // ============================================================================
   // OpenAPI Spec
   // ============================================================================
 
@@ -543,7 +550,11 @@ Filter by difficulty: \`/issues?difficulty=beginner\`
       { name: 'Health', description: 'Health check endpoint' },
       { name: 'Projects', description: 'Project listing' },
       { name: 'Issues', description: 'Issue fetching endpoints' },
-      { name: 'Marking', description: 'Issue marking (ignored/process)' }
+      { name: 'Marking', description: 'Issue marking (ignored/process)' },
+      { name: 'Recon - Watchlist', description: 'Watchlist management for recon pipeline' },
+      { name: 'Recon - Issues', description: 'Per-repo issue and health data from recon pipeline' },
+      { name: 'Recon - Claims', description: 'Issue claim tracking' },
+      { name: 'Recon - Triggers', description: 'Scraper trigger endpoints' }
     ]
   })
 

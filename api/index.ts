@@ -72,3 +72,80 @@ export {
   UnmarkIssueResponseSchema,
   MarkedIssuesResponseSchema
 } from './schemas'
+
+// Recon pipeline
+export { createReconRoutes } from './recon'
+
+export {
+  getReconIssues,
+  getReconIssuesScrapedAt,
+  getMergedPRs,
+  getRejectedPRs,
+  getRepoMeta,
+  getComments,
+  getRepoHealth,
+  getScoredIssues,
+  getClaims,
+  getDossier
+} from './recon/kv-reader'
+
+export { addClaim, removeClaim } from './recon/claims'
+
+export {
+  getWatchlist,
+  addToWatchlist,
+  removeFromWatchlist,
+  normalizeSlug,
+  isValidSlug
+} from './recon/watchlist'
+
+export { triggerScrape } from './recon/triggers'
+
+// Recon types
+export type {
+  ExtendedIssue,
+  ReconIssueData,
+  PRSample,
+  RepoMeta,
+  IssueComments,
+  Comment,
+  CommentThread,
+  ClaimRecord,
+  ScoredIssue,
+  RepoHealth,
+  RepoQuirk,
+  PRPatterns,
+  Dossier,
+  AuthorAssociation,
+  CVSTier,
+  LifecycleStage,
+  ClaimStatus,
+  Complexity,
+  CompetitionLevel,
+  DataCompleteness
+} from './recon/types'
+
+// Recon schemas
+export {
+  AuthorAssociationSchema,
+  ExtendedIssueSchema,
+  ReconIssueDataSchema,
+  PRSampleSchema,
+  RepoMetaSchema,
+  CommentSchema,
+  CommentThreadSchema,
+  IssueCommentsSchema,
+  ClaimRecordSchema,
+  CVSTierSchema,
+  LifecycleStageSchema,
+  ClaimStatusSchema,
+  ComplexitySchema,
+  CompetitionLevelSchema,
+  DataCompletenessSchema,
+  ScoredIssueSchema,
+  RepoQuirkSchema,
+  PRPatternsSchema,
+  RepoHealthSchema,
+  DossierSchema,
+  DossierSectionsSchema
+} from './recon/types'

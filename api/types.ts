@@ -31,6 +31,7 @@ export interface OSSEnv {
   GITHUB_TOKEN?: string
   PHABRICATOR_TOKEN?: string
   CACHE_KV?: KVNamespace
+  SCRAPER_API_URL?: string
 }
 
 // Issue marking system
