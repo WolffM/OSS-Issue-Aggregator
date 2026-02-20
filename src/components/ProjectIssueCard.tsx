@@ -56,7 +56,7 @@ export function ProjectIssueCard({ project, issues, maxIssues = 5 }: ProjectIssu
               <div className="project-card__issue-meta">
                 <DifficultyBadge difficulty={issue.difficulty} />
                 <span className="project-card__issue-date">
-                  {formatRelativeTime(issue.updatedAt)}
+                  {formatRelativeTime(issue.createdAt)}
                 </span>
               </div>
             </li>

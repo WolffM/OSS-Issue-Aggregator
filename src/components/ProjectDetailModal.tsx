@@ -82,7 +82,7 @@ export function ProjectDetailModal({ project, issues, isOpen, onClose }: Project
                   <div className="modal__issue-meta">
                     <span className="modal__issue-author">by {issue.author}</span>
                     <span className="modal__issue-date">
-                      Updated {formatRelativeTime(issue.updatedAt)}
+                      Created {formatRelativeTime(issue.createdAt)}
                     </span>
                   </div>
 
