@@ -8,7 +8,11 @@
 // Handler factory (main export for Cloudflare Workers)
 export { createOSSHandler, createOSSFetcher } from './handler'
 
-// Adapters for fetching issues from different platforms
+// Data source abstraction (swap providers here)
+export { createDataProvider, LiveApiProvider } from './data-sources'
+export type { IssueDataProvider } from './data-sources'
+
+// Low-level adapters (used by LiveApiProvider, will be removed when scraper replaces them)
 export { fetchIssuesForProject } from './adapters'
 export { fetchGitHubIssues } from './adapters/github'
 export { fetchGitLabIssues } from './adapters/gitlab'

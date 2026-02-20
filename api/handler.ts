@@ -16,7 +16,7 @@ import type {
   MarkStatus
 } from './types'
 import { PROJECTS, POOLS, getProjectsByPool, getProjectBySlug } from './config'
-import { fetchIssuesForProject } from './adapters'
+import { createDataProvider } from './data-sources'
 import {
   HealthResponseSchema,
   ProjectsResponseSchema,
@@ -88,6 +88,7 @@ async function saveMarkedIssues(
  */
 export function createOSSHandler(basePath = '/oss/api') {
   const app = new OpenAPIHono<HonoEnv>().basePath(basePath)
+  const dataProvider = createDataProvider()
 
   // CORS middleware
   app.use('*', cors())
@@ -188,7 +189,7 @@ export function createOSSHandler(basePath = '/oss/api') {
     }
 
     try {
-      const issues = await fetchIssuesForProject(config, c.env)
+      const issues = await dataProvider.fetchIssues(config, c.env)
       return c.json({ success: true as const, data: { issues, project: config.name } }, 200)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
@@ -237,7 +238,7 @@ export function createOSSHandler(basePath = '/oss/api') {
     const results = await Promise.all(
       projects.map(async (config): Promise<ProjectResult> => {
         try {
-          const issues = await fetchIssuesForProject(config, c.env)
+          const issues = await dataProvider.fetchIssues(config, c.env)
           return { project: config.slug, issues }
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Unknown error'
@@ -548,18 +549,19 @@ Filter by difficulty: \`/issues?difficulty=beginner\`
  * ```
  */
 export function createOSSFetcher(env: OSSEnv) {
+  const provider = createDataProvider()
   return {
     fetchIssuesForProject: (slug: string) => {
       const config = getProjectBySlug(slug)
       if (!config) throw new Error(`Project '${slug}' not found`)
-      return fetchIssuesForProject(config, env)
+      return provider.fetchIssues(config, env)
     },
     fetchIssuesByPool: async (pool: string) => {
       const projects = getProjectsByPool(pool)
       const results = await Promise.all(
         projects.map(async config => {
           try {
-            return await fetchIssuesForProject(config, env)
+            return await provider.fetchIssues(config, env)
           } catch {
             return []
           }
