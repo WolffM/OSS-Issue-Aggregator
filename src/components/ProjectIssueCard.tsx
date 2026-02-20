@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Issue, Project } from '../api/types'
 import { PlatformIcon } from './PlatformIcon'
 import { DifficultyBadge } from './DifficultyBadge'
+import { ContributingLink } from './ContributingLink'
 import { ProjectDetailModal } from './ProjectDetailModal'
 import { formatRelativeTime } from '../utils/formatDate'
 
@@ -64,16 +65,9 @@ export function ProjectIssueCard({ project, issues, maxIssues = 5 }: ProjectIssu
         </ul>
       )}
 
-      {project.contributingUrl && (
-        <a
-          href={project.contributingUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="project-card__contribute"
-        >
-          Contributing Guide →
-        </a>
-      )}
+      <ContributingLink url={project.contributingUrl} className="project-card__contribute">
+        Contributing Guide →
+      </ContributingLink>
     </div>
   )
 }

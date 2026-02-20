@@ -1,5 +1,5 @@
-export type Platform = 'github' | 'gitlab' | 'gitea' | 'phabricator'
-export type Difficulty = 'beginner' | 'intermediate' | 'unknown'
+export type Platform = 'github' | 'gitlab' | 'gitea' | 'phabricator' | 'bugzilla' | 'trac'
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'unknown'
 
 export interface Issue {
   id: string
@@ -8,6 +8,8 @@ export interface Issue {
   title: string
   url: string
   difficulty: Difficulty
+  difficultyScore?: number
+  difficultySignals?: string[]
   labels: string[]
   createdAt: string
   updatedAt: string

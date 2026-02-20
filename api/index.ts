@@ -13,7 +13,6 @@ export { createDataProvider, LiveApiProvider } from './data-sources'
 export type { IssueDataProvider } from './data-sources'
 
 // Low-level adapters (used by LiveApiProvider, will be removed when scraper replaces them)
-export { fetchIssuesForProject } from './adapters'
 export { fetchGitHubIssues } from './adapters/github'
 export { fetchGitLabIssues } from './adapters/gitlab'
 export { fetchGiteaIssues } from './adapters/gitea'

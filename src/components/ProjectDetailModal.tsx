@@ -2,6 +2,7 @@ import { useEffect, useRef, type MouseEvent } from 'react'
 import type { Issue, Project } from '../api/types'
 import { PlatformIcon } from './PlatformIcon'
 import { DifficultyBadge } from './DifficultyBadge'
+import { ContributingLink } from './ContributingLink'
 import { formatRelativeTime } from '../utils/formatDate'
 
 interface ProjectDetailModalProps {
@@ -107,16 +108,9 @@ export function ProjectDetailModal({ project, issues, isOpen, onClose }: Project
         </div>
 
         <div className="modal__footer">
-          {project.contributingUrl && (
-            <a
-              href={project.contributingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="modal__contribute-link"
-            >
-              View Contributing Guide
-            </a>
-          )}
+          <ContributingLink url={project.contributingUrl} className="modal__contribute-link">
+            View Contributing Guide
+          </ContributingLink>
           <button className="modal__close-button" onClick={onClose}>
             Close
           </button>

@@ -5,6 +5,7 @@ import { useTheme } from './hooks/useTheme'
 import { useProjects } from './hooks/useProjects'
 import { useIssues } from './hooks/useIssues'
 import { ProjectSelector, ProjectIssueCard, ErrorState, Footer } from './components'
+import { byCreatedAtDesc } from './utils/formatDate'
 import type { OssAggregatorProps } from './entry'
 
 // Default selected projects by name (must match API project names exactly)
@@ -129,12 +130,7 @@ export default function App(props: OssAggregatorProps = {}) {
 
     // Sort issues within each project by createdAt (newest first)
     for (const [key, projectIssues] of grouped) {
-      grouped.set(
-        key,
-        projectIssues.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )
-      )
+      grouped.set(key, projectIssues.sort(byCreatedAtDesc))
     }
 
     return grouped

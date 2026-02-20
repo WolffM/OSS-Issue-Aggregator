@@ -85,6 +85,17 @@ export function parseDate(value: string | number): string {
 }
 
 // ============================================================================
+// Sort Utilities
+// ============================================================================
+
+/**
+ * Sort comparator for sorting by createdAt descending (newest first).
+ */
+export function byCreatedAtDesc(a: { createdAt: string }, b: { createdAt: string }): number {
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+}
+
+// ============================================================================
 // Collection Utilities
 // ============================================================================
 

@@ -1,5 +1,6 @@
 export { PlatformIcon } from './PlatformIcon'
 export { DifficultyBadge } from './DifficultyBadge'
+export { ContributingLink } from './ContributingLink'
 export { ProjectSelector } from './ProjectSelector'
 export { ProjectIssueCard } from './ProjectIssueCard'
 export { ProjectDetailModal } from './ProjectDetailModal'

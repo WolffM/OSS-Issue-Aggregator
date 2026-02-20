@@ -407,6 +407,11 @@
   color: var(--color-warning);
 }
 
+.difficulty-badge--advanced {
+  background-color: var(--color-error-bg);
+  color: var(--color-error);
+}
+
 .difficulty-badge--unknown {
   background-color: var(--color-muted-bg);
   color: var(--color-text-muted);
@@ -595,6 +600,14 @@
 
 .platform-icon--phabricator {
   color: #5a5a5a;
+}
+
+.platform-icon--bugzilla {
+  color: #cc0000;
+}
+
+.platform-icon--trac {
+  color: #987614;
 }
 
 /* Responsive - Tablet */

@@ -16,6 +16,7 @@ import type {
   MarkStatus
 } from './types'
 import { PROJECTS, POOLS, getProjectsByPool, getProjectBySlug } from './config'
+import { byCreatedAtDesc } from './utils'
 import { createDataProvider } from './data-sources'
 import {
   HealthResponseSchema,
@@ -61,6 +62,18 @@ async function saveMarkedIssues(
     updatedAt: new Date().toISOString()
   }
   await kv.put(`marked:${status}`, JSON.stringify(data))
+}
+
+// ============================================================================
+// Shared Helpers
+// ============================================================================
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unknown error'
+}
+
+function requireKV(env: OSSEnv) {
+  return env.CACHE_KV ?? null
 }
 
 // ============================================================================
@@ -192,8 +205,10 @@ export function createOSSHandler(basePath = '/oss/api') {
       const issues = await dataProvider.fetchIssues(config, c.env)
       return c.json({ success: true as const, data: { issues, project: config.name } }, 200)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      return c.json({ success: false as const, error: `Failed to fetch issues: ${message}` }, 500)
+      return c.json(
+        { success: false as const, error: `Failed to fetch issues: ${getErrorMessage(err)}` },
+        500
+      )
     }
   })
 
@@ -241,8 +256,7 @@ export function createOSSHandler(basePath = '/oss/api') {
           const issues = await dataProvider.fetchIssues(config, c.env)
           return { project: config.slug, issues }
         } catch (err) {
-          const message = err instanceof Error ? err.message : 'Unknown error'
-          return { project: config.slug, issues: [], error: message }
+          return { project: config.slug, issues: [], error: getErrorMessage(err) }
         }
       })
     )
@@ -264,7 +278,7 @@ export function createOSSHandler(basePath = '/oss/api') {
     }
 
     // Sort by createdAt descending (newest first)
-    allIssues.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    allIssues.sort(byCreatedAtDesc)
 
     return c.json(
       {
@@ -325,21 +339,22 @@ export function createOSSHandler(basePath = '/oss/api') {
     const { issueId } = c.req.valid('param')
     const { status, reason } = c.req.valid('json')
 
-    if (!c.env.CACHE_KV) {
+    const kv = requireKV(c.env)
+    if (!kv) {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
     try {
       // Remove from the other status list if present
       const otherStatus: MarkStatus = status === 'ignored' ? 'process' : 'ignored'
-      const otherIssues = await getMarkedIssues(c.env.CACHE_KV, otherStatus)
+      const otherIssues = await getMarkedIssues(kv, otherStatus)
       const filteredOther = otherIssues.filter(i => i.issueId !== issueId)
       if (filteredOther.length !== otherIssues.length) {
-        await saveMarkedIssues(c.env.CACHE_KV, otherStatus, filteredOther)
+        await saveMarkedIssues(kv, otherStatus, filteredOther)
       }
 
       // Add to the target status list
-      const issues = await getMarkedIssues(c.env.CACHE_KV, status)
+      const issues = await getMarkedIssues(kv, status)
       const existing = issues.find(i => i.issueId === issueId)
       const markedAt = new Date().toISOString()
 
@@ -352,7 +367,7 @@ export function createOSSHandler(basePath = '/oss/api') {
         issues.push({ issueId, status, markedAt, reason })
       }
 
-      await saveMarkedIssues(c.env.CACHE_KV, status, issues)
+      await saveMarkedIssues(kv, status, issues)
 
       return c.json(
         {
@@ -362,8 +377,7 @@ export function createOSSHandler(basePath = '/oss/api') {
         200
       )
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      return c.json({ success: false as const, error: message }, 500)
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
   })
 
@@ -396,7 +410,8 @@ export function createOSSHandler(basePath = '/oss/api') {
   app.openapi(unmarkIssueRoute, async c => {
     const { issueId } = c.req.valid('param')
 
-    if (!c.env.CACHE_KV) {
+    const kv = requireKV(c.env)
+    if (!kv) {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
@@ -405,11 +420,11 @@ export function createOSSHandler(basePath = '/oss/api') {
 
       // Remove from both lists
       for (const status of ['ignored', 'process'] as MarkStatus[]) {
-        const issues = await getMarkedIssues(c.env.CACHE_KV, status)
+        const issues = await getMarkedIssues(kv, status)
         const filtered = issues.filter(i => i.issueId !== issueId)
         if (filtered.length !== issues.length) {
           removed = true
-          await saveMarkedIssues(c.env.CACHE_KV, status, filtered)
+          await saveMarkedIssues(kv, status, filtered)
         }
       }
 
@@ -421,8 +436,7 @@ export function createOSSHandler(basePath = '/oss/api') {
         200
       )
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      return c.json({ success: false as const, error: message }, 500)
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
   })
 
@@ -453,12 +467,13 @@ export function createOSSHandler(basePath = '/oss/api') {
   app.openapi(getMarkedIssuesRoute, async c => {
     const { status } = c.req.valid('query')
 
-    if (!c.env.CACHE_KV) {
+    const kv = requireKV(c.env)
+    if (!kv) {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
     try {
-      const issues = await getMarkedIssues(c.env.CACHE_KV, status)
+      const issues = await getMarkedIssues(kv, status)
 
       return c.json(
         {
@@ -472,8 +487,7 @@ export function createOSSHandler(basePath = '/oss/api') {
         200
       )
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      return c.json({ success: false as const, error: message }, 500)
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
   })
 

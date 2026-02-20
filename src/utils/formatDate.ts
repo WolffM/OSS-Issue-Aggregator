@@ -35,6 +35,13 @@ export function formatRelativeTime(dateString: string): string {
 }
 
 /**
+ * Sort comparator for sorting by createdAt descending (newest first).
+ */
+export function byCreatedAtDesc(a: { createdAt: string }, b: { createdAt: string }): number {
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+}
+
+/**
  * Format a date string into a short date (e.g., "Dec 15")
  */
 export function formatShortDate(dateString: string): string {
