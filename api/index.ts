@@ -108,6 +108,10 @@ export { classifyLifecycle } from './recon/lifecycle'
 export { analyzeSentiment } from './recon/sentiment'
 export { isMaintainer, isBot, daysBetween, daysSince, median, clamp } from './recon/utils'
 
+// Recon intelligence (M3)
+export { detectQuirks } from './recon/quirks'
+export { compileDossier } from './recon/dossier-compiler'
+
 // Recon types
 export type {
   ExtendedIssue,

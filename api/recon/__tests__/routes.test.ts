@@ -7,7 +7,6 @@ import {
   makeRepoMeta,
   makePRSample
 } from './helpers'
-import type { Dossier } from '../types'
 
 /**
  * Integration tests for recon Hono routes.
@@ -259,26 +258,33 @@ describe('GET /:slug/dossier', () => {
     expect(body.data.status).toBe('pending')
   })
 
-  it('returns dossier when available', async () => {
-    const dossier: Dossier = {
-      slug: 'fastify-fastify',
-      generatedAt: '2024-01-20T14:45:00Z',
-      sections: {
-        overview: '# Overview',
-        contributionRules: '# Rules',
-        successPatterns: '# Success',
-        antiPatterns: '# Anti-Patterns',
-        issueBoard: '# Issues',
-        environmentSetup: '# Setup'
-      }
-    }
-    const kv = createMockKV({ 'recon:fastify-fastify:dossier': dossier })
+  it('returns compiled dossier when repo meta available', async () => {
+    const recentDate = new Date(Date.now() - 5 * 86_400_000).toISOString()
+    const createdDate = new Date(Date.now() - 8 * 86_400_000).toISOString()
+    const meta = makeRepoMeta({ slug: 'fastify-fastify' })
+    const mergedPRs = [
+      makePRSample({
+        authorAssociation: 'CONTRIBUTOR',
+        createdAt: createdDate,
+        mergedAt: recentDate
+      })
+    ]
+    const kv = createMockKV({
+      'recon:fastify-fastify:repo-meta': meta,
+      'recon:fastify-fastify:merged-prs': mergedPRs
+    })
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/dossier')
     const body = await res.json()
     expect(body.data.slug).toBe('fastify-fastify')
-    expect(body.data.sections.overview).toBe('# Overview')
+    expect(body.data.generatedAt).toBeDefined()
+    expect(body.data.sections).toHaveProperty('overview')
+    expect(body.data.sections).toHaveProperty('contributionRules')
+    expect(body.data.sections).toHaveProperty('successPatterns')
+    expect(body.data.sections).toHaveProperty('antiPatterns')
+    expect(body.data.sections).toHaveProperty('issueBoard')
+    expect(body.data.sections).toHaveProperty('environmentSetup')
   })
 })
 

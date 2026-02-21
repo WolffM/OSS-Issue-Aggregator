@@ -9,6 +9,8 @@ import type {
   ClaimRecord,
   PRSample,
   RepoMeta,
+  RepoHealth,
+  ScoredIssue,
   Comment,
   CommentThread
 } from '../types'
@@ -170,6 +172,49 @@ export function makeCommentThread(
     issueNumber: 100,
     comments,
     scrapedAt: '2024-01-20T14:45:00Z',
+    ...overrides
+  }
+}
+
+export function makeRepoHealth(overrides: Partial<RepoHealth> = {}): RepoHealth {
+  return {
+    slug: 'fastify-fastify',
+    maintainerHealthScore: 70,
+    mergeAccessibilityScore: 65,
+    availabilityScore: 60,
+    overallViability: 65,
+    killed: false,
+    killReason: null,
+    detectedQuirks: [],
+    prPatterns: {
+      medianFilesChanged: 3,
+      medianAdditions: 45,
+      medianTimeToMergeDays: 4.5,
+      mergeStyle: 'squash',
+      commitConvention: null,
+      externalContributorMergeRate: 0.65,
+      topRejectionReasons: []
+    },
+    analyzedAt: new Date().toISOString(),
+    ...overrides
+  }
+}
+
+export function makeScoredIssue(overrides: Partial<ScoredIssue> = {}): ScoredIssue {
+  return {
+    ...makeExtendedIssue(),
+    cvs: 65,
+    cvsTier: 'maybe',
+    lifecycleStage: 'fresh',
+    claimStatus: 'unclaimed',
+    claimAuthor: null,
+    complexity: 'low',
+    sentimentScore: 0,
+    contentQualityScore: 40,
+    competitionLevel: 'none',
+    repoSlug: 'fastify-fastify',
+    dataCompleteness: 'full',
+    repoKilled: false,
     ...overrides
   }
 }

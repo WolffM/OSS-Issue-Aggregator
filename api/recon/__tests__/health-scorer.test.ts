@@ -153,11 +153,34 @@ describe('scoreRepoHealth', () => {
       expect(new Date(result.analyzedAt).getTime()).not.toBeNaN()
     })
 
-    it('returns empty detectedQuirks for M2', () => {
+    it('returns empty detectedQuirks for vanilla repo', () => {
       const meta = makeRepoMeta()
       const result = scoreRepoHealth(meta, makeHealthyPRs(), [])
 
       expect(result.detectedQuirks).toEqual([])
+    })
+
+    it('includes detected quirks in health result', () => {
+      const meta = makeRepoMeta({
+        contributingContent: 'Please include a changeset with your PR.'
+      })
+      const result = scoreRepoHealth(meta, makeHealthyPRs(), [])
+
+      expect(result.detectedQuirks.length).toBeGreaterThan(0)
+      expect(result.detectedQuirks[0].type).toBe('changeset-required')
+      expect(result.detectedQuirks[0].impact).toBe('blocker')
+    })
+
+    it('includes quirks even when killed', () => {
+      const meta = makeRepoMeta({
+        isArchived: true,
+        contributingContent: 'Must sign the CLA before contributing.'
+      })
+      const result = scoreRepoHealth(meta, [], [])
+
+      expect(result.killed).toBe(true)
+      expect(result.detectedQuirks.length).toBeGreaterThan(0)
+      expect(result.detectedQuirks[0].type).toBe('cla-required')
     })
   })
 })

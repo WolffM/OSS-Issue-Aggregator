@@ -20,14 +20,14 @@ import {
   getMergedPRs,
   getRejectedPRs,
   getComments,
-  getClaims,
-  getDossier
+  getClaims
 } from './kv-reader'
 import { getWatchlist, addToWatchlist, removeFromWatchlist } from './watchlist'
 import { addClaim, removeClaim } from './claims'
 import { triggerScrape } from './triggers'
 import { scoreRepoHealth } from './health-scorer'
 import { scoreIssues } from './issue-scorer'
+import { compileDossier } from './dossier-compiler'
 
 // ============================================================================
 // Types & Helpers
@@ -69,6 +69,25 @@ async function computeScoredIssues(kv: KVNamespace, slug: string) {
 
   const health = meta ? scoreRepoHealth(meta, merged ?? [], rejected ?? []) : null
   return scoreIssues(issues, comments ?? {}, health, claims ?? [])
+}
+
+async function computeDossier(kv: KVNamespace, slug: string) {
+  const [meta, merged, rejected, issues, comments, claims] = await Promise.all([
+    getRepoMeta(kv, slug),
+    getMergedPRs(kv, slug),
+    getRejectedPRs(kv, slug),
+    getReconIssues(kv, slug),
+    getComments(kv, slug),
+    getClaims(kv, slug)
+  ])
+
+  if (!meta) return null
+
+  const health = scoreRepoHealth(meta, merged ?? [], rejected ?? [])
+  const scored =
+    issues && issues.length > 0 ? scoreIssues(issues, comments ?? {}, health, claims ?? []) : []
+
+  return compileDossier(slug, meta, health, scored, merged ?? [], rejected ?? [])
 }
 
 // ============================================================================
@@ -455,7 +474,8 @@ export function createReconRoutes() {
     path: '/{slug}/dossier',
     tags: ['Recon - Issues'],
     summary: 'Get repo dossier',
-    description: 'Returns the compiled dossier for a repo, or pending status if not yet generated',
+    description:
+      'Returns the compiled dossier for a repo, or pending status if repo meta is not yet available',
     request: { params: slugParam },
     responses: {
       200: {
@@ -483,7 +503,7 @@ export function createReconRoutes() {
     }
 
     const { slug } = c.req.valid('param')
-    const dossier = await getDossier(kv, slug)
+    const dossier = await computeDossier(kv, slug)
 
     if (!dossier) {
       return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)

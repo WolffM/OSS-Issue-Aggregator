@@ -8,6 +8,7 @@
 
 import type { RepoMeta, PRSample, RepoHealth, PRPatterns } from './types'
 import { isMaintainer, daysBetween, daysSince, median, clamp } from './utils'
+import { detectQuirks } from './quirks'
 
 function isExternalPR(pr: PRSample): boolean {
   return !isMaintainer(pr.authorAssociation)
@@ -32,7 +33,13 @@ function detectKillSignal(meta: RepoMeta, mergedPRs: PRSample[]): string | null 
   return null
 }
 
-function killedHealth(slug: string, killReason: string): RepoHealth {
+function killedHealth(
+  slug: string,
+  killReason: string,
+  meta: RepoMeta,
+  mergedPRs: PRSample[],
+  rejectedPRs: PRSample[]
+): RepoHealth {
   return {
     slug,
     maintainerHealthScore: 0,
@@ -41,7 +48,7 @@ function killedHealth(slug: string, killReason: string): RepoHealth {
     overallViability: 0,
     killed: true,
     killReason,
-    detectedQuirks: [],
+    detectedQuirks: detectQuirks(meta, mergedPRs, rejectedPRs),
     prPatterns: emptyPRPatterns(),
     analyzedAt: new Date().toISOString()
   }
@@ -207,7 +214,7 @@ export function scoreRepoHealth(
   rejectedPRs: PRSample[]
 ): RepoHealth {
   const killReason = detectKillSignal(meta, mergedPRs)
-  if (killReason) return killedHealth(meta.slug, killReason)
+  if (killReason) return killedHealth(meta.slug, killReason, meta, mergedPRs, rejectedPRs)
 
   const maintainerHealthScore = scoreMaintainerHealth(mergedPRs)
   const mergeAccessibilityScore = scoreMergeAccessibility(mergedPRs, rejectedPRs)
@@ -225,7 +232,7 @@ export function scoreRepoHealth(
     overallViability,
     killed: false,
     killReason: null,
-    detectedQuirks: [], // M3
+    detectedQuirks: detectQuirks(meta, mergedPRs, rejectedPRs),
     prPatterns: analyzePRPatterns(mergedPRs, rejectedPRs),
     analyzedAt: new Date().toISOString()
   }
