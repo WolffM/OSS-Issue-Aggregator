@@ -12,14 +12,22 @@ import {
   ScoredIssueSchema,
   RepoHealthSchema,
   DossierSchema,
-  ClaimRecordSchema,
-  type ExtendedIssue,
-  type ScoredIssue
+  ClaimRecordSchema
 } from './types'
-import { getReconIssues, getRepoHealth, getDossier } from './kv-reader'
+import {
+  getReconIssues,
+  getRepoMeta,
+  getMergedPRs,
+  getRejectedPRs,
+  getComments,
+  getClaims,
+  getDossier
+} from './kv-reader'
 import { getWatchlist, addToWatchlist, removeFromWatchlist } from './watchlist'
 import { addClaim, removeClaim } from './claims'
 import { triggerScrape } from './triggers'
+import { scoreRepoHealth } from './health-scorer'
+import { scoreIssues } from './issue-scorer'
 
 // ============================================================================
 // Types & Helpers
@@ -37,22 +45,30 @@ function requireKV(env: OSSEnv) {
   return env.CACHE_KV ?? null
 }
 
-function toPlaceholderScoredIssue(issue: ExtendedIssue, slug: string): ScoredIssue {
-  return {
-    ...issue,
-    cvs: 50,
-    cvsTier: 'maybe',
-    lifecycleStage: 'fresh',
-    claimStatus: 'unclaimed',
-    claimAuthor: null,
-    complexity: 'medium',
-    sentimentScore: 0,
-    contentQualityScore: 50,
-    competitionLevel: 'none',
-    repoSlug: slug,
-    dataCompleteness: 'partial',
-    repoKilled: false
-  }
+async function computeHealth(kv: KVNamespace, slug: string) {
+  const [meta, merged, rejected] = await Promise.all([
+    getRepoMeta(kv, slug),
+    getMergedPRs(kv, slug),
+    getRejectedPRs(kv, slug)
+  ])
+  if (!meta) return null
+  return scoreRepoHealth(meta, merged ?? [], rejected ?? [])
+}
+
+async function computeScoredIssues(kv: KVNamespace, slug: string) {
+  const [issues, comments, claims, meta, merged, rejected] = await Promise.all([
+    getReconIssues(kv, slug),
+    getComments(kv, slug),
+    getClaims(kv, slug),
+    getRepoMeta(kv, slug),
+    getMergedPRs(kv, slug),
+    getRejectedPRs(kv, slug)
+  ])
+
+  if (!issues || issues.length === 0) return []
+
+  const health = meta ? scoreRepoHealth(meta, merged ?? [], rejected ?? []) : null
+  return scoreIssues(issues, comments ?? {}, health, claims ?? [])
 }
 
 // ============================================================================
@@ -359,7 +375,7 @@ export function createReconRoutes() {
     }
 
     const { slug } = c.req.valid('param')
-    const health = await getRepoHealth(kv, slug)
+    const health = await computeHealth(kv, slug)
 
     if (!health) {
       return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
@@ -407,7 +423,7 @@ export function createReconRoutes() {
     tags: ['Recon - Issues'],
     summary: 'Get scored issues',
     description:
-      'Returns issues with CVS scores. M1 stub returns placeholder scores — real scoring added in M2.',
+      'Returns issues with CVS scores computed from repo health, lifecycle, sentiment, and content quality.',
     request: { params: slugParam },
     responses: {
       200: {
@@ -428,9 +444,7 @@ export function createReconRoutes() {
     }
 
     const { slug } = c.req.valid('param')
-    const issues = await getReconIssues(kv, slug)
-
-    const scored: ScoredIssue[] = (issues ?? []).map(issue => toPlaceholderScoredIssue(issue, slug))
+    const scored = await computeScoredIssues(kv, slug)
 
     return c.json({ success: true as const, data: { issues: scored, slug } }, 200)
   })
@@ -521,17 +535,12 @@ export function createReconRoutes() {
 
     const slugs = await getWatchlist(kv)
 
-    // Fetch issues for all repos in parallel
-    const results = await Promise.all(
-      slugs.map(async slug => {
-        const issues = await getReconIssues(kv, slug)
-        return (issues ?? []).map((issue: ExtendedIssue) => toPlaceholderScoredIssue(issue, slug))
-      })
-    )
+    // Score issues for all repos in parallel
+    const results = await Promise.all(slugs.map(slug => computeScoredIssues(kv, slug)))
 
     let allIssues = results.flat()
 
-    // Filter killed repos (in M1 with placeholder scoring, none will be killed)
+    // Filter killed repos unless explicitly requested
     if (!showKilled) {
       allIssues = allIssues.filter(issue => !issue.repoKilled)
     }

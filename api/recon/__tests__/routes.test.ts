@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createReconRoutes } from '../index'
-import { createMockKV, makeExtendedIssue, makeReconIssueData } from './helpers'
-import type { RepoHealth, Dossier } from '../types'
+import {
+  createMockKV,
+  makeExtendedIssue,
+  makeReconIssueData,
+  makeRepoMeta,
+  makePRSample
+} from './helpers'
+import type { Dossier } from '../types'
 
 /**
  * Integration tests for recon Hono routes.
@@ -146,33 +152,28 @@ describe('GET /:slug/health', () => {
     expect(body.data.status).toBe('pending')
   })
 
-  it('returns health data when available', async () => {
-    const health: RepoHealth = {
-      slug: 'fastify-fastify',
-      maintainerHealthScore: 85,
-      mergeAccessibilityScore: 72,
-      availabilityScore: 68,
-      overallViability: 75,
-      killed: false,
-      killReason: null,
-      detectedQuirks: [],
-      prPatterns: {
-        medianFilesChanged: 3,
-        medianAdditions: 45,
-        medianTimeToMergeDays: 4.5,
-        mergeStyle: 'squash',
-        commitConvention: null,
-        externalContributorMergeRate: 0.65,
-        topRejectionReasons: []
-      },
-      analyzedAt: '2024-01-20T14:45:00Z'
-    }
-    const kv = createMockKV({ 'recon:fastify-fastify:health': health })
+  it('returns health data when repo meta and PRs available', async () => {
+    const recentDate = new Date(Date.now() - 5 * 86_400_000).toISOString()
+    const createdDate = new Date(Date.now() - 8 * 86_400_000).toISOString()
+    const meta = makeRepoMeta({ slug: 'fastify-fastify' })
+    const mergedPRs = [
+      makePRSample({
+        authorAssociation: 'CONTRIBUTOR',
+        createdAt: createdDate,
+        mergedAt: recentDate
+      })
+    ]
+    const kv = createMockKV({
+      'recon:fastify-fastify:repo-meta': meta,
+      'recon:fastify-fastify:merged-prs': mergedPRs
+    })
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/health')
     const body = await res.json()
-    expect(body.data.overallViability).toBe(75)
+    expect(body.data.overallViability).toBeGreaterThan(0)
+    expect(body.data.killed).toBe(false)
+    expect(body.data.slug).toBe('fastify-fastify')
   })
 })
 
@@ -213,7 +214,7 @@ describe('GET /:slug/scored-issues', () => {
     expect(body.data.issues).toEqual([])
   })
 
-  it('returns issues with placeholder CVS scores', async () => {
+  it('returns issues with computed CVS scores', async () => {
     const issue = makeExtendedIssue()
     const kv = createMockKV({
       'recon:fastify-fastify:issues': makeReconIssueData([issue])
@@ -226,18 +227,19 @@ describe('GET /:slug/scored-issues', () => {
     expect(body.data.issues).toHaveLength(1)
     const scored = body.data.issues[0]
 
-    // Verify placeholder scoring fields
-    expect(scored.cvs).toBe(50)
-    expect(scored.cvsTier).toBe('maybe')
-    expect(scored.lifecycleStage).toBe('fresh')
+    // Verify scoring fields are present and reasonable
+    expect(typeof scored.cvs).toBe('number')
+    expect(scored.cvs).toBeGreaterThanOrEqual(0)
+    expect(scored.cvs).toBeLessThanOrEqual(100)
+    expect(['go', 'likely', 'maybe', 'risky', 'skip']).toContain(scored.cvsTier)
+    expect(['fresh', 'triaged', 'accepted', 'stale', 'zombie']).toContain(scored.lifecycleStage)
     expect(scored.claimStatus).toBe('unclaimed')
     expect(scored.claimAuthor).toBeNull()
-    expect(scored.complexity).toBe('medium')
-    expect(scored.sentimentScore).toBe(0)
-    expect(scored.contentQualityScore).toBe(50)
-    expect(scored.competitionLevel).toBe('none')
-    expect(scored.repoSlug).toBe('fastify-fastify')
-    expect(scored.dataCompleteness).toBe('partial')
+    expect(['low', 'medium', 'high']).toContain(scored.complexity)
+    expect(typeof scored.sentimentScore).toBe('number')
+    expect(typeof scored.contentQualityScore).toBe('number')
+    expect(['none', 'low', 'medium', 'high']).toContain(scored.competitionLevel)
+    expect(scored.dataCompleteness).toBe('partial') // no health data, no comments
     expect(scored.repoKilled).toBe(false)
 
     // Verify original issue fields preserved

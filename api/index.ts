@@ -101,6 +101,13 @@ export {
 
 export { triggerScrape } from './recon/triggers'
 
+// Recon analysis engine (M2)
+export { scoreRepoHealth, analyzePRPatterns } from './recon/health-scorer'
+export { scoreIssues } from './recon/issue-scorer'
+export { classifyLifecycle } from './recon/lifecycle'
+export { analyzeSentiment } from './recon/sentiment'
+export { isMaintainer, isBot, daysBetween, daysSince, median, clamp } from './recon/utils'
+
 // Recon types
 export type {
   ExtendedIssue,

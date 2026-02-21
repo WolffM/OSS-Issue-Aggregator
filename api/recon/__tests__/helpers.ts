@@ -3,7 +3,15 @@
  * Provides a mock KVNamespace and fixture data.
  */
 
-import type { ExtendedIssue, ReconIssueData, ClaimRecord } from '../types'
+import type {
+  ExtendedIssue,
+  ReconIssueData,
+  ClaimRecord,
+  PRSample,
+  RepoMeta,
+  Comment,
+  CommentThread
+} from '../types'
 
 // ============================================================================
 // KV Mock
@@ -90,6 +98,78 @@ export function makeClaimRecord(overrides: Partial<ClaimRecord> = {}): ClaimReco
     claimedBy: 'testuser',
     claimedAt: '2024-01-20T14:45:00Z',
     forkIssueUrl: null,
+    ...overrides
+  }
+}
+
+export function makePRSample(overrides: Partial<PRSample> = {}): PRSample {
+  return {
+    number: 101,
+    title: 'Fix typo in README',
+    url: 'https://github.com/fastify/fastify/pull/101',
+    author: 'external-dev',
+    authorAssociation: 'CONTRIBUTOR',
+    createdAt: '2024-01-10T10:00:00Z',
+    mergedAt: '2024-01-12T14:00:00Z',
+    closedAt: null,
+    additions: 15,
+    deletions: 3,
+    changedFiles: 2,
+    reviewCount: 1,
+    labels: ['bug'],
+    headRefName: 'fix/readme-typo',
+    baseRefName: 'main',
+    mergeCommitSha: 'abc123',
+    ...overrides
+  }
+}
+
+export function makeRepoMeta(overrides: Partial<RepoMeta> = {}): RepoMeta {
+  return {
+    owner: 'fastify',
+    repo: 'fastify',
+    slug: 'fastify-fastify',
+    stars: 30000,
+    forks: 2200,
+    language: 'TypeScript',
+    license: 'MIT',
+    hasContributing: true,
+    contributingContent: null,
+    hasPrTemplate: false,
+    prTemplateContent: null,
+    hasCodeOfConduct: true,
+    hasCodeowners: false,
+    defaultBranch: 'main',
+    isArchived: false,
+    openIssueCount: 150,
+    openPrCount: 25,
+    lastPushedAt: new Date().toISOString(),
+    topics: ['nodejs', 'http'],
+    externalTools: [],
+    scrapedAt: '2024-01-20T14:45:00Z',
+    ...overrides
+  }
+}
+
+export function makeComment(overrides: Partial<Comment> = {}): Comment {
+  return {
+    author: 'maintainer1',
+    authorAssociation: 'MEMBER',
+    body: 'Thanks for reporting this!',
+    createdAt: '2024-01-16T10:00:00Z',
+    reactions: { thumbsUp: 0, thumbsDown: 0, heart: 0 },
+    ...overrides
+  }
+}
+
+export function makeCommentThread(
+  comments: Comment[] = [makeComment()],
+  overrides: Partial<Omit<CommentThread, 'comments'>> = {}
+): CommentThread {
+  return {
+    issueNumber: 100,
+    comments,
+    scrapedAt: '2024-01-20T14:45:00Z',
     ...overrides
   }
 }
