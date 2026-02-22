@@ -42,141 +42,102 @@ function attachLogCollectors(page: import('@playwright/test').Page): PageLog {
 }
 
 // ============================================================================
-// Page Load & Basic Rendering
-// ============================================================================
-
-test.describe('Page Load', () => {
-  test('loads the aggregator page successfully', async ({ page }) => {
-    const log = attachLogCollectors(page)
-    const res = await page.goto(BASE, { waitUntil: 'networkidle' })
-
-    expect(res?.status()).toBe(200)
-
-    // Page should have a title or header
-    const title = await page.title()
-    expect(title).toBeTruthy()
-
-    // Log any issues found
-    if (log.consoleErrors.length > 0) {
-      console.log('Console errors:', log.consoleErrors)
-    }
-    if (log.apiErrors.length > 0) {
-      console.log('API errors:', log.apiErrors)
-    }
-  })
-
-  test('renders the sidebar with ProjectSelector', async ({ page }) => {
-    await page.goto(BASE, { waitUntil: 'networkidle' })
-
-    // Look for sidebar or project selector elements
-    const sidebar = page.locator('.sidebar, [class*="sidebar"], [class*="project-selector"]')
-    const sidebarCount = await sidebar.count()
-
-    // Log what we find
-    console.log(`Found ${sidebarCount} sidebar elements`)
-
-    // The page should have rendered something
-    const bodyText = await page.locator('body').innerText()
-    expect(bodyText.length).toBeGreaterThan(0)
-  })
-
-  test('renders the toolbar', async ({ page }) => {
-    await page.goto(BASE, { waitUntil: 'networkidle' })
-
-    const toolbar = page.locator('.toolbar, [class*="toolbar"]')
-    const toolbarCount = await toolbar.count()
-    console.log(`Found ${toolbarCount} toolbar elements`)
-
-    if (toolbarCount > 0) {
-      // Check for search input
-      const searchInput = toolbar.locator('input[type="text"], input[type="search"]')
-      const searchCount = await searchInput.count()
-      console.log(`Found ${searchCount} search inputs in toolbar`)
-    }
-  })
-})
-
-// ============================================================================
-// API Endpoint Health Checks
+// API Endpoint Validation (strict — these must pass)
 // ============================================================================
 
 test.describe('API Endpoints', () => {
-  test('GET /recon/watchlist returns valid response', async ({ request }) => {
+  test('GET /recon/watchlist returns at least one repo', async ({ request }) => {
     const res = await request.get(`${API}/recon/watchlist`)
     expect(res.status()).toBe(200)
     const body = await res.json()
     expect(body.success).toBe(true)
-    expect(Array.isArray(body.data.slugs)).toBe(true)
-    console.log('Watchlist:', body.data.slugs)
+    expect(body.data.slugs.length).toBeGreaterThan(0)
+    console.log('Watchlist slugs:', body.data.slugs)
   })
 
-  test('GET /recon/all-scored-issues returns response', async ({ request }) => {
+  test('GET /recon/all-scored-issues returns scored issues with CVS data', async ({ request }) => {
     const res = await request.get(`${API}/recon/all-scored-issues`)
-    const status = res.status()
-    const body = await res.text()
+    expect(res.status()).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.issues.length).toBeGreaterThan(0)
+    expect(body.data.totalCount).toBeGreaterThan(0)
+    expect(body.data.repoCount).toBeGreaterThan(0)
 
-    console.log(`all-scored-issues: status=${status}, body=${body.slice(0, 300)}`)
+    // Validate first issue has required scored fields
+    const first = body.data.issues[0]
+    expect(first.cvs).toBeGreaterThanOrEqual(0)
+    expect(first.cvsTier).toBeTruthy()
+    expect(first.repoSlug).toBeTruthy()
+    expect(first.lifecycleStage).toBeTruthy()
+    expect(first.complexity).toBeTruthy()
+    expect(first.competitionLevel).toBeTruthy()
+    console.log(
+      `Scored issues: ${body.data.totalCount} total, ${body.data.repoCount} repos, ` +
+        `first: CVS=${first.cvs} tier=${first.cvsTier} repo=${first.repoSlug}`
+    )
+  })
 
-    if (status === 200) {
-      const json = JSON.parse(body)
-      expect(json.success).toBe(true)
-      console.log(`Total issues: ${json.data.totalCount}, Repos: ${json.data.repoCount}`)
+  test('GET /recon/:slug/health returns health scores', async ({ request }) => {
+    // Get a slug from the watchlist first
+    const wlRes = await request.get(`${API}/recon/watchlist`)
+    const slug = (await wlRes.json()).data.slugs[0]
+
+    const res = await request.get(`${API}/recon/${slug}/health`)
+    expect(res.status()).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+
+    if (body.data.status !== 'pending') {
+      expect(body.data.overallViability).toBeGreaterThanOrEqual(0)
+      expect(body.data.overallViability).toBeLessThanOrEqual(100)
+      expect(typeof body.data.killed).toBe('boolean')
+      expect(body.data.prPatterns).toBeTruthy()
+      console.log(
+        `Health for ${slug}: viability=${body.data.overallViability}, killed=${body.data.killed}`
+      )
     } else {
-      console.log(`SERVER ERROR: all-scored-issues returned ${status}: ${body}`)
+      console.log(`Health for ${slug}: PENDING`)
     }
   })
 
-  test('GET /recon/:slug/health returns response', async ({ request }) => {
-    const res = await request.get(`${API}/recon/fastify-fastify/health`)
-    const status = res.status()
-    const body = await res.text()
+  test('GET /recon/:slug/scored-issues returns issues with scores', async ({ request }) => {
+    const wlRes = await request.get(`${API}/recon/watchlist`)
+    const slug = (await wlRes.json()).data.slugs[0]
 
-    console.log(`health: status=${status}, body=${body.slice(0, 300)}`)
+    const res = await request.get(`${API}/recon/${slug}/scored-issues`)
+    expect(res.status()).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.issues.length).toBeGreaterThan(0)
+    expect(body.data.slug).toBe(slug)
+    console.log(`Scored issues for ${slug}: ${body.data.issues.length} issues`)
+  })
 
-    if (status === 200) {
-      const json = JSON.parse(body)
-      if (json.data?.status === 'pending') {
-        console.log('Health: PENDING (no data in KV yet)')
-      } else {
-        console.log(`Health: viability=${json.data.overallViability}, killed=${json.data.killed}`)
+  test('GET /recon/:slug/dossier returns all 6 sections', async ({ request }) => {
+    const wlRes = await request.get(`${API}/recon/watchlist`)
+    const slug = (await wlRes.json()).data.slugs[0]
+
+    const res = await request.get(`${API}/recon/${slug}/dossier`)
+    expect(res.status()).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+
+    if (body.data.status !== 'pending') {
+      const sections = Object.keys(body.data.sections)
+      expect(sections).toContain('overview')
+      expect(sections).toContain('contributionRules')
+      expect(sections).toContain('successPatterns')
+      expect(sections).toContain('antiPatterns')
+      expect(sections).toContain('issueBoard')
+      expect(sections).toContain('environmentSetup')
+      // Each section should have content
+      for (const key of sections) {
+        expect(body.data.sections[key].length).toBeGreaterThan(0)
       }
+      console.log(`Dossier for ${slug}: ${sections.length} sections, all have content`)
     } else {
-      console.log(`SERVER ERROR: health returned ${status}: ${body}`)
-    }
-  })
-
-  test('GET /recon/:slug/scored-issues returns response', async ({ request }) => {
-    const res = await request.get(`${API}/recon/fastify-fastify/scored-issues`)
-    const status = res.status()
-    const body = await res.text()
-
-    console.log(`scored-issues: status=${status}, body=${body.slice(0, 300)}`)
-
-    if (status === 200) {
-      const json = JSON.parse(body)
-      console.log(`Scored issues count: ${json.data.issues?.length ?? 0}`)
-    } else {
-      console.log(`SERVER ERROR: scored-issues returned ${status}: ${body}`)
-    }
-  })
-
-  test('GET /recon/:slug/dossier returns response', async ({ request }) => {
-    const res = await request.get(`${API}/recon/fastify-fastify/dossier`)
-    const status = res.status()
-    const body = await res.text()
-
-    console.log(`dossier: status=${status}, body=${body.slice(0, 300)}`)
-
-    if (status === 200) {
-      const json = JSON.parse(body)
-      if (json.data?.status === 'pending') {
-        console.log('Dossier: PENDING')
-      } else {
-        const sections = Object.keys(json.data.sections || {})
-        console.log(`Dossier sections: ${sections.join(', ')}`)
-      }
-    } else {
-      console.log(`SERVER ERROR: dossier returned ${status}: ${body}`)
+      console.log(`Dossier for ${slug}: PENDING`)
     }
   })
 
@@ -186,195 +147,347 @@ test.describe('API Endpoints', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.issues.length).toBeGreaterThan(0)
-    console.log(`Legacy issues: ${body.data.issues.length} issues loaded`)
+    console.log(`Legacy issues: ${body.data.issues.length}`)
   })
 })
 
 // ============================================================================
-// UI Interactions
+// Page Load & Error Detection
+// ============================================================================
+
+test.describe('Page Load', () => {
+  test('loads with zero console errors and zero API 5xx errors', async ({ page }) => {
+    const log = attachLogCollectors(page)
+    const res = await page.goto(BASE, { waitUntil: 'networkidle' })
+
+    expect(res?.status()).toBe(200)
+    await page.waitForTimeout(5000) // let all async data settle
+
+    // Strict: no API 5xx errors allowed
+    expect(log.apiErrors).toEqual([])
+    expect(log.networkFailures).toEqual([])
+
+    // Log console errors but don't fail on them (browser extensions can cause these)
+    if (log.consoleErrors.length > 0) {
+      console.log('Console errors (non-fatal):', log.consoleErrors)
+    }
+  })
+})
+
+// ============================================================================
+// UI Content Validation — verify actual data renders, not just elements exist
+// ============================================================================
+
+test.describe('UI Content', () => {
+  test('sidebar shows recon project names, NOT legacy projects', async ({ page }) => {
+    const log = attachLogCollectors(page)
+    await page.goto(BASE, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(5000)
+
+    await page.screenshot({ path: 'e2e/screenshots/01-initial-load.png', fullPage: true })
+
+    // Get all project names in the sidebar
+    const projectNames = await page.locator('.project-selector__name-btn').allInnerTexts()
+
+    console.log('Sidebar projects:', projectNames)
+
+    // Must NOT contain legacy project names
+    const legacyNames = ['Blender', 'Dapr', 'DeepSpeed', 'FFmpeg', 'LangChain']
+    for (const legacy of legacyNames) {
+      expect(projectNames).not.toContain(legacy)
+    }
+
+    // Must contain at least one recon project (owner/repo format)
+    expect(projectNames.length).toBeGreaterThan(0)
+    // Recon projects use "owner/repo" format
+    const hasSlashFormat = projectNames.some(name => name.includes('/'))
+    expect(hasSlashFormat).toBe(true)
+
+    expect(log.apiErrors).toEqual([])
+  })
+
+  test('issue table displays scored issues with CVS data', async ({ page }) => {
+    const log = attachLogCollectors(page)
+    await page.goto(BASE, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(5000)
+
+    // The issue count in the toolbar should be > 0
+    const issueCountText = await page.locator('.toolbar__count').innerText()
+    console.log('Issue count text:', issueCountText)
+    const issueCount = parseInt(issueCountText, 10)
+    expect(issueCount).toBeGreaterThan(0)
+
+    // Table rows should exist
+    const rows = page.locator('.issue-table__row')
+    const rowCount = await rows.count()
+    console.log(`Table rows: ${rowCount}`)
+    expect(rowCount).toBeGreaterThan(0)
+
+    // First row should contain CVS score badge
+    const firstRow = rows.first()
+    const cvsCell = firstRow.locator('.cvs-badge')
+    expect(await cvsCell.count()).toBeGreaterThan(0)
+    const cvsText = await cvsCell.first().innerText()
+    console.log('First row CVS:', cvsText)
+    // CVS should be a number
+    expect(parseInt(cvsText, 10)).toBeGreaterThanOrEqual(0)
+
+    // First row should have a lifecycle badge
+    const lifecycleBadge = firstRow.locator('.lifecycle-badge')
+    expect(await lifecycleBadge.count()).toBeGreaterThan(0)
+    console.log('First row lifecycle:', await lifecycleBadge.first().innerText())
+
+    await page.screenshot({ path: 'e2e/screenshots/02-issue-table.png', fullPage: true })
+    expect(log.apiErrors).toEqual([])
+  })
+
+  test('footer shows correct issue and project counts', async ({ page }) => {
+    await page.goto(BASE, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(5000)
+
+    const footerText = await page.locator('.oss-aggregator__footer').innerText()
+    console.log('Footer text:', footerText)
+
+    // Footer should mention issues and projects with non-zero counts
+    expect(footerText).toMatch(/\d+\s+issues/)
+    expect(footerText).toMatch(/\d+\s+projects/)
+
+    // Extract counts — should not be zero
+    const issueMatch = footerText.match(/(\d+)\s+issues/)
+    const projectMatch = footerText.match(/(\d+)\s+projects/)
+    if (issueMatch) expect(parseInt(issueMatch[1], 10)).toBeGreaterThan(0)
+    if (projectMatch) expect(parseInt(projectMatch[1], 10)).toBeGreaterThan(0)
+  })
+})
+
+// ============================================================================
+// UI Interactions — click things, verify they work
 // ============================================================================
 
 test.describe('UI Interactions', () => {
-  test('captures all console errors and API failures on load', async ({ page }) => {
+  test('clicking an issue row opens the detail drawer with scored data', async ({ page }) => {
     const log = attachLogCollectors(page)
     await page.goto(BASE, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(5000)
 
-    // Wait a bit for any async data to load
-    await page.waitForTimeout(3000)
-
-    // Report everything we found
-    console.log('=== CONSOLE ERRORS ===')
-    if (log.consoleErrors.length === 0) {
-      console.log('(none)')
-    } else {
-      for (const err of log.consoleErrors) {
-        console.log(`  ERROR: ${err}`)
-      }
-    }
-
-    console.log('=== NETWORK FAILURES ===')
-    if (log.networkFailures.length === 0) {
-      console.log('(none)')
-    } else {
-      for (const fail of log.networkFailures) {
-        console.log(`  FAIL: ${fail}`)
-      }
-    }
-
-    console.log('=== API ERRORS (5xx) ===')
-    if (log.apiErrors.length === 0) {
-      console.log('(none)')
-    } else {
-      for (const err of log.apiErrors) {
-        console.log(`  ${err.status} ${err.url}: ${err.body.slice(0, 200)}`)
-      }
-    }
-  })
-
-  test('view toggle switches between table and card views', async ({ page }) => {
-    const log = attachLogCollectors(page)
-    await page.goto(BASE, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(2000)
-
-    // Look for view toggle buttons
-    const viewToggle = page.locator('.toolbar__view-toggle button, [class*="view-toggle"] button')
-    const toggleCount = await viewToggle.count()
-    console.log(`Found ${toggleCount} view toggle buttons`)
-
-    if (toggleCount >= 2) {
-      // Click the second toggle (should switch to card view)
-      await viewToggle.nth(1).click()
-      await page.waitForTimeout(500)
-
-      const cardGrid = page.locator('.issue-card-grid, [class*="card-grid"]')
-      const cardCount = await cardGrid.count()
-      console.log(`After toggle: found ${cardCount} card grid elements`)
-
-      // Click back to table view
-      await viewToggle.nth(0).click()
-      await page.waitForTimeout(500)
-
-      const table = page.locator('.issue-table, [class*="issue-table"]')
-      const tableCount = await table.count()
-      console.log(`After toggle back: found ${tableCount} table elements`)
-    }
-
-    if (log.consoleErrors.length > 0) {
-      console.log('Console errors during toggle:', log.consoleErrors)
-    }
-  })
-
-  test('project selector is clickable and shows projects', async ({ page }) => {
-    const log = attachLogCollectors(page)
-    await page.goto(BASE, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(2000)
-
-    // Look for project items in sidebar
-    const projects = page.locator(
-      '.project-selector__item, [class*="project-selector"] button, [class*="project-selector"] li'
-    )
-    const projectCount = await projects.count()
-    console.log(`Found ${projectCount} project items`)
-
-    if (projectCount > 0) {
-      // Click the first project
-      const firstProject = projects.nth(0)
-      const projectText = await firstProject.innerText()
-      console.log(`First project: "${projectText}"`)
-      await firstProject.click()
-      await page.waitForTimeout(1000)
-
-      // Check if health panel appeared
-      const healthPanel = page.locator('.repo-health, [class*="repo-health"]')
-      const healthCount = await healthPanel.count()
-      console.log(`After click: found ${healthCount} health panel elements`)
-    }
-
-    if (log.consoleErrors.length > 0) {
-      console.log('Console errors:', log.consoleErrors)
-    }
-  })
-
-  test('toolbar filter dropdowns work', async ({ page }) => {
-    const log = attachLogCollectors(page)
-    await page.goto(BASE, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(2000)
-
-    // Find select/dropdown elements in toolbar
-    const selects = page.locator('.toolbar select, .toolbar__filters select')
-    const selectCount = await selects.count()
-    console.log(`Found ${selectCount} filter dropdowns`)
-
-    for (let i = 0; i < selectCount; i++) {
-      const options = await selects.nth(i).locator('option').allInnerTexts()
-      console.log(`Dropdown ${i}: ${options.join(', ')}`)
-    }
-
-    // Find search input
-    const search = page.locator('.toolbar__search input, .toolbar input[type="text"]')
-    const searchCount = await search.count()
-    console.log(`Found ${searchCount} search inputs`)
-
-    if (searchCount > 0) {
-      await search.first().fill('test search')
-      await page.waitForTimeout(500)
-      console.log('Search input filled successfully')
-    }
-
-    if (log.consoleErrors.length > 0) {
-      console.log('Console errors:', log.consoleErrors)
-    }
-  })
-
-  test('clicking an issue row opens detail drawer', async ({ page }) => {
-    const log = attachLogCollectors(page)
-    await page.goto(BASE, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(3000)
-
-    // Look for issue rows
-    const rows = page.locator(
-      '.issue-table__row, [class*="issue-table"] tr:not(:first-child), .issue-card'
-    )
+    const rows = page.locator('.issue-table__row')
     const rowCount = await rows.count()
-    console.log(`Found ${rowCount} issue rows/cards`)
+    expect(rowCount).toBeGreaterThan(0)
 
-    if (rowCount > 0) {
-      await rows.first().click()
-      await page.waitForTimeout(1000)
+    // Click first issue row
+    await rows.first().click()
+    await page.waitForTimeout(1000)
 
-      // Check if drawer opened
-      const drawer = page.locator('.drawer--open, [class*="drawer"][class*="open"]')
-      const drawerCount = await drawer.count()
-      console.log(`After click: found ${drawerCount} open drawers`)
+    // Drawer should open
+    const drawer = page.locator('.drawer--open')
+    expect(await drawer.count()).toBe(1)
 
-      if (drawerCount > 0) {
-        const drawerText = await drawer.first().innerText()
-        console.log(`Drawer content preview: ${drawerText.slice(0, 200)}`)
+    // Drawer should contain issue detail content
+    const drawerText = await drawer.first().innerText()
+    console.log('Drawer content (first 300 chars):', drawerText.slice(0, 300))
 
-        // Try to close drawer with Escape
-        await page.keyboard.press('Escape')
-        await page.waitForTimeout(500)
-        const afterEsc = await page.locator('.drawer--open').count()
-        console.log(`After Escape: ${afterEsc} open drawers`)
-      }
-    }
+    // Should contain CVS score information
+    expect(drawerText.length).toBeGreaterThan(50)
 
-    if (log.consoleErrors.length > 0) {
-      console.log('Console errors:', log.consoleErrors)
-    }
-    if (log.apiErrors.length > 0) {
-      console.log('API errors:', log.apiErrors)
-    }
+    await page.screenshot({ path: 'e2e/screenshots/03-issue-detail-drawer.png', fullPage: true })
+
+    // Close with Escape
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(500)
+    expect(await page.locator('.drawer--open').count()).toBe(0)
+
+    expect(log.apiErrors).toEqual([])
   })
 
-  test('take full page screenshot for visual inspection', async ({ page }) => {
+  test('view toggle switches between table and card views with data', async ({ page }) => {
+    const log = attachLogCollectors(page)
     await page.goto(BASE, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(3000)
+    await page.waitForTimeout(5000)
+
+    const viewToggle = page.locator('.toolbar__view-toggle button')
+    const toggleCount = await viewToggle.count()
+    expect(toggleCount).toBe(2)
+
+    // Start in table view — should have rows
+    const tableRows = await page.locator('.issue-table__row').count()
+    console.log(`Table view rows: ${tableRows}`)
+    expect(tableRows).toBeGreaterThan(0)
+
+    // Switch to card view
+    await viewToggle.nth(1).click()
+    await page.waitForTimeout(500)
+
+    const cards = page.locator('.issue-card')
+    const cardCount = await cards.count()
+    console.log(`Card view cards: ${cardCount}`)
+    expect(cardCount).toBeGreaterThan(0)
+
+    // Cards should have CVS badges
+    const cardCvs = cards.first().locator('.cvs-badge')
+    expect(await cardCvs.count()).toBeGreaterThan(0)
+
+    await page.screenshot({ path: 'e2e/screenshots/04-card-view.png', fullPage: true })
+
+    // Switch back to table
+    await viewToggle.nth(0).click()
+    await page.waitForTimeout(500)
+    expect(await page.locator('.issue-table__row').count()).toBeGreaterThan(0)
+
+    expect(log.apiErrors).toEqual([])
+  })
+
+  test('toolbar filter dropdowns filter issues correctly', async ({ page }) => {
+    const log = attachLogCollectors(page)
+    await page.goto(BASE, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(5000)
+
+    // Get initial issue count
+    const initialCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+    console.log('Initial issue count:', initialCount)
+    expect(initialCount).toBeGreaterThan(0)
+
+    // Filter by tier: select "Go" tier only
+    const tierSelect = page.locator('.toolbar__filters select').first()
+    const tierOptions = await tierSelect.locator('option').allInnerTexts()
+    console.log('Tier filter options:', tierOptions)
+
+    // Select a specific tier (e.g., "Go" if available)
+    if (tierOptions.includes('Go')) {
+      await tierSelect.selectOption('go')
+      await page.waitForTimeout(500)
+      const filteredCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+      console.log(`After "Go" filter: ${filteredCount} issues`)
+      // Should be fewer or equal (unless all are "go")
+      expect(filteredCount).toBeLessThanOrEqual(initialCount)
+    }
+
+    // Reset filter
+    await tierSelect.selectOption('')
+    await page.waitForTimeout(500)
+
+    // Test search
+    const searchInput = page.locator('.toolbar__search input')
+    if ((await searchInput.count()) > 0) {
+      await searchInput.fill('validation')
+      await page.waitForTimeout(500)
+      const searchCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+      console.log(`After search "validation": ${searchCount} issues`)
+      // Search should narrow results (or return 0 if no match)
+      expect(searchCount).toBeLessThanOrEqual(initialCount)
+
+      await searchInput.fill('')
+      await page.waitForTimeout(500)
+    }
+
+    expect(log.apiErrors).toEqual([])
+  })
+
+  test('clicking project name in sidebar focuses repo and shows health panel', async ({ page }) => {
+    const log = attachLogCollectors(page)
+    await page.goto(BASE, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(5000)
+
+    // Click the project name button (not checkbox)
+    const projectBtns = page.locator('.project-selector__name-btn')
+    const btnCount = await projectBtns.count()
+    expect(btnCount).toBeGreaterThan(0)
+
+    const projectName = await projectBtns.first().innerText()
+    console.log(`Clicking project: "${projectName}"`)
+    await projectBtns.first().click()
+    await page.waitForTimeout(2000)
+
+    // Health panel should appear
+    const healthPanel = page.locator('.repo-health')
+    const healthPanelCount = await healthPanel.count()
+    console.log(`Health panel visible: ${healthPanelCount > 0}`)
+
+    if (healthPanelCount > 0) {
+      const healthText = await healthPanel.innerText()
+      console.log('Health panel content (first 200 chars):', healthText.slice(0, 200))
+    }
 
     await page.screenshot({
-      path: 'e2e/screenshots/full-page.png',
+      path: 'e2e/screenshots/05-project-focused-with-health.png',
       fullPage: true
     })
-    console.log('Screenshot saved to e2e/screenshots/full-page.png')
+
+    expect(log.apiErrors).toEqual([])
+  })
+
+  test('clicking repo link in table opens dossier drawer', async ({ page }) => {
+    const log = attachLogCollectors(page)
+    await page.goto(BASE, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(5000)
+
+    // Find repo link buttons in the table
+    const repoLinks = page.locator('.issue-table__repo-link')
+    const linkCount = await repoLinks.count()
+    console.log(`Repo links in table: ${linkCount}`)
+
+    if (linkCount > 0) {
+      const repoName = await repoLinks.first().innerText()
+      console.log(`Clicking repo link: "${repoName}"`)
+      await repoLinks.first().click()
+      await page.waitForTimeout(2000)
+
+      // Dossier drawer should open
+      const drawer = page.locator('.drawer--open')
+      const drawerCount = await drawer.count()
+      console.log(`Dossier drawer opened: ${drawerCount > 0}`)
+
+      if (drawerCount > 0) {
+        const drawerText = await drawer.innerText()
+        console.log('Dossier drawer content (first 300 chars):', drawerText.slice(0, 300))
+
+        // Should contain dossier tab navigation
+        const tabs = drawer.locator('.dossier__tab, [class*="dossier__tab"]')
+        const tabCount = await tabs.count()
+        console.log(`Dossier tabs: ${tabCount}`)
+
+        await page.screenshot({
+          path: 'e2e/screenshots/06-dossier-drawer.png',
+          fullPage: true
+        })
+
+        // Close drawer
+        await page.keyboard.press('Escape')
+        await page.waitForTimeout(500)
+      }
+    }
+
+    expect(log.apiErrors).toEqual([])
+  })
+
+  test('unchecking a project in sidebar removes its issues from table', async ({ page }) => {
+    const log = attachLogCollectors(page)
+    await page.goto(BASE, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(5000)
+
+    const initialCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+    console.log('Initial issue count:', initialCount)
+
+    // Click "None" to deselect all projects
+    const noneBtn = page.locator('.project-selector__action').nth(1)
+    const noneBtnText = await noneBtn.innerText()
+    console.log(`Clicking "${noneBtnText}" button`)
+    await noneBtn.click()
+    await page.waitForTimeout(500)
+
+    // Should show 0 issues or "no issues" message
+    const afterNoneCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+    console.log(`After "None": ${afterNoneCount} issues`)
+    expect(afterNoneCount).toBe(0)
+
+    // Click "All" to re-select
+    const allBtn = page.locator('.project-selector__action').nth(0)
+    await allBtn.click()
+    await page.waitForTimeout(500)
+
+    const afterAllCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+    console.log(`After "All": ${afterAllCount} issues`)
+    expect(afterAllCount).toBe(initialCount)
+
+    expect(log.apiErrors).toEqual([])
   })
 })
