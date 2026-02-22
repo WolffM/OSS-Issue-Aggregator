@@ -1,8 +1,13 @@
 import { useState, useMemo } from 'react'
-import type { Project, RepoHealth } from '../api/types'
+import type { RepoHealth } from '../api/types'
+
+interface ProjectItem {
+  slug: string
+  name: string
+}
 
 interface ProjectSelectorProps {
-  projects: Project[]
+  projects: ProjectItem[]
   selectedProjects: string[]
   onSelectionChange: (slugs: string[]) => void
   disabled?: boolean

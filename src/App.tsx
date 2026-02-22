@@ -2,7 +2,6 @@ import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { ConnectedThemePicker, LoadingSkeleton } from '@wolffm/task-ui-components'
 import { THEME_ICON_MAP } from '@wolffm/themes'
 import { useTheme } from './hooks/useTheme'
-import { useProjects } from './hooks/useProjects'
 import { useAllScoredIssues } from './hooks/useAllScoredIssues'
 import { useRepoHealth } from './hooks/useRepoHealth'
 import { useRepoHealthMap } from './hooks/useRepoHealthMap'
@@ -74,8 +73,6 @@ export default function App(props: OssAggregatorProps = {}) {
     })
 
   // Data hooks
-  const { projects, isLoading: projectsLoading, error: projectsError } = useProjects()
-
   const {
     filters,
     setFilters,
@@ -108,13 +105,24 @@ export default function App(props: OssAggregatorProps = {}) {
 
   const { claim, unclaim } = useClaim(refetch)
 
+  // Derive project list from scored issues (replaces legacy useProjects)
+  const derivedProjects = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const issue of allIssues) {
+      if (!seen.has(issue.repoSlug)) {
+        seen.set(issue.repoSlug, issue.project)
+      }
+    }
+    return [...seen.entries()].map(([slug, name]) => ({ slug, name }))
+  }, [allIssues])
+
   // Initialize selected projects from localStorage or select all
   useEffect(() => {
-    if (projects.length > 0 && !hasInitializedDefaults) {
+    if (derivedProjects.length > 0 && !hasInitializedDefaults) {
       const savedSlugs = loadSavedSelections()
 
       if (savedSlugs && savedSlugs.length > 0) {
-        const validSlugs = savedSlugs.filter(slug => projects.some(p => p.slug === slug))
+        const validSlugs = savedSlugs.filter(slug => derivedProjects.some(p => p.slug === slug))
         if (validSlugs.length > 0) {
           setSelectedProjectSlugs(validSlugs)
           setHasInitializedDefaults(true)
@@ -123,10 +131,10 @@ export default function App(props: OssAggregatorProps = {}) {
       }
 
       // Default: select all projects
-      setSelectedProjectSlugs(projects.map(p => p.slug))
+      setSelectedProjectSlugs(derivedProjects.map(p => p.slug))
       setHasInitializedDefaults(true)
     }
-  }, [projects, hasInitializedDefaults])
+  }, [derivedProjects, hasInitializedDefaults])
 
   useEffect(() => {
     if (hasInitializedDefaults && selectedProjectSlugs.length >= 0) {
@@ -136,24 +144,13 @@ export default function App(props: OssAggregatorProps = {}) {
 
   // Filter issues by selected projects, then apply toolbar filters/sort
   const displayIssues = useMemo(() => {
-    // Map project slugs to repo slugs (they use different formats)
     const selectedSet = new Set(selectedProjectSlugs)
 
-    // Filter to only issues from selected projects
     const projectFiltered =
-      selectedSet.size === 0
-        ? []
-        : allIssues.filter(issue => {
-            // Try matching by repoSlug against project slug
-            return (
-              selectedSet.has(issue.repoSlug) ||
-              // Also try matching project name
-              projects.some(p => selectedSet.has(p.slug) && p.name === issue.project)
-            )
-          })
+      selectedSet.size === 0 ? [] : allIssues.filter(issue => selectedSet.has(issue.repoSlug))
 
     return applyFiltersAndSort(projectFiltered)
-  }, [allIssues, selectedProjectSlugs, projects, applyFiltersAndSort])
+  }, [allIssues, selectedProjectSlugs, applyFiltersAndSort])
 
   // Drawer handlers
   const handleIssueClick = useCallback((issue: ScoredIssue) => {
@@ -193,8 +190,8 @@ export default function App(props: OssAggregatorProps = {}) {
     return <LoadingSkeleton isDarkTheme={systemPrefersDark} />
   }
 
-  const isLoading = projectsLoading || issuesLoading
-  const error = projectsError || issuesError
+  const isLoading = issuesLoading
+  const error = issuesError
 
   return (
     <div
@@ -235,7 +232,7 @@ export default function App(props: OssAggregatorProps = {}) {
           <aside className="oss-aggregator__sidebar">
             <h2 className="oss-aggregator__sidebar-title">Projects</h2>
             <ProjectSelector
-              projects={projects}
+              projects={derivedProjects}
               selectedProjects={selectedProjectSlugs}
               onSelectionChange={setSelectedProjectSlugs}
               disabled={isLoading}
