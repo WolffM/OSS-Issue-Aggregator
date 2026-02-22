@@ -32,6 +32,8 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 api/recon/__tests__/fixtures/
+test-results/
+e2e/screenshots/
 
 # Temporary
 .tmp/
