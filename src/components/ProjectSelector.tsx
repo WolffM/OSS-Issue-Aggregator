@@ -1,18 +1,32 @@
 import { useState, useMemo } from 'react'
-import type { Project } from '../api/types'
+import type { Project, RepoHealth } from '../api/types'
 
 interface ProjectSelectorProps {
   projects: Project[]
   selectedProjects: string[]
   onSelectionChange: (slugs: string[]) => void
   disabled?: boolean
+  repoHealthMap?: Map<string, RepoHealth | null>
+  focusedRepo?: string | null
+  onFocusRepo?: (slug: string | null) => void
+}
+
+function healthDotClass(health: RepoHealth | null | undefined): string {
+  if (!health) return ''
+  if (health.killed) return 'project-selector__health-dot--killed'
+  if (health.overallViability >= 70) return 'project-selector__health-dot--viable'
+  if (health.overallViability >= 40) return 'project-selector__health-dot--caution'
+  return 'project-selector__health-dot--killed'
 }
 
 export function ProjectSelector({
   projects,
   selectedProjects,
   onSelectionChange,
-  disabled
+  disabled,
+  repoHealthMap,
+  focusedRepo,
+  onFocusRepo
 }: ProjectSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -22,7 +36,6 @@ export function ProjectSelector({
       const query = searchQuery.toLowerCase()
       filtered = projects.filter(p => p.name.toLowerCase().includes(query))
     }
-    // Sort: selected projects first, then alphabetically within each group
     return [...filtered].sort((a, b) => {
       const aSelected = selectedProjects.includes(a.slug)
       const bSelected = selectedProjects.includes(b.slug)
@@ -37,6 +50,12 @@ export function ProjectSelector({
       onSelectionChange(selectedProjects.filter(s => s !== slug))
     } else {
       onSelectionChange([...selectedProjects, slug])
+    }
+  }
+
+  const handleFocus = (slug: string) => {
+    if (onFocusRepo) {
+      onFocusRepo(focusedRepo === slug ? null : slug)
     }
   }
 
@@ -80,21 +99,33 @@ export function ProjectSelector({
       </div>
 
       <div className="project-selector__list">
-        {filteredProjects.map(project => (
-          <label
-            key={project.slug}
-            className={`project-selector__item ${selectedProjects.includes(project.slug) ? 'project-selector__item--selected' : ''}`}
-          >
-            <input
-              type="checkbox"
-              className="project-selector__checkbox"
-              checked={selectedProjects.includes(project.slug)}
-              onChange={() => handleToggle(project.slug)}
-              disabled={disabled}
-            />
-            <span className="project-selector__name">{project.name}</span>
-          </label>
-        ))}
+        {filteredProjects.map(project => {
+          const health = repoHealthMap?.get(project.slug)
+          const dotClass = healthDotClass(health)
+
+          return (
+            <div
+              key={project.slug}
+              className={`project-selector__item ${selectedProjects.includes(project.slug) ? 'project-selector__item--selected' : ''} ${focusedRepo === project.slug ? 'project-selector__item--focused' : ''}`}
+            >
+              <input
+                type="checkbox"
+                className="project-selector__checkbox"
+                checked={selectedProjects.includes(project.slug)}
+                onChange={() => handleToggle(project.slug)}
+                disabled={disabled}
+              />
+              <button
+                type="button"
+                className="project-selector__name-btn"
+                onClick={() => handleFocus(project.slug)}
+              >
+                {project.name}
+              </button>
+              {dotClass && <span className={`project-selector__health-dot ${dotClass}`} />}
+            </div>
+          )
+        })}
       </div>
 
       <div className="project-selector__count">

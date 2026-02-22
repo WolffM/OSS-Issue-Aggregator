@@ -1,28 +1,29 @@
-import { useRef, useState, useMemo, useEffect } from 'react'
+import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { ConnectedThemePicker, LoadingSkeleton } from '@wolffm/task-ui-components'
 import { THEME_ICON_MAP } from '@wolffm/themes'
 import { useTheme } from './hooks/useTheme'
 import { useProjects } from './hooks/useProjects'
-import { useIssues } from './hooks/useIssues'
-import { ProjectSelector, ProjectIssueCard, ErrorState, Footer } from './components'
-import { byCreatedAtDesc } from './utils/formatDate'
+import { useAllScoredIssues } from './hooks/useAllScoredIssues'
+import { useRepoHealth } from './hooks/useRepoHealth'
+import { useRepoHealthMap } from './hooks/useRepoHealthMap'
+import { useIssueFilters } from './hooks/useIssueFilters'
+import { useClaim } from './hooks/useClaim'
+import {
+  ProjectSelector,
+  IssueTable,
+  IssueCardGrid,
+  Toolbar,
+  IssueDetailDrawer,
+  DossierDrawer,
+  RepoHealthPanel,
+  ErrorState,
+  Footer
+} from './components'
+import type { ScoredIssue } from './api/types'
 import type { OssAggregatorProps } from './entry'
-
-// Default selected projects by name (must match API project names exactly)
-const DEFAULT_SELECTED_NAMES = [
-  'VLC Media Player',
-  'MediaWiki',
-  'Internet Archive Open Library',
-  'PyTorch',
-  'Node.js',
-  'Blender',
-  'Hugging Face Transformers',
-  'React'
-]
 
 const STORAGE_KEY = 'oss-aggregator-selected-projects'
 
-// Load saved selections from localStorage
 function loadSavedSelections(): string[] | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -38,12 +39,11 @@ function loadSavedSelections(): string[] | null {
   return null
 }
 
-// Save selections to localStorage
 function saveSelections(slugs: string[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs))
   } catch {
-    // Ignore storage errors (e.g., quota exceeded)
+    // Ignore storage errors
   }
 }
 
@@ -51,8 +51,14 @@ export default function App(props: OssAggregatorProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [selectedProjectSlugs, setSelectedProjectSlugs] = useState<string[]>([])
   const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false)
+  const [focusedRepo, setFocusedRepo] = useState<string | null>(null)
 
-  // Detect system preference for loading skeleton
+  // Drawer state
+  const [selectedIssue, setSelectedIssue] = useState<ScoredIssue | null>(null)
+  const [issueDrawerOpen, setIssueDrawerOpen] = useState(false)
+  const [dossierSlug, setDossierSlug] = useState<string | null>(null)
+  const [dossierDrawerOpen, setDossierDrawerOpen] = useState(false)
+
   const [systemPrefersDark] = useState(() => {
     if (window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -67,26 +73,47 @@ export default function App(props: OssAggregatorProps = {}) {
       containerRef
     })
 
-  // Fetch projects and pools
+  // Data hooks
   const { projects, isLoading: projectsLoading, error: projectsError } = useProjects()
 
-  // Fetch all issues (we'll filter client-side by selected projects)
   const {
-    issues,
+    filters,
+    setFilters,
+    sortField,
+    sortDirection,
+    setSort,
+    searchQuery,
+    setSearchQuery,
+    viewMode,
+    setViewMode,
+    applyFiltersAndSort
+  } = useIssueFilters()
+
+  const {
+    issues: allIssues,
     isLoading: issuesLoading,
     error: issuesError,
-    fetchErrors,
+    repoCount,
     lastFetched,
     refetch
-  } = useIssues('all')
+  } = useAllScoredIssues(filters.includeKilled)
 
-  // Initialize selected projects from localStorage or defaults
+  const { healthMap } = useRepoHealthMap(selectedProjectSlugs)
+
+  const {
+    health: focusedHealth,
+    isPending: focusedHealthPending,
+    isLoading: focusedHealthLoading
+  } = useRepoHealth(focusedRepo)
+
+  const { claim, unclaim } = useClaim(refetch)
+
+  // Initialize selected projects from localStorage or select all
   useEffect(() => {
     if (projects.length > 0 && !hasInitializedDefaults) {
       const savedSlugs = loadSavedSelections()
 
       if (savedSlugs && savedSlugs.length > 0) {
-        // Filter to only include slugs that exist in current projects
         const validSlugs = savedSlugs.filter(slug => projects.some(p => p.slug === slug))
         if (validSlugs.length > 0) {
           setSelectedProjectSlugs(validSlugs)
@@ -95,67 +122,79 @@ export default function App(props: OssAggregatorProps = {}) {
         }
       }
 
-      // Fall back to defaults
-      const defaultSlugs = projects
-        .filter(p => DEFAULT_SELECTED_NAMES.includes(p.name))
-        .map(p => p.slug)
-      setSelectedProjectSlugs(defaultSlugs)
+      // Default: select all projects
+      setSelectedProjectSlugs(projects.map(p => p.slug))
       setHasInitializedDefaults(true)
     }
   }, [projects, hasInitializedDefaults])
 
-  // Save selections to localStorage whenever they change
   useEffect(() => {
     if (hasInitializedDefaults && selectedProjectSlugs.length >= 0) {
       saveSelections(selectedProjectSlugs)
     }
   }, [selectedProjectSlugs, hasInitializedDefaults])
 
-  // Group issues by project and filter by selection
-  const issuesByProject = useMemo(() => {
-    const grouped = new Map<string, typeof issues>()
+  // Filter issues by selected projects, then apply toolbar filters/sort
+  const displayIssues = useMemo(() => {
+    // Map project slugs to repo slugs (they use different formats)
+    const selectedSet = new Set(selectedProjectSlugs)
 
-    // Get selected project names
-    const selectedNames = new Set(
-      projects.filter(p => selectedProjectSlugs.includes(p.slug)).map(p => p.name)
-    )
+    // Filter to only issues from selected projects
+    const projectFiltered =
+      selectedSet.size === 0
+        ? []
+        : allIssues.filter(issue => {
+            // Try matching by repoSlug against project slug
+            return (
+              selectedSet.has(issue.repoSlug) ||
+              // Also try matching project name
+              projects.some(p => selectedSet.has(p.slug) && p.name === issue.project)
+            )
+          })
 
-    for (const issue of issues) {
-      if (!selectedNames.has(issue.project)) continue
+    return applyFiltersAndSort(projectFiltered)
+  }, [allIssues, selectedProjectSlugs, projects, applyFiltersAndSort])
 
-      const existing = grouped.get(issue.project) ?? []
-      existing.push(issue)
-      grouped.set(issue.project, existing)
-    }
+  // Drawer handlers
+  const handleIssueClick = useCallback((issue: ScoredIssue) => {
+    setSelectedIssue(issue)
+    setIssueDrawerOpen(true)
+  }, [])
 
-    // Sort issues within each project by createdAt (newest first)
-    for (const [key, projectIssues] of grouped) {
-      grouped.set(key, projectIssues.sort(byCreatedAtDesc))
-    }
+  const handleRepoClick = useCallback((slug: string) => {
+    setDossierSlug(slug)
+    setDossierDrawerOpen(true)
+  }, [])
 
-    return grouped
-  }, [issues, projects, selectedProjectSlugs])
+  const handleClaimIssue = useCallback(
+    (issueId: string, slug: string) => {
+      // In a real app, we'd prompt for username. For now, use a placeholder.
+      void claim(slug, issueId, 'current-user')
+      setIssueDrawerOpen(false)
+    },
+    [claim]
+  )
 
-  // Get selected projects in order
-  const selectedProjects = useMemo(() => {
-    return projects
-      .filter(p => selectedProjectSlugs.includes(p.slug))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }, [projects, selectedProjectSlugs])
+  const handleUnclaimIssue = useCallback(
+    (issueId: string, slug: string) => {
+      void unclaim(slug, issueId)
+      setIssueDrawerOpen(false)
+    },
+    [unclaim]
+  )
 
-  // Show loading skeleton during initial theme load to prevent FOUC
+  const handleViewDossierFromDetail = useCallback((slug: string) => {
+    setIssueDrawerOpen(false)
+    setDossierSlug(slug)
+    setDossierDrawerOpen(true)
+  }, [])
+
   if (isInitialThemeLoad && !isThemeReady) {
     return <LoadingSkeleton isDarkTheme={systemPrefersDark} />
   }
 
   const isLoading = projectsLoading || issuesLoading
   const error = projectsError || issuesError
-
-  // Count total issues shown
-  const totalIssuesShown = Array.from(issuesByProject.values()).reduce(
-    (sum, arr) => sum + arr.length,
-    0
-  )
 
   return (
     <div
@@ -166,7 +205,7 @@ export default function App(props: OssAggregatorProps = {}) {
     >
       <div className="oss-aggregator">
         <header className="oss-aggregator__header">
-          <h1 className="oss-aggregator__title">OSS Issue Aggregator</h1>
+          <h1 className="oss-aggregator__title">OSS Recon Dashboard</h1>
 
           <div className="oss-aggregator__controls">
             <button
@@ -194,72 +233,98 @@ export default function App(props: OssAggregatorProps = {}) {
 
         <div className="oss-aggregator__body">
           <aside className="oss-aggregator__sidebar">
-            <h2 className="oss-aggregator__sidebar-title">Select Projects</h2>
+            <h2 className="oss-aggregator__sidebar-title">Projects</h2>
             <ProjectSelector
               projects={projects}
               selectedProjects={selectedProjectSlugs}
               onSelectionChange={setSelectedProjectSlugs}
               disabled={isLoading}
+              repoHealthMap={healthMap}
+              focusedRepo={focusedRepo}
+              onFocusRepo={setFocusedRepo}
+            />
+            <RepoHealthPanel
+              health={focusedHealth}
+              isLoading={focusedHealthLoading}
+              isPending={focusedHealthPending}
+              slug={focusedRepo}
+              onViewDossier={handleRepoClick}
             />
           </aside>
 
           <main className="oss-aggregator__main">
-            {isLoading && issues.length === 0 ? (
-              <div className="project-grid">
-                {Array.from({ length: 4 }, (_, i) => (
-                  <div key={i} className="project-card">
-                    <div className="project-card__header">
-                      <div className="skeleton-line skeleton-card__icon" />
-                      <div className="skeleton-line skeleton-card__title" />
-                      <div className="skeleton-line skeleton-card__count" />
-                    </div>
-                    {Array.from({ length: 3 }, (_, j) => (
-                      <div key={j} className="skeleton-card__issue">
-                        <div className="skeleton-line skeleton-card__issue-title" />
-                        <div className="skeleton-card__issue-meta">
-                          <div className="skeleton-line skeleton-card__badge" />
-                          <div className="skeleton-line skeleton-card__date" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ) : error ? (
+            {error ? (
               <ErrorState
                 message={error}
                 onRetry={() => {
                   void refetch()
                 }}
               />
-            ) : selectedProjects.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state__icon">📋</div>
-                <p className="empty-state__message">
-                  Select projects from the sidebar to view issues.
-                </p>
-              </div>
             ) : (
-              <div className="project-grid">
-                {selectedProjects.map(project => (
-                  <ProjectIssueCard
-                    key={project.slug}
-                    project={project}
-                    issues={issuesByProject.get(project.name) ?? []}
+              <>
+                <Toolbar
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={setSort}
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                  issueCount={displayIssues.length}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                />
+
+                {isLoading && allIssues.length === 0 ? (
+                  <div className="issue-table-wrapper">
+                    <div className="loading-state">
+                      <div className="loading-state__spinner" />
+                      <span className="loading-state__text">Loading scored issues...</span>
+                    </div>
+                  </div>
+                ) : viewMode === 'table' ? (
+                  <IssueTable
+                    issues={displayIssues}
+                    onIssueClick={handleIssueClick}
+                    onRepoClick={handleRepoClick}
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                    onSort={setSort}
                   />
-                ))}
-              </div>
+                ) : (
+                  <IssueCardGrid
+                    issues={displayIssues}
+                    onIssueClick={handleIssueClick}
+                    onRepoClick={handleRepoClick}
+                  />
+                )}
+              </>
             )}
           </main>
         </div>
 
         <Footer
-          issueCount={totalIssuesShown}
-          projectCount={selectedProjects.length}
+          issueCount={displayIssues.length}
+          projectCount={repoCount}
           lastFetched={lastFetched}
-          errorCount={fetchErrors.length}
+          errorCount={0}
         />
       </div>
+
+      <IssueDetailDrawer
+        issue={selectedIssue}
+        isOpen={issueDrawerOpen}
+        onClose={() => setIssueDrawerOpen(false)}
+        onClaim={handleClaimIssue}
+        onUnclaim={handleUnclaimIssue}
+        onViewDossier={handleViewDossierFromDetail}
+      />
+
+      <DossierDrawer
+        slug={dossierSlug}
+        isOpen={dossierDrawerOpen}
+        onClose={() => setDossierDrawerOpen(false)}
+      />
     </div>
   )
 }

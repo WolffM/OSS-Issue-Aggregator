@@ -32,6 +32,7 @@ export interface OSSEnv {
   PHABRICATOR_TOKEN?: string
   CACHE_KV?: KVNamespace
   SCRAPER_API_URL?: string
+  SCRAPER_API_KEY?: string
 }
 
 // Issue marking system

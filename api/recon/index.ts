@@ -312,7 +312,7 @@ export function createReconRoutes() {
 
       // Fire-and-forget scraper trigger if configured
       if (result.added && c.env.SCRAPER_API_URL) {
-        void triggerScrape(c.env.SCRAPER_API_URL, result.slug)
+        void triggerScrape(c.env.SCRAPER_API_URL, result.slug, undefined, c.env.SCRAPER_API_KEY)
       }
 
       return c.json({ success: true as const, data: result }, 200)
@@ -611,7 +611,12 @@ export function createReconRoutes() {
     }
 
     const { slug } = c.req.valid('param')
-    const result = await triggerScrape(c.env.SCRAPER_API_URL, slug)
+    const result = await triggerScrape(
+      c.env.SCRAPER_API_URL,
+      slug,
+      undefined,
+      c.env.SCRAPER_API_KEY
+    )
 
     if (!result.triggered) {
       return c.json(

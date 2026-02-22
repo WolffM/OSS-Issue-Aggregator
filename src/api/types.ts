@@ -55,3 +55,131 @@ export interface ProjectIssuesResponse {
   }
   timestamp: string
 }
+
+// ============================================================================
+// Recon Enums
+// ============================================================================
+
+export type CVSTier = 'go' | 'likely' | 'maybe' | 'risky' | 'skip'
+export type LifecycleStage = 'fresh' | 'triaged' | 'accepted' | 'stale' | 'zombie'
+export type ClaimStatus = 'unclaimed' | 'claimed' | 'stale-claim'
+export type Complexity = 'low' | 'medium' | 'high'
+export type CompetitionLevel = 'none' | 'low' | 'medium' | 'high'
+export type DataCompleteness = 'full' | 'partial'
+
+// ============================================================================
+// Recon Data Types
+// ============================================================================
+
+export interface ScoredIssue extends Issue {
+  authorAssociation: string
+  bodyPreview: string
+  commentCount: number
+  thumbsUpCount: number
+  assignees: string[]
+  milestone: string | null
+  linkedPrUrls: string[]
+  lastCommentAt: string | null
+  lastCommentAuthor: string | null
+  lastCommentAuthorAssociation: string | null
+  cvs: number
+  cvsTier: CVSTier
+  lifecycleStage: LifecycleStage
+  claimStatus: ClaimStatus
+  claimAuthor: string | null
+  complexity: Complexity
+  sentimentScore: number
+  contentQualityScore: number
+  competitionLevel: CompetitionLevel
+  repoSlug: string
+  dataCompleteness: DataCompleteness
+  repoKilled: boolean
+}
+
+export interface RepoQuirk {
+  type: string
+  description: string
+  impact: 'blocker' | 'important' | 'minor'
+  evidence: string
+}
+
+export interface PRPatterns {
+  medianFilesChanged: number
+  medianAdditions: number
+  medianTimeToMergeDays: number
+  mergeStyle: 'squash' | 'merge' | 'rebase' | 'mixed'
+  commitConvention: string | null
+  externalContributorMergeRate: number
+  topRejectionReasons: string[]
+}
+
+export interface RepoHealth {
+  slug: string
+  maintainerHealthScore: number
+  mergeAccessibilityScore: number
+  availabilityScore: number
+  overallViability: number
+  killed: boolean
+  killReason: string | null
+  detectedQuirks: RepoQuirk[]
+  prPatterns: PRPatterns
+  analyzedAt: string
+}
+
+export interface DossierSections {
+  overview: string
+  contributionRules: string
+  successPatterns: string
+  antiPatterns: string
+  issueBoard: string
+  environmentSetup: string
+}
+
+export interface Dossier {
+  slug: string
+  generatedAt: string
+  sections: DossierSections
+}
+
+export interface ClaimRecord {
+  issueId: string
+  claimedBy: string
+  claimedAt: string
+  forkIssueUrl: string | null
+}
+
+// ============================================================================
+// Recon API Response Types
+// ============================================================================
+
+export interface ReconSuccessResponse<T> {
+  success: true
+  data: T
+}
+
+export interface ReconPendingResponse {
+  success: true
+  data: { status: 'pending' }
+}
+
+export type WatchlistResponse = ReconSuccessResponse<{ slugs: string[] }>
+export type WatchlistAddResponse = ReconSuccessResponse<{ slug: string; added: boolean }>
+export type WatchlistRemoveResponse = ReconSuccessResponse<{ slug: string; removed: boolean }>
+export type RepoHealthResponse = ReconSuccessResponse<RepoHealth> | ReconPendingResponse
+export type ScoredIssuesResponse = ReconSuccessResponse<{ issues: ScoredIssue[]; slug: string }>
+export type DossierResponse = ReconSuccessResponse<Dossier> | ReconPendingResponse
+export type AllScoredIssuesResponse = ReconSuccessResponse<{
+  issues: ScoredIssue[]
+  totalCount: number
+  repoCount: number
+}>
+export type ClaimResponse = ReconSuccessResponse<ClaimRecord>
+export type UnclaimResponse = ReconSuccessResponse<{ issueId: string; removed: boolean }>
+export type RefreshResponse = ReconSuccessResponse<{ status: 'triggered' }>
+
+export function isPendingResponse(
+  response: ReconSuccessResponse<unknown> | ReconPendingResponse
+): response is ReconPendingResponse {
+  const data = response.data as Record<string, unknown>
+  return 'status' in data && data.status === 'pending'
+}

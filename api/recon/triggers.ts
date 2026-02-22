@@ -5,20 +5,25 @@
  * The aggregator doesn't wait for the scraper to complete.
  */
 
+const DEFAULT_DATA_TYPES = ['issues', 'prs', 'meta', 'comments']
+
 export async function triggerScrape(
   scraperApiUrl: string,
   slug: string,
-  dataTypes?: string[]
+  dataTypes: string[] = DEFAULT_DATA_TYPES,
+  apiKey?: string
 ): Promise<{ triggered: boolean; error?: string }> {
   try {
-    const body: Record<string, unknown> = { slug }
-    if (dataTypes) {
-      body.data_types = dataTypes
+    const body: Record<string, unknown> = { slug, data_types: dataTypes }
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (apiKey) {
+      headers.Authorization = `Bearer ${apiKey}`
     }
 
     const res = await fetch(`${scraperApiUrl}/api/v1/oss-recon/scrape`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body)
     })
 

@@ -6,7 +6,7 @@ describe('triggerScrape', () => {
     vi.restoreAllMocks()
   })
 
-  it('sends POST to scraper API with slug', async () => {
+  it('sends POST to scraper API with slug and default data types', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true })
     vi.stubGlobal('fetch', mockFetch)
 
@@ -21,7 +21,17 @@ describe('triggerScrape', () => {
 
     const body = JSON.parse(options.body)
     expect(body.slug).toBe('fastify-fastify')
-    expect(body.data_types).toBeUndefined()
+    expect(body.data_types).toEqual(['issues', 'prs', 'meta', 'comments'])
+  })
+
+  it('sends Authorization header when apiKey is provided', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', mockFetch)
+
+    await triggerScrape('https://scraper.example.com', 'fastify-fastify', undefined, 'test-key-123')
+
+    const [, options] = mockFetch.mock.calls[0]
+    expect(options.headers['Authorization']).toBe('Bearer test-key-123')
   })
 
   it('includes data_types when provided', async () => {
