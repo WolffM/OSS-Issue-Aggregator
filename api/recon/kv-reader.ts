@@ -44,8 +44,14 @@ export async function getReconIssuesScrapedAt(
 
 export async function getMergedPRs(kv: KVNamespace, slug: string): Promise<PRSample[] | null> {
   try {
-    const data = await kv.get<PRSample[]>(`recon:${slug}:merged-prs`, 'json')
-    return data ?? null
+    const data = await kv.get<unknown>(`recon:${slug}:merged-prs`, 'json')
+    if (!data) return null
+    // Scraper writes { merged: PRSample[], ... } wrapper — unwrap it
+    if (Array.isArray(data)) return data as PRSample[]
+    const obj = data as Record<string, unknown>
+    if (Array.isArray(obj.merged)) return obj.merged as PRSample[]
+    if (Array.isArray(obj.prs)) return obj.prs as PRSample[]
+    return null
   } catch {
     return null
   }
@@ -53,8 +59,14 @@ export async function getMergedPRs(kv: KVNamespace, slug: string): Promise<PRSam
 
 export async function getRejectedPRs(kv: KVNamespace, slug: string): Promise<PRSample[] | null> {
   try {
-    const data = await kv.get<PRSample[]>(`recon:${slug}:rejected-prs`, 'json')
-    return data ?? null
+    const data = await kv.get<unknown>(`recon:${slug}:rejected-prs`, 'json')
+    if (!data) return null
+    // Scraper writes { rejected: PRSample[], ... } wrapper — unwrap it
+    if (Array.isArray(data)) return data as PRSample[]
+    const obj = data as Record<string, unknown>
+    if (Array.isArray(obj.rejected)) return obj.rejected as PRSample[]
+    if (Array.isArray(obj.prs)) return obj.prs as PRSample[]
+    return null
   } catch {
     return null
   }
@@ -62,8 +74,14 @@ export async function getRejectedPRs(kv: KVNamespace, slug: string): Promise<PRS
 
 export async function getRepoMeta(kv: KVNamespace, slug: string): Promise<RepoMeta | null> {
   try {
-    const data = await kv.get<RepoMeta>(`recon:${slug}:repo-meta`, 'json')
-    return data ?? null
+    const data = await kv.get<unknown>(`recon:${slug}:repo-meta`, 'json')
+    if (!data) return null
+    const obj = data as Record<string, unknown>
+    // Scraper writes { meta: RepoMeta, ... } wrapper — unwrap it
+    if (obj.meta && typeof obj.meta === 'object') return obj.meta as RepoMeta
+    // Already unwrapped (has RepoMeta fields directly)
+    if (typeof obj.owner === 'string' && typeof obj.repo === 'string') return data as RepoMeta
+    return null
   } catch {
     return null
   }
@@ -71,8 +89,13 @@ export async function getRepoMeta(kv: KVNamespace, slug: string): Promise<RepoMe
 
 export async function getComments(kv: KVNamespace, slug: string): Promise<IssueComments | null> {
   try {
-    const data = await kv.get<IssueComments>(`recon:${slug}:comments`, 'json')
-    return data ?? null
+    const data = await kv.get<unknown>(`recon:${slug}:comments`, 'json')
+    if (!data) return null
+    const obj = data as Record<string, unknown>
+    // Scraper writes { threads: IssueComments, ... } wrapper — unwrap it
+    if (obj.threads && typeof obj.threads === 'object') return obj.threads as IssueComments
+    // Already unwrapped (keys are issue numbers)
+    return data as IssueComments
   } catch {
     return null
   }

@@ -98,6 +98,70 @@ describe('getRejectedPRs', () => {
     const kv = createMockKV()
     expect(await getRejectedPRs(kv, 'test-repo')).toBeNull()
   })
+
+  it('unwraps rejected array from scraper wrapper', async () => {
+    const pr: PRSample = {
+      number: 200,
+      title: 'Rejected PR',
+      url: 'https://github.com/org/repo/pull/200',
+      author: 'dev2',
+      authorAssociation: 'NONE',
+      createdAt: '2024-01-10T00:00:00Z',
+      mergedAt: null,
+      closedAt: '2024-01-15T00:00:00Z',
+      additions: 100,
+      deletions: 0,
+      changedFiles: 5,
+      reviewCount: 0,
+      labels: [],
+      headRefName: 'feature/big-change',
+      baseRefName: 'main',
+      mergeCommitSha: null
+    }
+    const kv = createMockKV({
+      'recon:test-repo:rejected-prs': { slug: 'test-repo', data_type: 'prs', rejected: [pr] }
+    })
+
+    const result = await getRejectedPRs(kv, 'test-repo')
+    expect(result).toHaveLength(1)
+    expect(result![0].number).toBe(200)
+  })
+})
+
+describe('getMergedPRs wrapper unwrapping', () => {
+  it('unwraps merged array from scraper wrapper object', async () => {
+    const pr: PRSample = {
+      number: 123,
+      title: 'Fix bug',
+      url: 'https://github.com/org/repo/pull/123',
+      author: 'dev1',
+      authorAssociation: 'CONTRIBUTOR',
+      createdAt: '2024-01-10T00:00:00Z',
+      mergedAt: '2024-01-15T00:00:00Z',
+      closedAt: null,
+      additions: 10,
+      deletions: 5,
+      changedFiles: 2,
+      reviewCount: 1,
+      labels: ['bug'],
+      headRefName: 'fix/bug',
+      baseRefName: 'main',
+      mergeCommitSha: 'abc123'
+    }
+    const kv = createMockKV({
+      'recon:test-repo:merged-prs': {
+        slug: 'test-repo',
+        data_type: 'prs',
+        merged_count: 1,
+        rejected_count: 0,
+        merged: [pr]
+      }
+    })
+
+    const result = await getMergedPRs(kv, 'test-repo')
+    expect(result).toHaveLength(1)
+    expect(result![0].number).toBe(123)
+  })
 })
 
 describe('getRepoMeta', () => {
@@ -139,6 +203,46 @@ describe('getRepoMeta', () => {
   })
 })
 
+describe('getRepoMeta wrapper unwrapping', () => {
+  it('unwraps meta from scraper wrapper object', async () => {
+    const meta: RepoMeta = {
+      owner: 'fastify',
+      repo: 'fastify',
+      slug: 'fastify-fastify',
+      stars: 30000,
+      forks: 2200,
+      language: 'TypeScript',
+      license: 'MIT',
+      hasContributing: true,
+      contributingContent: null,
+      hasPrTemplate: false,
+      prTemplateContent: null,
+      hasCodeOfConduct: true,
+      hasCodeowners: false,
+      defaultBranch: 'main',
+      isArchived: false,
+      openIssueCount: 150,
+      openPrCount: 25,
+      lastPushedAt: '2024-01-20T00:00:00Z',
+      topics: ['nodejs'],
+      externalTools: [],
+      scrapedAt: '2024-01-20T14:45:00Z'
+    }
+    const kv = createMockKV({
+      'recon:fastify-fastify:repo-meta': {
+        slug: 'fastify/fastify',
+        data_type: 'meta',
+        meta
+      }
+    })
+
+    const result = await getRepoMeta(kv, 'fastify-fastify')
+    expect(result).not.toBeNull()
+    expect(result!.owner).toBe('fastify')
+    expect(result!.stars).toBe(30000)
+  })
+})
+
 describe('getComments', () => {
   it('returns null when no data', async () => {
     const kv = createMockKV()
@@ -167,6 +271,36 @@ describe('getComments', () => {
     expect(result).not.toBeNull()
     expect(result!['100'].comments).toHaveLength(1)
     expect(result!['100'].comments[0].body).toBe('PR welcome!')
+  })
+
+  it('unwraps threads from scraper wrapper object', async () => {
+    const threads = {
+      '100': {
+        issueNumber: 100,
+        comments: [
+          {
+            author: 'maintainer',
+            authorAssociation: 'MEMBER',
+            body: 'Looks good!',
+            createdAt: '2024-01-16T00:00:00Z',
+            reactions: { thumbsUp: 1, thumbsDown: 0, heart: 0 }
+          }
+        ],
+        scrapedAt: '2024-01-20T14:45:00Z'
+      }
+    }
+    const kv = createMockKV({
+      'recon:test-repo:comments': {
+        slug: 'test-repo',
+        data_type: 'comments',
+        threads
+      }
+    })
+
+    const result = await getComments(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result!['100'].comments).toHaveLength(1)
+    expect(result!['100'].comments[0].body).toBe('Looks good!')
   })
 })
 

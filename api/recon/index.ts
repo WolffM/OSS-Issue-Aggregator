@@ -393,14 +393,18 @@ export function createReconRoutes() {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    const { slug } = c.req.valid('param')
-    const health = await computeHealth(kv, slug)
+    try {
+      const { slug } = c.req.valid('param')
+      const health = await computeHealth(kv, slug)
 
-    if (!health) {
-      return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
+      if (!health) {
+        return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
+      }
+
+      return c.json({ success: true as const, data: health }, 200)
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
-
-    return c.json({ success: true as const, data: health }, 200)
   })
 
   // GET /:slug/issues
@@ -429,10 +433,14 @@ export function createReconRoutes() {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    const { slug } = c.req.valid('param')
-    const issues = await getReconIssues(kv, slug)
+    try {
+      const { slug } = c.req.valid('param')
+      const issues = await getReconIssues(kv, slug)
 
-    return c.json({ success: true as const, data: { issues: issues ?? [], slug } }, 200)
+      return c.json({ success: true as const, data: { issues: issues ?? [], slug } }, 200)
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
   })
 
   // GET /:slug/scored-issues
@@ -462,10 +470,14 @@ export function createReconRoutes() {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    const { slug } = c.req.valid('param')
-    const scored = await computeScoredIssues(kv, slug)
+    try {
+      const { slug } = c.req.valid('param')
+      const scored = await computeScoredIssues(kv, slug)
 
-    return c.json({ success: true as const, data: { issues: scored, slug } }, 200)
+      return c.json({ success: true as const, data: { issues: scored, slug } }, 200)
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
   })
 
   // GET /:slug/dossier
@@ -502,14 +514,18 @@ export function createReconRoutes() {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    const { slug } = c.req.valid('param')
-    const dossier = await computeDossier(kv, slug)
+    try {
+      const { slug } = c.req.valid('param')
+      const dossier = await computeDossier(kv, slug)
 
-    if (!dossier) {
-      return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
+      if (!dossier) {
+        return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
+      }
+
+      return c.json({ success: true as const, data: dossier }, 200)
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
-
-    return c.json({ success: true as const, data: dossier }, 200)
   })
 
   // --------------------------------------------------------------------------
@@ -550,35 +566,39 @@ export function createReconRoutes() {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    const { includeKilled } = c.req.valid('query')
-    const showKilled = includeKilled === 'true'
+    try {
+      const { includeKilled } = c.req.valid('query')
+      const showKilled = includeKilled === 'true'
 
-    const slugs = await getWatchlist(kv)
+      const slugs = await getWatchlist(kv)
 
-    // Score issues for all repos in parallel
-    const results = await Promise.all(slugs.map(slug => computeScoredIssues(kv, slug)))
+      // Score issues for all repos in parallel
+      const results = await Promise.all(slugs.map(slug => computeScoredIssues(kv, slug)))
 
-    let allIssues = results.flat()
+      let allIssues = results.flat()
 
-    // Filter killed repos unless explicitly requested
-    if (!showKilled) {
-      allIssues = allIssues.filter(issue => !issue.repoKilled)
+      // Filter killed repos unless explicitly requested
+      if (!showKilled) {
+        allIssues = allIssues.filter(issue => !issue.repoKilled)
+      }
+
+      // Sort by CVS descending
+      allIssues.sort((a, b) => b.cvs - a.cvs)
+
+      return c.json(
+        {
+          success: true as const,
+          data: {
+            issues: allIssues,
+            totalCount: allIssues.length,
+            repoCount: slugs.length
+          }
+        },
+        200
+      )
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
-
-    // Sort by CVS descending
-    allIssues.sort((a, b) => b.cvs - a.cvs)
-
-    return c.json(
-      {
-        success: true as const,
-        data: {
-          issues: allIssues,
-          totalCount: allIssues.length,
-          repoCount: slugs.length
-        }
-      },
-      200
-    )
   })
 
   // --------------------------------------------------------------------------
