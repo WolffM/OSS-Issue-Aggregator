@@ -57,11 +57,24 @@ export const QuirkImpactSchema = z.enum(['blocker', 'important', 'minor']).opena
 // ExtendedIssue (scraper → KV) — §4.1
 // ============================================================================
 
+export interface ReactionGroup {
+  content: string
+  totalCount: number
+}
+
+export const ReactionGroupSchema = z
+  .object({
+    content: z.string().openapi({ example: 'THUMBS_UP' }),
+    totalCount: z.number().openapi({ example: 5 })
+  })
+  .openapi('ReactionGroup')
+
 export interface ExtendedIssue extends Issue {
   authorAssociation: string
   bodyPreview: string
   commentCount: number
   thumbsUpCount: number
+  reactionGroups?: ReactionGroup[]
   assignees: string[]
   milestone: string | null
   linkedPrUrls: string[]
@@ -75,6 +88,7 @@ export const ExtendedIssueSchema = IssueSchema.extend({
   bodyPreview: z.string().openapi({ example: 'This issue tracks...' }),
   commentCount: z.number().openapi({ example: 5 }),
   thumbsUpCount: z.number().openapi({ example: 12 }),
+  reactionGroups: z.array(ReactionGroupSchema).optional().openapi({ example: [] }),
   assignees: z.array(z.string()).openapi({ example: [] }),
   milestone: z.string().nullable().openapi({ example: null }),
   linkedPrUrls: z.array(z.string()).openapi({ example: [] }),

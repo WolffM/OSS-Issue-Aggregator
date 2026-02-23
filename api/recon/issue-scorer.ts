@@ -17,7 +17,8 @@ import type {
   ClaimStatus,
   CompetitionLevel,
   Complexity,
-  DataCompleteness
+  DataCompleteness,
+  CommentThread
 } from './types'
 import { scoreIssue } from '../scoring'
 import { analyzeSentiment } from './sentiment'
@@ -89,6 +90,88 @@ function scoreComplexityBonus(difficulty: string): number {
   }
 }
 
+// ============================================================================
+// Reaction & Comment Sentiment Scorers (Tier 1 & 2)
+// ============================================================================
+
+const REACTION_WEIGHTS: Record<string, number> = {
+  THUMBS_UP: 2,
+  HEART: 1,
+  ROCKET: 1,
+  HOORAY: 1,
+  THUMBS_DOWN: -2,
+  CONFUSED: -1,
+  LAUGH: 0,
+  EYES: 0
+}
+
+function scoreReactions(issue: ExtendedIssue): number {
+  if (!issue.reactionGroups || issue.reactionGroups.length === 0) {
+    // Fallback: use thumbsUpCount if reactionGroups unavailable
+    return clamp(issue.thumbsUpCount * 2, 0, 15)
+  }
+
+  let total = 0
+  for (const group of issue.reactionGroups) {
+    const weight = REACTION_WEIGHTS[group.content] ?? 0
+    total += group.totalCount * weight
+  }
+  return clamp(total, -15, 15)
+}
+
+const POSITIVE_SENTIMENT_PATTERNS: RegExp[] = [
+  /\+1\b/,
+  /\bme\s+too\b/i,
+  /\bsame\s+here\b/i,
+  /\bsame\s+issue\b/i,
+  /\bbump\b/i,
+  /\bseconded\b/i,
+  /\bagreed\b/i,
+  /\bi\s+also\s+need\s+this\b/i,
+  /\bneed\s+this\b/i,
+  /\bwould\s+love\s+this\b/i,
+  /\bplease\s+add\b/i,
+  /\bplease\s+fix\b/i,
+  /\byes\s+please\b/i
+]
+
+const NEGATIVE_SENTIMENT_PATTERNS: RegExp[] = [
+  /-1\b/,
+  /\bduplicate\s+of\b/i,
+  /\bwon'?t\s*fix\b/i,
+  /\bwontfix\b/i,
+  /\bstale\b/i,
+  /\bas\s+designed\b/i,
+  /\bnot\s+a\s+bug\b/i,
+  /\bclosing\b/i,
+  /\bwill\s+not\s+implement\b/i
+]
+
+function scoreCommentSentiment(thread: CommentThread | undefined): number {
+  if (!thread || thread.comments.length === 0) return 0
+
+  let total = 0
+  for (const comment of thread.comments) {
+    const body = comment.body
+
+    for (const pattern of POSITIVE_SENTIMENT_PATTERNS) {
+      if (pattern.test(body)) {
+        total += 3
+        break
+      }
+    }
+
+    for (const pattern of NEGATIVE_SENTIMENT_PATTERNS) {
+      if (pattern.test(body)) {
+        total -= 3
+        break
+      }
+    }
+  }
+
+  return clamp(total, -10, 10)
+}
+
 function mapDifficultyToComplexity(difficulty: string): Complexity {
   switch (difficulty) {
     case 'beginner':
@@ -118,7 +201,7 @@ function timingScore(lifecycle: string): number {
 }
 
 function cvsTier(cvs: number): CVSTier {
-  if (cvs >= 85) return 'go'
+  if (cvs >= 80) return 'go'
   if (cvs >= 70) return 'likely'
   if (cvs >= 50) return 'maybe'
   if (cvs >= 30) return 'risky'
@@ -232,6 +315,12 @@ export function scoreIssues(
     const competition = scoreCompetition(issue, hasExternalClaimComment)
     const complexityBonus = scoreComplexityBonus(diffResult.difficulty)
 
+    // Tier 1: Reaction-based scoring (±15)
+    const reactions = scoreReactions(issue)
+
+    // Tier 2: Comment sentiment scoring (±10)
+    const commentSentiment = scoreCommentSentiment(thread)
+
     const issueScore = clamp(
       freshness + activity + contentQuality.raw + competition + complexityBonus,
       0,
@@ -239,8 +328,8 @@ export function scoreIssues(
     )
     const timing = timingScore(lifecycleStage)
 
-    // CVS composite
-    const rawCvs = repoScore * 0.3 + issueScore * 0.5 + timing * 0.2
+    // CVS composite: base weighted score + additive reaction & sentiment bonuses
+    const rawCvs = repoScore * 0.3 + issueScore * 0.5 + timing * 0.2 + reactions + commentSentiment
     const cvs = clamp(Math.round(rawCvs), 0, 100)
 
     // Claim & competition

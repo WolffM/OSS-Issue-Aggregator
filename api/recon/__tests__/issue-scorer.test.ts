@@ -179,8 +179,7 @@ describe('scoreIssues', () => {
   })
 
   describe('CVS tiers', () => {
-    it('maps score 85-100 to go', () => {
-      // Force a very high score scenario
+    it('maps high score to go tier with reactions and sentiment', () => {
       const recent = new Date(Date.now() - 1 * 86_400_000).toISOString()
       const health = makeHealth({ overallViability: 95 })
       const issue = makeExtendedIssue({
@@ -195,17 +194,23 @@ describe('scoreIssues', () => {
           'Detailed issue with steps to reproduce. Expected behavior: X. Actual: Y.\n```code```',
         milestone: 'v2.0',
         assignees: [],
-        linkedPrUrls: []
+        linkedPrUrls: [],
+        reactionGroups: [
+          { content: 'THUMBS_UP', totalCount: 15 },
+          { content: 'HEART', totalCount: 5 }
+        ]
       })
       const comments: IssueComments = {
         'top-issue': makeCommentThread([
-          makeComment({ body: 'PR welcome! Happy to review.', authorAssociation: 'OWNER' })
+          makeComment({ body: 'PR welcome! Happy to review.', authorAssociation: 'OWNER' }),
+          makeComment({ body: '+1 need this', authorAssociation: 'NONE' })
         ])
       }
 
       const scored = scoreIssues([issue], comments, health, [])
-      // With very high repo score + good issue + accepted lifecycle, should be high
-      expect(scored[0].cvs).toBeGreaterThanOrEqual(70)
+      // With reactions + sentiment bonuses, should reach go tier (>=80)
+      expect(scored[0].cvs).toBeGreaterThanOrEqual(80)
+      expect(scored[0].cvsTier).toBe('go')
     })
   })
 
@@ -361,6 +366,276 @@ describe('scoreIssues', () => {
       const scored = scoreIssues([issue], {}, health, [])
 
       expect(scored[0].complexity).toBe('high')
+    })
+  })
+
+  describe('reaction scoring', () => {
+    it('boosts CVS for issues with reactionGroups', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 70 })
+
+      const issueWithReactions = makeExtendedIssue({
+        id: 'reactions-issue',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: [
+          { content: 'THUMBS_UP', totalCount: 10 },
+          { content: 'HEART', totalCount: 5 },
+          { content: 'ROCKET', totalCount: 3 }
+        ]
+      })
+
+      const issueWithout = makeExtendedIssue({
+        id: 'no-reactions',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const scored = scoreIssues([issueWithReactions, issueWithout], {}, health, [])
+      const withReactions = scored.find(i => i.id === 'reactions-issue')!
+      const without = scored.find(i => i.id === 'no-reactions')!
+
+      expect(withReactions.cvs).toBeGreaterThan(without.cvs)
+    })
+
+    it('caps reaction score at ±15', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 70 })
+
+      // Massive positive reactions — should still cap at +15
+      const issue = makeExtendedIssue({
+        id: 'mega-reactions',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: [
+          { content: 'THUMBS_UP', totalCount: 100 },
+          { content: 'HEART', totalCount: 50 }
+        ]
+      })
+
+      const baseline = makeExtendedIssue({
+        id: 'baseline',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const scored = scoreIssues([issue, baseline], {}, health, [])
+      const mega = scored.find(i => i.id === 'mega-reactions')!
+      const base = scored.find(i => i.id === 'baseline')!
+
+      // Difference should be at most 15 (the cap)
+      expect(mega.cvs - base.cvs).toBeLessThanOrEqual(15)
+    })
+
+    it('penalizes for negative reactions', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 70 })
+
+      const negativeIssue = makeExtendedIssue({
+        id: 'negative-reactions',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: [
+          { content: 'THUMBS_DOWN', totalCount: 5 },
+          { content: 'CONFUSED', totalCount: 3 }
+        ]
+      })
+
+      const neutralIssue = makeExtendedIssue({
+        id: 'neutral',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const scored = scoreIssues([negativeIssue, neutralIssue], {}, health, [])
+      const negative = scored.find(i => i.id === 'negative-reactions')!
+      const neutral = scored.find(i => i.id === 'neutral')!
+
+      expect(negative.cvs).toBeLessThan(neutral.cvs)
+    })
+
+    it('falls back to thumbsUpCount when reactionGroups absent', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 70 })
+
+      const issueWithThumbsUp = makeExtendedIssue({
+        id: 'thumbs-fallback',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 5
+        // no reactionGroups field
+      })
+
+      const issueNoReactions = makeExtendedIssue({
+        id: 'no-thumbs',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const scored = scoreIssues([issueWithThumbsUp, issueNoReactions], {}, health, [])
+      const withThumbsUp = scored.find(i => i.id === 'thumbs-fallback')!
+      const without = scored.find(i => i.id === 'no-thumbs')!
+
+      expect(withThumbsUp.cvs).toBeGreaterThan(without.cvs)
+    })
+  })
+
+  describe('comment sentiment scoring', () => {
+    it('boosts CVS for positive community sentiment', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 70 })
+
+      const issue = makeExtendedIssue({
+        id: 'popular-issue',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const comments: IssueComments = {
+        'popular-issue': makeCommentThread([
+          makeComment({ body: '+1 need this', authorAssociation: 'NONE' }),
+          makeComment({ body: 'Same here, would love this', authorAssociation: 'NONE' }),
+          makeComment({ body: 'me too, please fix', authorAssociation: 'NONE' })
+        ])
+      }
+
+      const issueNeutral = makeExtendedIssue({
+        id: 'neutral-issue',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const scored = scoreIssues([issue, issueNeutral], comments, health, [])
+      const popular = scored.find(i => i.id === 'popular-issue')!
+      const neutral = scored.find(i => i.id === 'neutral-issue')!
+
+      expect(popular.cvs).toBeGreaterThan(neutral.cvs)
+    })
+
+    it('penalizes CVS for negative sentiment patterns', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 70 })
+
+      const issue = makeExtendedIssue({
+        id: 'negative-issue',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const comments: IssueComments = {
+        'negative-issue': makeCommentThread([
+          makeComment({ body: 'duplicate of #42', authorAssociation: 'MEMBER' }),
+          makeComment({ body: 'closing as stale', authorAssociation: 'MEMBER' })
+        ])
+      }
+
+      const issueNeutral = makeExtendedIssue({
+        id: 'neutral-issue',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const scored = scoreIssues([issue, issueNeutral], comments, health, [])
+      const negative = scored.find(i => i.id === 'negative-issue')!
+      const neutral = scored.find(i => i.id === 'neutral-issue')!
+
+      expect(negative.cvs).toBeLessThan(neutral.cvs)
+    })
+
+    it('caps comment sentiment at ±10', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 70 })
+
+      // Many positive comments — should cap at +10
+      const issue = makeExtendedIssue({
+        id: 'mega-sentiment',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const comments: IssueComments = {
+        'mega-sentiment': makeCommentThread([
+          makeComment({ body: '+1', authorAssociation: 'NONE' }),
+          makeComment({ body: 'me too', authorAssociation: 'NONE' }),
+          makeComment({ body: 'same here', authorAssociation: 'NONE' }),
+          makeComment({ body: 'bump', authorAssociation: 'NONE' }),
+          makeComment({ body: 'need this', authorAssociation: 'NONE' }),
+          makeComment({ body: 'yes please', authorAssociation: 'NONE' }),
+          makeComment({ body: 'agreed', authorAssociation: 'NONE' })
+        ])
+      }
+
+      const baseline = makeExtendedIssue({
+        id: 'baseline',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 0,
+        reactionGroups: []
+      })
+
+      const scored = scoreIssues([issue, baseline], comments, health, [])
+      const mega = scored.find(i => i.id === 'mega-sentiment')!
+      const base = scored.find(i => i.id === 'baseline')!
+
+      // Difference should be at most 10 (the cap)
+      expect(mega.cvs - base.cvs).toBeLessThanOrEqual(10)
+    })
+  })
+
+  describe('CVS tier thresholds', () => {
+    it('maps score >= 80 to go tier', () => {
+      const recent = new Date(Date.now() - 1 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 95 })
+      const issue = makeExtendedIssue({
+        id: 'go-issue',
+        createdAt: recent,
+        updatedAt: recent,
+        lastCommentAt: recent,
+        thumbsUpCount: 20,
+        commentCount: 3,
+        labels: ['good first issue'],
+        bodyPreview:
+          'Detailed issue with steps to reproduce. Expected behavior: X. Actual: Y.\n```code```',
+        milestone: 'v2.0',
+        assignees: [],
+        linkedPrUrls: [],
+        reactionGroups: [
+          { content: 'THUMBS_UP', totalCount: 10 },
+          { content: 'HEART', totalCount: 5 }
+        ]
+      })
+      const comments: IssueComments = {
+        'go-issue': makeCommentThread([
+          makeComment({ body: 'PR welcome! Happy to review.', authorAssociation: 'OWNER' }),
+          makeComment({ body: '+1 need this', authorAssociation: 'NONE' }),
+          makeComment({ body: 'me too, please fix', authorAssociation: 'NONE' })
+        ])
+      }
+
+      const scored = scoreIssues([issue], comments, health, [])
+      expect(scored[0].cvs).toBeGreaterThanOrEqual(80)
+      expect(scored[0].cvsTier).toBe('go')
     })
   })
 
