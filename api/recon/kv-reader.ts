@@ -17,6 +17,34 @@ import type {
   Dossier
 } from './types'
 
+export async function getScrapedSlugs(kv: KVNamespace): Promise<string[]> {
+  try {
+    const slugs = new Set<string>()
+    let cursor: string | undefined
+
+    do {
+      const result = await kv.list({
+        prefix: 'recon:',
+        ...(cursor ? { cursor } : {})
+      })
+
+      for (const key of result.keys) {
+        // Keys are recon:{slug}:{dataType} — extract the slug
+        const parts = key.name.split(':')
+        if (parts.length >= 3 && parts[1] !== 'watchlist') {
+          slugs.add(parts[1])
+        }
+      }
+
+      cursor = result.list_complete ? undefined : result.cursor
+    } while (cursor)
+
+    return [...slugs].sort()
+  } catch {
+    return []
+  }
+}
+
 export async function getReconIssues(
   kv: KVNamespace,
   slug: string

@@ -69,6 +69,7 @@ export {
 export { createReconRoutes } from './recon'
 
 export {
+  getScrapedSlugs,
   getReconIssues,
   getReconIssuesScrapedAt,
   getMergedPRs,

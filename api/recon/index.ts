@@ -15,6 +15,7 @@ import {
   ClaimRecordSchema
 } from './types'
 import {
+  getScrapedSlugs,
   getReconIssues,
   getRepoMeta,
   getMergedPRs,
@@ -680,7 +681,7 @@ export function createReconRoutes() {
       const { includeKilled } = c.req.valid('query')
       const showKilled = includeKilled === 'true'
 
-      const slugs = await getWatchlist(kv)
+      const slugs = await getScrapedSlugs(kv)
 
       // Score issues for all repos in parallel
       const results = await Promise.all(slugs.map(slug => computeScoredIssues(kv, slug)))

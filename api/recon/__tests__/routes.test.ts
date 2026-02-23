@@ -289,7 +289,7 @@ describe('GET /:slug/dossier', () => {
 })
 
 describe('GET /all-scored-issues', () => {
-  it('returns empty when watchlist is empty', async () => {
+  it('returns empty when no repos have data', async () => {
     const kv = createMockKV()
     const app = createTestApp(kv)
 
@@ -305,7 +305,6 @@ describe('GET /all-scored-issues', () => {
     const issue2 = makeExtendedIssue({ id: 'issue-2', title: 'Issue B' })
 
     const kv = createMockKV({
-      'recon:watchlist': ['repo-a', 'repo-b'],
       'recon:repo-a:issues': makeReconIssueData([issue1]),
       'recon:repo-b:issues': makeReconIssueData([issue2])
     })
@@ -320,9 +319,8 @@ describe('GET /all-scored-issues', () => {
   it('skips repos with no issue data', async () => {
     const issue = makeExtendedIssue()
     const kv = createMockKV({
-      'recon:watchlist': ['repo-a', 'repo-empty'],
-      'recon:repo-a:issues': makeReconIssueData([issue])
-      // repo-empty has no data
+      'recon:repo-a:issues': makeReconIssueData([issue]),
+      'recon:repo-empty:repo-meta': { owner: 'repo', repo: 'empty' }
     })
     const app = createTestApp(kv)
 
