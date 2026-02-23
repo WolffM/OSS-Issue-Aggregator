@@ -278,12 +278,12 @@ test.describe('UI Interactions', () => {
     await rows.first().click()
     await page.waitForTimeout(1000)
 
-    // Drawer should open
-    const drawer = page.locator('.drawer--open')
-    expect(await drawer.count()).toBe(1)
+    // Drawer should open (renders .drawer-backdrop > .drawer when isOpen)
+    const drawer = page.locator('.drawer-backdrop .drawer')
+    await expect(drawer).toBeVisible({ timeout: 3000 })
 
     // Drawer should contain issue detail content
-    const drawerText = await drawer.first().innerText()
+    const drawerText = await drawer.innerText()
     console.log('Drawer content (first 300 chars):', drawerText.slice(0, 300))
 
     // Should contain CVS score information
@@ -294,7 +294,7 @@ test.describe('UI Interactions', () => {
     // Close with Escape
     await page.keyboard.press('Escape')
     await page.waitForTimeout(500)
-    expect(await page.locator('.drawer--open').count()).toBe(0)
+    expect(await page.locator('.drawer-backdrop').count()).toBe(0)
 
     expect(log.apiErrors).toEqual([])
   })
@@ -346,38 +346,37 @@ test.describe('UI Interactions', () => {
     console.log('Initial issue count:', initialCount)
     expect(initialCount).toBeGreaterThan(0)
 
-    // Filter by tier: select "Go" tier only
-    const tierSelect = page.locator('.toolbar__filters select').first()
+    // Filter by tier
+    const tierSelect = page.locator('select.toolbar__filter-select').first()
     const tierOptions = await tierSelect.locator('option').allInnerTexts()
     console.log('Tier filter options:', tierOptions)
 
-    // Select a specific tier (e.g., "Go" if available)
-    if (tierOptions.includes('Go')) {
-      await tierSelect.selectOption('go')
-      await page.waitForTimeout(500)
-      const filteredCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
-      console.log(`After "Go" filter: ${filteredCount} issues`)
-      // Should be fewer or equal (unless all are "go")
-      expect(filteredCount).toBeLessThanOrEqual(initialCount)
-    }
+    // Select "Maybe" tier (most likely to have results based on our data)
+    await tierSelect.selectOption('maybe')
+    await page.waitForTimeout(500)
+    const filteredCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+    console.log(`After "Maybe" filter: ${filteredCount} issues`)
+    expect(filteredCount).toBeLessThanOrEqual(initialCount)
+    expect(filteredCount).toBeGreaterThan(0)
 
-    // Reset filter
+    // Reset filter back to "All Tiers"
     await tierSelect.selectOption('')
     await page.waitForTimeout(500)
+    const resetCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+    console.log(`After reset: ${resetCount} issues`)
+    expect(resetCount).toBe(initialCount)
 
-    // Test search
-    const searchInput = page.locator('.toolbar__search input')
-    if ((await searchInput.count()) > 0) {
-      await searchInput.fill('validation')
-      await page.waitForTimeout(500)
-      const searchCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
-      console.log(`After search "validation": ${searchCount} issues`)
-      // Search should narrow results (or return 0 if no match)
-      expect(searchCount).toBeLessThanOrEqual(initialCount)
+    // Test search (toolbar__search is the input element itself)
+    const searchInput = page.locator('input.toolbar__search')
+    expect(await searchInput.count()).toBe(1)
+    await searchInput.fill('validation')
+    await page.waitForTimeout(500)
+    const searchCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
+    console.log(`After search "validation": ${searchCount} issues`)
+    expect(searchCount).toBeLessThanOrEqual(initialCount)
 
-      await searchInput.fill('')
-      await page.waitForTimeout(500)
-    }
+    await searchInput.fill('')
+    await page.waitForTimeout(500)
 
     expect(log.apiErrors).toEqual([])
   })
@@ -425,36 +424,37 @@ test.describe('UI Interactions', () => {
     const linkCount = await repoLinks.count()
     console.log(`Repo links in table: ${linkCount}`)
 
-    if (linkCount > 0) {
-      const repoName = await repoLinks.first().innerText()
-      console.log(`Clicking repo link: "${repoName}"`)
-      await repoLinks.first().click()
-      await page.waitForTimeout(2000)
+    expect(linkCount).toBeGreaterThan(0)
 
-      // Dossier drawer should open
-      const drawer = page.locator('.drawer--open')
-      const drawerCount = await drawer.count()
-      console.log(`Dossier drawer opened: ${drawerCount > 0}`)
+    const repoName = await repoLinks.first().innerText()
+    console.log(`Clicking repo link: "${repoName}"`)
+    await repoLinks.first().click()
 
-      if (drawerCount > 0) {
-        const drawerText = await drawer.innerText()
-        console.log('Dossier drawer content (first 300 chars):', drawerText.slice(0, 300))
+    // Dossier drawer should open
+    const drawer = page.locator('.drawer-backdrop .drawer')
+    await expect(drawer).toBeVisible({ timeout: 5000 })
 
-        // Should contain dossier tab navigation
-        const tabs = drawer.locator('.dossier__tab, [class*="dossier__tab"]')
-        const tabCount = await tabs.count()
-        console.log(`Dossier tabs: ${tabCount}`)
+    // Wait for dossier content to load (tabs appear after fetch completes)
+    const tabs = drawer.locator('.dossier__tab')
+    await expect(tabs.first()).toBeVisible({ timeout: 10000 })
 
-        await page.screenshot({
-          path: 'e2e/screenshots/06-dossier-drawer.png',
-          fullPage: true
-        })
+    const tabCount = await tabs.count()
+    console.log(`Dossier tabs: ${tabCount}`)
+    expect(tabCount).toBeGreaterThan(0)
 
-        // Close drawer
-        await page.keyboard.press('Escape')
-        await page.waitForTimeout(500)
-      }
-    }
+    const drawerText = await drawer.innerText()
+    console.log('Dossier drawer content (first 300 chars):', drawerText.slice(0, 300))
+    expect(drawerText.length).toBeGreaterThan(100)
+
+    await page.screenshot({
+      path: 'e2e/screenshots/06-dossier-drawer.png',
+      fullPage: true
+    })
+
+    // Close drawer
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(500)
+    expect(await page.locator('.drawer-backdrop').count()).toBe(0)
 
     expect(log.apiErrors).toEqual([])
   })
