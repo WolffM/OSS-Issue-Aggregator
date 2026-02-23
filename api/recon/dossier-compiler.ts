@@ -11,7 +11,7 @@ import type { RepoMeta, RepoHealth, ScoredIssue, PRSample, Dossier } from './typ
 // Helpers
 // ============================================================================
 
-function truncate(text: string, maxLen: number): string {
+export function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text
   return text.slice(0, maxLen) + '...'
 }
@@ -22,7 +22,7 @@ function viabilityVerdict(score: number): string {
   return 'Not Viable'
 }
 
-function branchPrefixes(mergedPRs: PRSample[]): string[] {
+export function branchPrefixes(mergedPRs: PRSample[]): string[] {
   const prefixCounts = new Map<string, number>()
 
   for (const pr of mergedPRs) {

@@ -102,7 +102,8 @@ export { isMaintainer, isBot, daysBetween, daysSince, median, clamp } from './re
 
 // Recon intelligence (M3)
 export { detectQuirks } from './recon/quirks'
-export { compileDossier } from './recon/dossier-compiler'
+export { compileDossier, truncate, branchPrefixes } from './recon/dossier-compiler'
+export { formatIssueBrief } from './recon/issue-brief'
 
 // Recon types
 export type {

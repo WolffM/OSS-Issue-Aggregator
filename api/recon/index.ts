@@ -28,6 +28,7 @@ import { triggerScrape } from './triggers'
 import { scoreRepoHealth } from './health-scorer'
 import { scoreIssues } from './issue-scorer'
 import { compileDossier } from './dossier-compiler'
+import { formatIssueBrief } from './issue-brief'
 
 // ============================================================================
 // Types & Helpers
@@ -196,6 +197,17 @@ const UnclaimResponseSchema = z
   })
   .openapi('UnclaimResponse')
 
+const IssueBriefResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: z.object({
+      issue: ScoredIssueSchema,
+      repoHealth: RepoHealthSchema,
+      brief: z.string().openapi({ description: 'Markdown-formatted SWE agent execution context' })
+    })
+  })
+  .openapi('IssueBriefResponse')
+
 // ============================================================================
 // Request Schemas
 // ============================================================================
@@ -227,6 +239,17 @@ const slugParam = z.object({
   slug: z.string().openapi({
     param: { name: 'slug', in: 'path' },
     example: 'fastify-fastify'
+  })
+})
+
+const slugIssueIdParam = z.object({
+  slug: z.string().openapi({
+    param: { name: 'slug', in: 'path' },
+    example: 'fastify-fastify'
+  }),
+  issueId: z.string().openapi({
+    param: { name: 'issueId', in: 'path' },
+    example: 'github-fastify-fastify-5432'
   })
 })
 
@@ -523,6 +546,93 @@ export function createReconRoutes() {
       }
 
       return c.json({ success: true as const, data: dossier }, 200)
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
+  })
+
+  // --------------------------------------------------------------------------
+  // Issue Brief Route
+  // --------------------------------------------------------------------------
+
+  // GET /:slug/issue-brief/:issueId
+  const issueBriefRoute = createRoute({
+    method: 'get',
+    path: '/{slug}/issue-brief/{issueId}',
+    tags: ['Recon - Issues'],
+    summary: 'Get issue brief for SWE agent',
+    description:
+      'Returns a self-contained execution context for a SWE agent to work on a specific issue. Includes contribution rules, PR patterns, quirks, and environment setup — but not selection metrics like CVS scores.',
+    request: { params: slugIssueIdParam },
+    responses: {
+      200: {
+        description: 'Issue brief with execution context',
+        content: {
+          'application/json': {
+            schema: z.union([IssueBriefResponseSchema, PendingResponseSchema])
+          }
+        }
+      },
+      404: {
+        description: 'Issue not found',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
+    }
+  })
+
+  app.openapi(issueBriefRoute, async c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+
+    try {
+      const { slug, issueId } = c.req.valid('param')
+
+      // Fetch all raw data in one parallel batch
+      const [issues, comments, claims, meta, merged, rejected] = await Promise.all([
+        getReconIssues(kv, slug),
+        getComments(kv, slug),
+        getClaims(kv, slug),
+        getRepoMeta(kv, slug),
+        getMergedPRs(kv, slug),
+        getRejectedPRs(kv, slug)
+      ])
+
+      if (!meta) {
+        return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
+      }
+
+      if (!issues || issues.length === 0) {
+        return c.json({ success: false as const, error: 'No issues found for this repo' }, 404)
+      }
+
+      // Compute health and scored issues from raw data
+      const health = scoreRepoHealth(meta, merged ?? [], rejected ?? [])
+      const scored = scoreIssues(issues, comments ?? {}, health, claims ?? [])
+
+      // Find the specific issue
+      const issue = scored.find(i => i.id === issueId)
+      if (!issue) {
+        return c.json(
+          { success: false as const, error: `Issue '${issueId}' not found in ${slug}` },
+          404
+        )
+      }
+
+      const brief = formatIssueBrief(issue, health, meta, merged ?? [], rejected ?? [])
+
+      return c.json(
+        {
+          success: true as const,
+          data: { issue, repoHealth: health, brief }
+        },
+        200
+      )
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
