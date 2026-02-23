@@ -6,7 +6,7 @@
  */
 
 // Handler factory (main export for Cloudflare Workers)
-export { createOSSHandler, createOSSFetcher } from './handler'
+export { createOSSHandler } from './handler'
 
 // Data source abstraction (swap providers here)
 export { createDataProvider, LiveApiProvider } from './data-sources'
@@ -23,9 +23,6 @@ export { fetchTracIssues } from './adapters/trac'
 // Scoring system
 export { scoreIssue } from './scoring'
 export type { ScoringInput, ScoringResult } from './scoring'
-
-// Configuration
-export { PROJECTS, POOLS, getProjectsByPool, getProjectBySlug } from './config'
 
 // Types
 export type {
@@ -58,13 +55,8 @@ export {
   PlatformSchema,
   DifficultySchema,
   IssueSchema,
-  ProjectSummarySchema,
-  PoolSchema,
   ErrorResponseSchema,
   HealthResponseSchema,
-  ProjectsResponseSchema,
-  ProjectIssuesResponseSchema,
-  PoolIssuesResponseSchema,
   MarkStatusSchema,
   MarkedIssueSchema,
   MarkIssueRequestSchema,

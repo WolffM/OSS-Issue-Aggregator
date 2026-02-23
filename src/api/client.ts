@@ -1,7 +1,4 @@
 import type {
-  IssuesResponse,
-  ProjectsResponse,
-  ProjectIssuesResponse,
   WatchlistResponse,
   WatchlistAddResponse,
   WatchlistRemoveResponse,
@@ -55,20 +52,6 @@ class OssIssuesClient {
     }
 
     return response.json() as Promise<T>
-  }
-
-  // ---- Legacy endpoints ----
-
-  async getProjects(): Promise<ProjectsResponse> {
-    return this.fetch<ProjectsResponse>('/projects')
-  }
-
-  async getIssues(pool = 'all'): Promise<IssuesResponse> {
-    return this.fetch<IssuesResponse>(`/issues?pool=${encodeURIComponent(pool)}`)
-  }
-
-  async getProjectIssues(slug: string): Promise<ProjectIssuesResponse> {
-    return this.fetch<ProjectIssuesResponse>(`/issues/${encodeURIComponent(slug)}`)
   }
 
   async health(): Promise<{ status: string }> {

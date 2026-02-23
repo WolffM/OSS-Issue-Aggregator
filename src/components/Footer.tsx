@@ -18,7 +18,7 @@ export function Footer({ issueCount, projectCount, lastFetched, errorCount = 0 }
           <strong>{projectCount}</strong> projects
         </span>
         {errorCount > 0 && (
-          <span className="footer__stat" style={{ color: 'var(--color-warning, #92400e)' }}>
+          <span className="footer__stat" style={{ color: 'var(--color-warning)' }}>
             <strong>{errorCount}</strong> failed
           </span>
         )}

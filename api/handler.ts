@@ -7,23 +7,10 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
-import type {
-  OSSEnv,
-  Issue,
-  ProjectResult,
-  MarkedIssue,
-  MarkedIssuesData,
-  MarkStatus
-} from './types'
-import { PROJECTS, POOLS, getProjectsByPool, getProjectBySlug } from './config'
+import type { OSSEnv, MarkedIssue, MarkedIssuesData, MarkStatus } from './types'
 import { createReconRoutes } from './recon'
-import { byCreatedAtDesc } from './utils'
-import { createDataProvider } from './data-sources'
 import {
   HealthResponseSchema,
-  ProjectsResponseSchema,
-  ProjectIssuesResponseSchema,
-  PoolIssuesResponseSchema,
   ErrorResponseSchema,
   MarkIssueRequestSchema,
   MarkIssueResponseSchema,
@@ -102,7 +89,6 @@ function requireKV(env: OSSEnv) {
  */
 export function createOSSHandler(basePath = '/oss/api') {
   const app = new OpenAPIHono<HonoEnv>().basePath(basePath)
-  const dataProvider = createDataProvider()
 
   // CORS middleware
   app.use('*', cors())
@@ -134,163 +120,6 @@ export function createOSSHandler(basePath = '/oss/api') {
           status: 'healthy' as const,
           service: 'oss-issues-api' as const,
           timestamp: new Date().toISOString()
-        }
-      },
-      200
-    )
-  })
-
-  // List all projects
-  const projectsRoute = createRoute({
-    method: 'get',
-    path: '/projects',
-    tags: ['Projects'],
-    summary: 'List all projects',
-    description: 'Returns all available open source projects and pool categories',
-    responses: {
-      200: {
-        description: 'List of projects and pools',
-        content: { 'application/json': { schema: ProjectsResponseSchema } }
-      }
-    }
-  })
-
-  app.openapi(projectsRoute, c => {
-    const projects = PROJECTS.map(p => ({
-      slug: p.slug,
-      name: p.name,
-      platform: p.platform,
-      pools: p.pool,
-      contributingUrl: p.contributingUrl
-    }))
-    return c.json({ success: true as const, data: { projects, pools: POOLS } }, 200)
-  })
-
-  // Get issues for a specific project
-  const projectIssuesRoute = createRoute({
-    method: 'get',
-    path: '/issues/{slug}',
-    tags: ['Issues'],
-    summary: 'Get issues for a project',
-    description: 'Fetches beginner-friendly issues for a specific project',
-    request: {
-      params: z.object({
-        slug: z.string().openapi({ param: { name: 'slug', in: 'path' }, example: 'react' })
-      })
-    },
-    responses: {
-      200: {
-        description: 'List of issues for the project',
-        content: { 'application/json': { schema: ProjectIssuesResponseSchema } }
-      },
-      404: {
-        description: 'Project not found',
-        content: { 'application/json': { schema: ErrorResponseSchema } }
-      },
-      500: {
-        description: 'Server error',
-        content: { 'application/json': { schema: ErrorResponseSchema } }
-      }
-    }
-  })
-
-  app.openapi(projectIssuesRoute, async c => {
-    const { slug } = c.req.valid('param')
-    const config = getProjectBySlug(slug)
-
-    if (!config) {
-      return c.json({ success: false as const, error: `Project '${slug}' not found` }, 404)
-    }
-
-    try {
-      const issues = await dataProvider.fetchIssues(config, c.env)
-      return c.json({ success: true as const, data: { issues, project: config.name } }, 200)
-    } catch (err) {
-      return c.json(
-        { success: false as const, error: `Failed to fetch issues: ${getErrorMessage(err)}` },
-        500
-      )
-    }
-  })
-
-  // Get issues for a pool (or all)
-  const poolIssuesRoute = createRoute({
-    method: 'get',
-    path: '/issues',
-    tags: ['Issues'],
-    summary: 'Get issues by pool',
-    description:
-      'Fetches beginner-friendly issues for all projects in a pool (defaults to "all"). Optionally filter by difficulty level.',
-    request: {
-      query: z.object({
-        pool: z.string().optional().default('all').openapi({ example: 'web-dev' }),
-        difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional().openapi({
-          example: 'beginner',
-          description: 'Filter issues by difficulty level'
-        })
-      })
-    },
-    responses: {
-      200: {
-        description: 'Aggregated issues from all projects in the pool',
-        content: { 'application/json': { schema: PoolIssuesResponseSchema } }
-      },
-      404: {
-        description: 'Pool not found',
-        content: { 'application/json': { schema: ErrorResponseSchema } }
-      }
-    }
-  })
-
-  app.openapi(poolIssuesRoute, async c => {
-    const { pool, difficulty } = c.req.valid('query')
-    const projects = getProjectsByPool(pool)
-
-    if (projects.length === 0) {
-      return c.json({ success: false as const, error: `Pool '${pool}' not found` }, 404)
-    }
-
-    // Fetch all projects in parallel
-    const results = await Promise.all(
-      projects.map(async (config): Promise<ProjectResult> => {
-        try {
-          const issues = await dataProvider.fetchIssues(config, c.env)
-          return { project: config.slug, issues }
-        } catch (err) {
-          return { project: config.slug, issues: [], error: getErrorMessage(err) }
-        }
-      })
-    )
-
-    // Aggregate issues and errors
-    let allIssues: Issue[] = []
-    const errors: { project: string; error: string }[] = []
-
-    for (const result of results) {
-      if (result.error) {
-        errors.push({ project: result.project, error: result.error })
-      }
-      allIssues.push(...result.issues)
-    }
-
-    // Filter by difficulty if specified
-    if (difficulty) {
-      allIssues = allIssues.filter(issue => issue.difficulty === difficulty)
-    }
-
-    // Sort by createdAt descending (newest first)
-    allIssues.sort(byCreatedAtDesc)
-
-    return c.json(
-      {
-        success: true as const,
-        data: {
-          issues: allIssues,
-          pool,
-          projectCount: projects.length,
-          issueCount: allIssues.length,
-          ...(difficulty && { difficulty }),
-          ...(errors.length > 0 && { errors })
         }
       },
       200
@@ -506,40 +335,26 @@ export function createOSSHandler(basePath = '/oss/api') {
     openapi: '3.0.0',
     info: {
       title: 'OSS Issues Aggregator API',
-      version: '1.0.0',
+      version: '2.0.0',
       description: `
-Aggregates beginner-friendly issues from multiple open source projects.
+Aggregates and scores open source issues for contribution viability.
 
-## Supported Platforms
-- **GitHub** - PyTorch, React, Node.js, Hugging Face, Open Library
-- **GitLab** - VLC (VideoLAN)
-- **Gitea** - Blender
-- **Phabricator** - MediaWiki (Wikimedia)
-- **Bugzilla** - Linux Kernel
-- **Trac** - FFmpeg
+All project data is dynamically sourced from the recon pipeline via Cloudflare KV.
+Projects are managed through the watchlist — no hardcoded project lists.
 
-## Pools
-Issues are grouped into pools:
-- \`all\` - All projects
-- \`ml-ai\` - Machine Learning / AI projects
-- \`web-dev\` - Web Development projects
-- \`creative\` - Creative Tools (Blender)
-- \`media\` - Media / Video (VLC)
-- \`systems\` - Systems / Kernel (Linux)
+## Recon Pipeline
+- Add repos to watchlist → scraper populates KV → aggregator scores issues
+- GET \`/recon/all-scored-issues\` — all scored issues across all repos
+- GET \`/recon/{slug}/health\` — repo health analysis
+- GET \`/recon/{slug}/dossier\` — contribution intelligence dossier
 
-## Difficulty Classification
-Issues are scored using a heuristic system that analyzes:
-- Maintainer labels (good first issue, beginner, easy, etc.)
-- Keywords in title/description (typo, docs, refactor, security, etc.)
-- Complexity indicators (breaking change, RFC, performance, etc.)
+## Scoring
+Issues are scored using CVS (Contribution Viability Score, 0-100):
+- **Repo health** (30%) — maintainer activity, merge accessibility
+- **Issue quality** (50%) — freshness, activity, content quality, competition
+- **Timing** (20%) — lifecycle stage (fresh → triaged → accepted → stale → zombie)
 
-Filter by difficulty: \`/issues?difficulty=beginner\`
-
-## Usage
-1. GET \`/projects\` - List available projects and pools
-2. GET \`/issues?pool=web-dev\` - Get issues for a pool
-3. GET \`/issues?pool=all&difficulty=beginner\` - Filter by difficulty
-4. GET \`/issues/{slug}\` - Get issues for a specific project
+Tiers: go (85+), likely (70+), maybe (50+), risky (30+), skip (<30)
     `.trim()
     },
     servers: [
@@ -548,8 +363,6 @@ Filter by difficulty: \`/issues?difficulty=beginner\`
     ],
     tags: [
       { name: 'Health', description: 'Health check endpoint' },
-      { name: 'Projects', description: 'Project listing' },
-      { name: 'Issues', description: 'Issue fetching endpoints' },
       { name: 'Marking', description: 'Issue marking (ignored/process)' },
       { name: 'Recon - Watchlist', description: 'Watchlist management for recon pipeline' },
       { name: 'Recon - Issues', description: 'Per-repo issue and health data from recon pipeline' },
@@ -559,44 +372,4 @@ Filter by difficulty: \`/issues?difficulty=beginner\`
   })
 
   return app
-}
-
-/**
- * Creates a simple fetcher for programmatic access to issues.
- * Use this when you need to fetch issues without going through HTTP.
- *
- * @example
- * ```typescript
- * import { createOSSFetcher } from '@wolffm/oss-aggregator/api';
- *
- * const fetcher = createOSSFetcher(env);
- * const issues = await fetcher.fetchIssuesByPool('web-dev');
- * ```
- */
-export function createOSSFetcher(env: OSSEnv) {
-  const provider = createDataProvider()
-  return {
-    fetchIssuesForProject: (slug: string) => {
-      const config = getProjectBySlug(slug)
-      if (!config) throw new Error(`Project '${slug}' not found`)
-      return provider.fetchIssues(config, env)
-    },
-    fetchIssuesByPool: async (pool: string) => {
-      const projects = getProjectsByPool(pool)
-      const results = await Promise.all(
-        projects.map(async config => {
-          try {
-            return await provider.fetchIssues(config, env)
-          } catch {
-            return []
-          }
-        })
-      )
-      return results.flat()
-    },
-    getProjects: () => PROJECTS,
-    getPools: () => POOLS,
-    getProjectBySlug,
-    getProjectsByPool
-  }
 }

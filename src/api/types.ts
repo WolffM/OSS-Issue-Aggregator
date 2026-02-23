@@ -16,46 +16,6 @@ export interface Issue {
   author: string
 }
 
-export interface Project {
-  slug: string
-  name: string
-  platform: Platform
-  pools: string[]
-  contributingUrl: string
-}
-
-export interface Pool {
-  value: string
-  label: string
-}
-
-export interface IssuesResponse {
-  data: {
-    issues: Issue[]
-    pool: string
-    projectCount: number
-    issueCount: number
-    errors?: { project: string; error: string }[]
-  }
-  timestamp: string
-}
-
-export interface ProjectsResponse {
-  data: {
-    projects: Project[]
-    pools: Pool[]
-  }
-  timestamp: string
-}
-
-export interface ProjectIssuesResponse {
-  data: {
-    issues: Issue[]
-    project: string
-  }
-  timestamp: string
-}
-
 // ============================================================================
 // Recon Enums
 // ============================================================================
