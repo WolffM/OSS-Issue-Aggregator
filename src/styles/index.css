@@ -40,6 +40,15 @@
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
+  overflow-x: hidden;
+}
+
+/* Override theme picker dropdown to open left instead of right.
+   The library default opens right which overflows off-screen when
+   the picker is near the right viewport edge. */
+.oss-aggregator-container .theme-picker__dropdown {
+  left: auto;
+  right: calc(100% + var(--hdk-space-md, 12px));
 }
 
 .oss-aggregator {
