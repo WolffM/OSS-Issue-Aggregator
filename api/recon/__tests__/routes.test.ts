@@ -358,6 +358,75 @@ describe('POST /:slug/refresh', () => {
   })
 })
 
+describe('GET /:slug/issue-brief/:issueId', () => {
+  it('returns body field falling back to bodyPreview when body not in KV', async () => {
+    const issue = makeExtendedIssue({
+      id: 'github-fastify-fastify-100',
+      bodyPreview: 'This is the body preview text...'
+    })
+    const kv = createMockKV({
+      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
+      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.issue.body).toBe('This is the body preview text...')
+    expect(json.data.issue.bodyPreview).toBe('This is the body preview text...')
+  })
+
+  it('returns body field from KV when scraper provides it', async () => {
+    const issue = makeExtendedIssue({
+      id: 'github-fastify-fastify-100',
+      body: 'Full body text with all the details and code blocks etc.',
+      bodyPreview: 'Full body text with all the...'
+    })
+    const kv = createMockKV({
+      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
+      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.issue.body).toBe('Full body text with all the details and code blocks etc.')
+    expect(json.data.issue.bodyPreview).toBe('Full body text with all the...')
+  })
+
+  it('returns 404 for unknown issue ID', async () => {
+    const issue = makeExtendedIssue({ id: 'github-fastify-fastify-100' })
+    const kv = createMockKV({
+      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
+      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/nonexistent-id')
+    expect(res.status).toBe(404)
+  })
+
+  it('returns brief and repoHealth alongside issue', async () => {
+    const issue = makeExtendedIssue({ id: 'github-fastify-fastify-100' })
+    const kv = createMockKV({
+      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
+      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
+    const json = await res.json()
+
+    expect(json.data.brief).toContain('# Task:')
+    expect(json.data.repoHealth).toBeDefined()
+    expect(json.data.repoHealth.slug).toBe('fastify-fastify')
+  })
+})
+
 describe('POST /:slug/claim', () => {
   it('creates a claim record', async () => {
     const kv = createMockKV()

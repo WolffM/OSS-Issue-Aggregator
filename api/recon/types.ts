@@ -71,6 +71,7 @@ export const ReactionGroupSchema = z
 
 export interface ExtendedIssue extends Issue {
   authorAssociation: string
+  body?: string
   bodyPreview: string
   commentCount: number
   thumbsUpCount: number
@@ -85,6 +86,13 @@ export interface ExtendedIssue extends Issue {
 
 export const ExtendedIssueSchema = IssueSchema.extend({
   authorAssociation: z.string().openapi({ example: 'NONE' }),
+  body: z
+    .string()
+    .optional()
+    .openapi({
+      example: 'Full issue body text...',
+      description: 'Full issue body (if available from scraper)'
+    }),
   bodyPreview: z.string().openapi({ example: 'This issue tracks...' }),
   commentCount: z.number().openapi({ example: 5 }),
   thumbsUpCount: z.number().openapi({ example: 12 }),

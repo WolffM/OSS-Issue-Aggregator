@@ -625,6 +625,11 @@ export function createReconRoutes() {
         )
       }
 
+      // Ensure body is populated for issue-brief consumers (fallback to bodyPreview)
+      if (!issue.body) {
+        issue.body = issue.bodyPreview
+      }
+
       const brief = formatIssueBrief(issue, health, meta, merged ?? [], rejected ?? [])
 
       return c.json(
