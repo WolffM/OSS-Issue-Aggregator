@@ -72,7 +72,7 @@ export function formatIssueBrief(
     if (dev.lintCommand) {
       lines.push(`- **Lint:** \`${dev.lintCommand}\``)
     }
-    if (dev.knownIssues.length > 0) {
+    if (dev.knownIssues?.length > 0) {
       for (const ki of dev.knownIssues) {
         lines.push(`- **Known issue:** ${ki}`)
       }
@@ -97,8 +97,9 @@ export function formatIssueBrief(
     lines.push(issue.bodyPreview)
     lines.push('')
   }
-  if (issue.labels.length > 0) {
-    lines.push(`Labels: ${issue.labels.join(', ')}`)
+  const labels = issue.labels ?? []
+  if (labels.length > 0) {
+    lines.push(`Labels: ${labels.join(', ')}`)
     lines.push('')
   }
 
