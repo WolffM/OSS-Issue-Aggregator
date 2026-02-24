@@ -38,7 +38,7 @@ export function formatIssueBrief(
   lines.push('- DO NOT add Closes, Fixes, or Resolves directives to your PR or commits')
   lines.push('- Only work within this fork repository')
   lines.push('- Never commit `__pycache__` directories')
-  lines.push(`- Always target the \`${meta.defaultBranch}\` branch`)
+  lines.push(`- Always target the \`${meta.defaultBranch ?? 'main'}\` branch`)
   lines.push(`- Merge style: ${health.prPatterns.mergeStyle}`)
   lines.push(
     `- Commit convention: ${health.prPatterns.commitConvention ?? 'no convention detected'}`
@@ -105,7 +105,7 @@ export function formatIssueBrief(
   // Contribution Rules
   lines.push('## Contribution Rules (MUST FOLLOW)')
   lines.push('')
-  lines.push(`Default branch: \`${meta.defaultBranch}\``)
+  lines.push(`Default branch: \`${meta.defaultBranch ?? 'main'}\``)
   lines.push(`Merge style: ${health.prPatterns.mergeStyle}`)
   lines.push(`Commit convention: ${health.prPatterns.commitConvention ?? 'no convention detected'}`)
   lines.push('')
@@ -147,7 +147,7 @@ export function formatIssueBrief(
   lines.push('## What Gets PRs Rejected')
   lines.push('')
 
-  const reasons = health.prPatterns.topRejectionReasons
+  const reasons = health.prPatterns.topRejectionReasons ?? []
   if (reasons.length > 0) {
     for (const reason of reasons) {
       lines.push(`- ${reason}`)
@@ -175,7 +175,7 @@ export function formatIssueBrief(
     )
     if (wrongBranch.length > 0) {
       lines.push(
-        `- ${wrongBranch.length} rejected PR(s) targeted non-standard branches. Always target \`${meta.defaultBranch}\`.`
+        `- ${wrongBranch.length} rejected PR(s) targeted non-standard branches. Always target \`${meta.defaultBranch ?? 'main'}\`.`
       )
     }
   }
@@ -189,7 +189,7 @@ export function formatIssueBrief(
   lines.push('## Quirks & Blockers')
   lines.push('')
 
-  const actionableQuirks = health.detectedQuirks.filter(
+  const actionableQuirks = (health.detectedQuirks ?? []).filter(
     q => q.impact === 'blocker' || q.impact === 'important'
   )
   if (actionableQuirks.length > 0) {
@@ -200,12 +200,13 @@ export function formatIssueBrief(
     lines.push('')
   }
 
-  if (meta.externalTools.length > 0) {
-    lines.push(`External tools that will review your PR: ${meta.externalTools.join(', ')}`)
+  const externalTools = meta.externalTools ?? []
+  if (externalTools.length > 0) {
+    lines.push(`External tools that will review your PR: ${externalTools.join(', ')}`)
     lines.push('')
   }
 
-  if (actionableQuirks.length === 0 && meta.externalTools.length === 0) {
+  if (actionableQuirks.length === 0 && externalTools.length === 0) {
     lines.push('No blockers or quirks detected.')
     lines.push('')
   }
@@ -228,7 +229,7 @@ export function formatIssueBrief(
 
   if (meta.hasContributing) {
     lines.push(
-      `[View CONTRIBUTING.md](https://github.com/${meta.owner}/${meta.repo}/blob/${meta.defaultBranch}/CONTRIBUTING.md)`
+      `[View CONTRIBUTING.md](https://github.com/${meta.owner}/${meta.repo}/blob/${meta.defaultBranch ?? 'main'}/CONTRIBUTING.md)`
     )
   }
   lines.push('')
