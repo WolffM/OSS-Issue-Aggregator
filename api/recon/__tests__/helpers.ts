@@ -183,6 +183,7 @@ export function makeCommentThread(
 export function makeRepoHealth(overrides: Partial<RepoHealth> = {}): RepoHealth {
   return {
     slug: 'fastify-fastify',
+    defaultBranch: 'main',
     maintainerHealthScore: 70,
     mergeAccessibilityScore: 65,
     availabilityScore: 60,

@@ -75,6 +75,7 @@ export interface PRPatterns {
 
 export interface RepoHealth {
   slug: string
+  defaultBranch: string
   maintainerHealthScore: number
   mergeAccessibilityScore: number
   availabilityScore: number

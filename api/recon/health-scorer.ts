@@ -42,6 +42,7 @@ function killedHealth(
 ): RepoHealth {
   return {
     slug,
+    defaultBranch: meta.defaultBranch,
     maintainerHealthScore: 0,
     mergeAccessibilityScore: 0,
     availabilityScore: 0,
@@ -226,6 +227,7 @@ export function scoreRepoHealth(
 
   return {
     slug: meta.slug,
+    defaultBranch: meta.defaultBranch,
     maintainerHealthScore,
     mergeAccessibilityScore,
     availabilityScore,

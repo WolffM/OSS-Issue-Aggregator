@@ -367,6 +367,7 @@ export const PRPatternsSchema = z
 
 export interface RepoHealth {
   slug: string
+  defaultBranch: string
   maintainerHealthScore: number
   mergeAccessibilityScore: number
   availabilityScore: number
@@ -381,6 +382,7 @@ export interface RepoHealth {
 export const RepoHealthSchema = z
   .object({
     slug: z.string().openapi({ example: 'fastify-fastify' }),
+    defaultBranch: z.string().openapi({ example: 'main' }),
     maintainerHealthScore: z.number().openapi({ example: 85 }),
     mergeAccessibilityScore: z.number().openapi({ example: 72 }),
     availabilityScore: z.number().openapi({ example: 68 }),
