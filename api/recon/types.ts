@@ -86,13 +86,10 @@ export interface ExtendedIssue extends Issue {
 
 export const ExtendedIssueSchema = IssueSchema.extend({
   authorAssociation: z.string().openapi({ example: 'NONE' }),
-  body: z
-    .string()
-    .optional()
-    .openapi({
-      example: 'Full issue body text...',
-      description: 'Full issue body (if available from scraper)'
-    }),
+  body: z.string().optional().openapi({
+    example: 'Full issue body text...',
+    description: 'Full issue body (if available from scraper)'
+  }),
   bodyPreview: z.string().openapi({ example: 'This issue tracks...' }),
   commentCount: z.number().openapi({ example: 5 }),
   thumbsUpCount: z.number().openapi({ example: 12 }),
@@ -173,6 +170,16 @@ export const PRSampleSchema = z
 // RepoMeta (scraper → KV) — §4.3
 // ============================================================================
 
+export interface DevEnvironment {
+  packageManager: string | null
+  installCommand: string | null
+  testRunner: string | null
+  testCommand: string | null
+  buildCommand: string | null
+  lintCommand: string | null
+  knownIssues: string[]
+}
+
 export interface RepoMeta {
   owner: string
   repo: string
@@ -195,7 +202,20 @@ export interface RepoMeta {
   topics: string[]
   externalTools: string[]
   scrapedAt: string
+  devEnvironment?: DevEnvironment
 }
+
+export const DevEnvironmentSchema = z
+  .object({
+    packageManager: z.string().nullable().openapi({ example: 'npm' }),
+    installCommand: z.string().nullable().openapi({ example: "pip install -e '.[dev]'" }),
+    testRunner: z.string().nullable().openapi({ example: 'pytest' }),
+    testCommand: z.string().nullable().openapi({ example: 'python -m pytest tests/ -v' }),
+    buildCommand: z.string().nullable().openapi({ example: 'npm run build' }),
+    lintCommand: z.string().nullable().openapi({ example: 'npm run lint' }),
+    knownIssues: z.array(z.string()).openapi({ example: [] })
+  })
+  .openapi('DevEnvironment')
 
 export const RepoMetaSchema = z
   .object({
@@ -219,7 +239,8 @@ export const RepoMetaSchema = z
     lastPushedAt: z.string().openapi({ example: '2024-01-20T14:45:00Z' }),
     topics: z.array(z.string()).openapi({ example: ['nodejs', 'http'] }),
     externalTools: z.array(z.string()).openapi({ example: ['CodeRabbit', 'Codecov'] }),
-    scrapedAt: z.string().openapi({ example: '2024-01-20T14:45:00Z' })
+    scrapedAt: z.string().openapi({ example: '2024-01-20T14:45:00Z' }),
+    devEnvironment: DevEnvironmentSchema.optional()
   })
   .openapi('RepoMeta')
 
@@ -297,6 +318,12 @@ export const ClaimRecordSchema = z
 // ScoredIssue (aggregator → KV / API) — §4.5
 // ============================================================================
 
+export interface RelatedIssue {
+  id: string
+  similarity: number
+  reason: string
+}
+
 export interface ScoredIssue extends ExtendedIssue {
   cvs: number
   cvsTier: CVSTier
@@ -310,7 +337,17 @@ export interface ScoredIssue extends ExtendedIssue {
   repoSlug: string
   dataCompleteness: DataCompleteness
   repoKilled: boolean
+  likelyFiles: string[]
+  relatedIssues: RelatedIssue[]
 }
+
+export const RelatedIssueSchema = z
+  .object({
+    id: z.string().openapi({ example: 'github-fastify-fastify-101' }),
+    similarity: z.number().openapi({ example: 0.85, description: '0-1 similarity score' }),
+    reason: z.string().openapi({ example: 'Both modify request lifecycle hooks' })
+  })
+  .openapi('RelatedIssue')
 
 export const ScoredIssueSchema = ExtendedIssueSchema.extend({
   cvs: z.number().openapi({ example: 75, description: 'Contribution Viability Score 0-100' }),
@@ -324,7 +361,13 @@ export const ScoredIssueSchema = ExtendedIssueSchema.extend({
   competitionLevel: CompetitionLevelSchema,
   repoSlug: z.string().openapi({ example: 'fastify-fastify' }),
   dataCompleteness: DataCompletenessSchema,
-  repoKilled: z.boolean().openapi({ example: false })
+  repoKilled: z.boolean().openapi({ example: false }),
+  likelyFiles: z
+    .array(z.string())
+    .openapi({ example: ['src/hooks.ts'], description: 'Files likely affected by this issue' }),
+  relatedIssues: z
+    .array(RelatedIssueSchema)
+    .openapi({ description: 'Issues that likely overlap in affected code' })
 }).openapi('ScoredIssue')
 
 // ============================================================================

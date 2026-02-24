@@ -32,12 +32,28 @@ describe('formatIssueBrief', () => {
   it('produces markdown with all required sections', () => {
     const result = brief()
     expect(result).toContain('# Task:')
+    expect(result).toContain('## CRITICAL RULES (Read First)')
+    expect(result).toContain('## Environment Setup')
     expect(result).toContain('## Issue Details')
     expect(result).toContain('## Contribution Rules (MUST FOLLOW)')
     expect(result).toContain('## What Gets PRs Merged Here')
     expect(result).toContain('## What Gets PRs Rejected')
     expect(result).toContain('## Quirks & Blockers')
     expect(result).toContain('## Environment')
+  })
+
+  it('places CRITICAL RULES before Issue Details', () => {
+    const result = brief()
+    const rulesIdx = result.indexOf('## CRITICAL RULES (Read First)')
+    const detailsIdx = result.indexOf('## Issue Details')
+    expect(rulesIdx).toBeLessThan(detailsIdx)
+  })
+
+  it('places Environment Setup before Issue Details', () => {
+    const result = brief()
+    const setupIdx = result.indexOf('## Environment Setup')
+    const detailsIdx = result.indexOf('## Issue Details')
+    expect(setupIdx).toBeLessThan(detailsIdx)
   })
 
   // ---- Header ----
@@ -47,6 +63,89 @@ describe('formatIssueBrief', () => {
     expect(result).toContain('# Task: Add support for async hooks')
     expect(result).toContain('Issue: https://github.com/fastify/fastify/issues/100')
     expect(result).toContain('Repo: fastify/fastify | Complexity: low')
+  })
+
+  // ---- Critical Rules ----
+
+  it('includes critical rules about MCP tools and directives', () => {
+    const result = brief()
+    expect(result).toContain('DO NOT use GitHub MCP tools to look up issues on other repositories')
+    expect(result).toContain(
+      'DO NOT add Closes, Fixes, or Resolves directives to your PR or commits'
+    )
+    expect(result).toContain('Only work within this fork repository')
+    expect(result).toContain('Never commit `__pycache__` directories')
+  })
+
+  it('includes default branch in critical rules', () => {
+    const result = brief()
+    expect(result).toContain('Always target the `main` branch')
+  })
+
+  // ---- Environment Setup ----
+
+  it('includes language in environment setup', () => {
+    const result = brief()
+    expect(result).toContain('**Language:** TypeScript')
+  })
+
+  it('includes inferred environment hints for TypeScript', () => {
+    const result = brief({ meta: { language: 'TypeScript' } })
+    expect(result).toContain('`npm install`')
+    expect(result).toContain('`npm test`')
+  })
+
+  it('includes inferred environment hints for Python', () => {
+    const result = brief({ meta: { language: 'Python' } })
+    expect(result).toContain('pip install')
+    expect(result).toContain('pytest')
+  })
+
+  it('includes devEnvironment data when available', () => {
+    const result = brief({
+      meta: {
+        devEnvironment: {
+          packageManager: 'pip',
+          installCommand: "pip install -e '.[dev]'",
+          testRunner: 'pytest',
+          testCommand: 'python -m pytest tests/ -v',
+          buildCommand: null,
+          lintCommand: 'ruff check .',
+          knownIssues: ['PySocks==1.6.8 is incompatible with Python 3.12']
+        }
+      }
+    })
+    expect(result).toContain("**Install dependencies:** `pip install -e '.[dev]'`")
+    expect(result).toContain('**Test runner:** pytest')
+    expect(result).toContain('**Run tests:** `python -m pytest tests/ -v`')
+    expect(result).toContain('**Lint:** `ruff check .`')
+    expect(result).toContain('**Known issue:** PySocks==1.6.8 is incompatible with Python 3.12')
+  })
+
+  it('prefers devEnvironment over language inference', () => {
+    const result = brief({
+      meta: {
+        language: 'Python',
+        devEnvironment: {
+          packageManager: 'pip',
+          installCommand: 'pip install -r requirements.txt',
+          testRunner: null,
+          testCommand: null,
+          buildCommand: null,
+          lintCommand: null,
+          knownIssues: []
+        }
+      }
+    })
+    expect(result).toContain('`pip install -r requirements.txt`')
+    // Should NOT contain the inferred pytest hint since devEnvironment is provided
+    expect(result).not.toContain('likely pytest')
+  })
+
+  it('includes hygiene reminder in environment setup', () => {
+    const result = brief()
+    expect(result).toContain('`__pycache__/`')
+    expect(result).toContain('.gitignore')
   })
 
   // ---- Issue Details ----

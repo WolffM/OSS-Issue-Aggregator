@@ -5,6 +5,9 @@
  * needs to work on a specific issue. Only includes execution-relevant context
  * (contribution rules, PR patterns, quirks) — not selection context (CVS, tier, sentiment).
  *
+ * Section order is intentional: critical rules first (early in context window),
+ * then environment setup, then issue details, then patterns/quirks.
+ *
  * Pure function — takes data as params, returns markdown string.
  */
 
@@ -26,6 +29,65 @@ export function formatIssueBrief(
   lines.push('')
   lines.push(`Issue: ${issue.url}`)
   lines.push(`Repo: ${repo} | Complexity: ${issue.complexity}`)
+  lines.push('')
+
+  // Critical Rules — front-loaded so they appear early in the context window
+  lines.push('## CRITICAL RULES (Read First)')
+  lines.push('')
+  lines.push('- DO NOT use GitHub MCP tools to look up issues on other repositories')
+  lines.push('- DO NOT add Closes, Fixes, or Resolves directives to your PR or commits')
+  lines.push('- Only work within this fork repository')
+  lines.push('- Never commit `__pycache__` directories')
+  lines.push(`- Always target the \`${meta.defaultBranch}\` branch`)
+  lines.push(`- Merge style: ${health.prPatterns.mergeStyle}`)
+  lines.push(
+    `- Commit convention: ${health.prPatterns.commitConvention ?? 'no convention detected'}`
+  )
+  lines.push('')
+
+  // Environment Setup — generated from scraper devEnvironment data
+  lines.push('## Environment Setup')
+  lines.push('')
+
+  if (meta.language) {
+    lines.push(`**Language:** ${meta.language}`)
+  }
+
+  const dev = meta.devEnvironment
+  if (dev) {
+    if (dev.installCommand) {
+      lines.push(`- **Install dependencies:** \`${dev.installCommand}\``)
+    }
+    if (dev.testRunner || dev.testCommand) {
+      if (dev.testRunner) {
+        lines.push(`- **Test runner:** ${dev.testRunner}`)
+      }
+      if (dev.testCommand) {
+        lines.push(`- **Run tests:** \`${dev.testCommand}\``)
+      }
+    }
+    if (dev.buildCommand) {
+      lines.push(`- **Build:** \`${dev.buildCommand}\``)
+    }
+    if (dev.lintCommand) {
+      lines.push(`- **Lint:** \`${dev.lintCommand}\``)
+    }
+    if (dev.knownIssues.length > 0) {
+      for (const ki of dev.knownIssues) {
+        lines.push(`- **Known issue:** ${ki}`)
+      }
+    }
+  } else {
+    // Infer reasonable defaults from language when scraper hasn't provided devEnvironment
+    const inferred = inferEnvironmentHints(meta.language)
+    if (inferred.length > 0) {
+      for (const hint of inferred) {
+        lines.push(`- ${hint}`)
+      }
+    }
+  }
+
+  lines.push(`- **Hygiene:** Add \`__pycache__/\` to \`.gitignore\` before committing`)
   lines.push('')
 
   // Issue Details
@@ -172,4 +234,58 @@ export function formatIssueBrief(
   lines.push('')
 
   return lines.join('\n')
+}
+
+// ============================================================================
+// Environment Inference
+// ============================================================================
+
+/**
+ * When devEnvironment is not provided by the scraper, infer reasonable
+ * setup hints from the repo's primary language.
+ */
+function inferEnvironmentHints(language: string | null): string[] {
+  if (!language) return []
+
+  const hints: string[] = []
+  const lang = language.toLowerCase()
+
+  switch (lang) {
+    case 'python':
+      hints.push(
+        'Install dependencies: `pip install -e ".[dev]"` or `pip install -r requirements.txt`'
+      )
+      hints.push('Test runner: likely pytest — run `python -m pytest tests/ -v`')
+      break
+    case 'typescript':
+    case 'javascript':
+      hints.push(
+        'Install dependencies: `npm install` (or check for `yarn.lock` / `pnpm-lock.yaml`)'
+      )
+      hints.push('Run tests: `npm test`')
+      break
+    case 'rust':
+      hints.push('Build: `cargo build`')
+      hints.push('Run tests: `cargo test`')
+      break
+    case 'go':
+      hints.push('Run tests: `go test ./...`')
+      break
+    case 'java':
+    case 'kotlin':
+      hints.push('Build: check for `gradlew` or `mvnw` wrapper scripts')
+      hints.push('Run tests: `./gradlew test` or `./mvnw test`')
+      break
+    case 'ruby':
+      hints.push('Install dependencies: `bundle install`')
+      hints.push('Run tests: `bundle exec rspec` or `bundle exec rake test`')
+      break
+    case 'c#':
+    case 'f#':
+      hints.push('Build: `dotnet build`')
+      hints.push('Run tests: `dotnet test`')
+      break
+  }
+
+  return hints
 }

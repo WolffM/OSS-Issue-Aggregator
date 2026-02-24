@@ -13,6 +13,7 @@ import { createMockKV } from './helpers'
 import { scoreRepoHealth } from '../health-scorer'
 import { scoreIssues } from '../issue-scorer'
 import { compileDossier } from '../dossier-compiler'
+import { formatIssueBrief } from '../issue-brief'
 import type {
   RepoMeta,
   PRSample,
@@ -87,7 +88,7 @@ describe('Production Data: fastify/fastify', () => {
       expect(repoMeta.owner).toBe('fastify')
       expect(repoMeta.repo).toBe('fastify')
       expect(repoMeta.stars).toBeGreaterThan(30000)
-      expect(issues.length).toBe(75)
+      expect(issues.length).toBe(76)
       expect(mergedPRs.length).toBe(10)
       expect(rejectedPRs.length).toBe(8)
       expect(Object.keys(comments).length).toBe(20)
@@ -185,7 +186,7 @@ describe('Production Data: fastify/fastify', () => {
       health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
       scored = scoreIssues(issues, comments, health, [])
       expect(scored).toBeDefined()
-      expect(scored.length).toBe(75)
+      expect(scored.length).toBe(76)
     })
 
     it('every scored issue has required CVS fields', () => {
@@ -408,7 +409,7 @@ describe('Production Data: fastify/fastify', () => {
 
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body.data.issues.length).toBe(75)
+      expect(body.data.issues.length).toBe(76)
       expect(body.data.slug).toBe(SLUG)
 
       // Verify first issue (highest CVS) has expected structure
@@ -440,13 +441,213 @@ describe('Production Data: fastify/fastify', () => {
 
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body.data.issues.length).toBe(75)
-      expect(body.data.totalCount).toBe(75)
+      expect(body.data.issues.length).toBe(76)
+      expect(body.data.totalCount).toBe(76)
       expect(body.data.repoCount).toBe(1)
 
       // All issues should be from fastify-fastify
       for (const issue of body.data.issues) {
         expect(issue.repoSlug).toBe(SLUG)
+      }
+    })
+
+    it('GET /:slug/issue-brief/:issueId returns brief with new sections', async () => {
+      const app = createTestApp(buildKV())
+      // Use the first issue from the fixture
+      const firstIssueId = issues[0].id
+      const res = await app.request(`/${SLUG}/issue-brief/${firstIssueId}`)
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        success: boolean
+        data: { issue: ScoredIssue; repoHealth: RepoHealth; brief: string }
+      }
+      expect(body.success).toBe(true)
+      expect(body.data.brief).toBeTruthy()
+
+      const brief = body.data.brief
+
+      // Critical Rules section is present and before Issue Details
+      expect(brief).toContain('## CRITICAL RULES (Read First)')
+      const rulesIdx = brief.indexOf('## CRITICAL RULES (Read First)')
+      const detailsIdx = brief.indexOf('## Issue Details')
+      expect(rulesIdx).toBeLessThan(detailsIdx)
+
+      // Critical rules content
+      expect(brief).toContain('DO NOT use GitHub MCP tools')
+      expect(brief).toContain('DO NOT add Closes, Fixes, or Resolves')
+
+      // Environment Setup section is present and before Issue Details
+      expect(brief).toContain('## Environment Setup')
+      const setupIdx = brief.indexOf('## Environment Setup')
+      expect(setupIdx).toBeLessThan(detailsIdx)
+
+      // Since fastify is JavaScript and no devEnvironment, should have inferred hints
+      expect(brief).toContain('**Language:** JavaScript')
+      expect(brief).toContain('npm install')
+      expect(brief).toContain('npm test')
+
+      // Other existing sections still present
+      expect(brief).toContain('## Contribution Rules (MUST FOLLOW)')
+      expect(brief).toContain('## What Gets PRs Merged Here')
+      expect(brief).toContain('## Environment')
+    })
+  })
+
+  // --------------------------------------------------------------------------
+  // Related Issues & Likely Files
+  // --------------------------------------------------------------------------
+  describe('related issues and likely files', () => {
+    let health: RepoHealth
+    let scored: ScoredIssue[]
+
+    it('every scored issue has likelyFiles and relatedIssues arrays', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      for (const issue of scored) {
+        expect(Array.isArray(issue.likelyFiles)).toBe(true)
+        expect(Array.isArray(issue.relatedIssues)).toBe(true)
+      }
+    })
+
+    it('relatedIssues entries have valid structure', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      for (const issue of scored) {
+        for (const related of issue.relatedIssues) {
+          expect(typeof related.id).toBe('string')
+          expect(related.id).toMatch(/^github-fastify-fastify-\d+$/)
+          expect(typeof related.similarity).toBe('number')
+          expect(related.similarity).toBeGreaterThanOrEqual(0)
+          expect(related.similarity).toBeLessThanOrEqual(1)
+          expect(typeof related.reason).toBe('string')
+          expect(related.reason.length).toBeGreaterThan(0)
+        }
+      }
+    })
+
+    it('relatedIssues are capped at 5 per issue', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      for (const issue of scored) {
+        expect(issue.relatedIssues.length).toBeLessThanOrEqual(5)
+      }
+    })
+
+    it('relatedIssues are sorted by similarity descending', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      for (const issue of scored) {
+        for (let i = 1; i < issue.relatedIssues.length; i++) {
+          expect(issue.relatedIssues[i - 1].similarity).toBeGreaterThanOrEqual(
+            issue.relatedIssues[i].similarity
+          )
+        }
+      }
+    })
+
+    it('related issue detection runs without errors on all 76 issues', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      // Detection should complete without errors; whether any overlap is found
+      // depends on the specific issue content (file references, text similarity)
+      const withRelated = scored.filter(i => i.relatedIssues.length > 0)
+      const withFiles = scored.filter(i => i.likelyFiles.length > 0)
+
+      // With full body data, we expect meaningful file path extraction
+      expect(withFiles.length).toBeGreaterThanOrEqual(3)
+      expect(typeof withRelated.length).toBe('number')
+    })
+
+    it('relatedIssues do not reference themselves', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      for (const issue of scored) {
+        const selfRef = issue.relatedIssues.find(r => r.id === issue.id)
+        expect(selfRef).toBeUndefined()
+      }
+    })
+  })
+
+  // --------------------------------------------------------------------------
+  // Issue Brief with Production Data
+  // --------------------------------------------------------------------------
+  describe('issue brief formatting', () => {
+    let health: RepoHealth
+    let scored: ScoredIssue[]
+
+    it('generates brief for top-scored issue without errors', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+      const brief = formatIssueBrief(scored[0], health, repoMeta, mergedPRs, rejectedPRs)
+
+      expect(brief).toBeTruthy()
+      expect(typeof brief).toBe('string')
+      expect(brief.length).toBeGreaterThan(200)
+    })
+
+    it('brief has correct section ordering', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+      const brief = formatIssueBrief(scored[0], health, repoMeta, mergedPRs, rejectedPRs)
+
+      const sections = [
+        '# Task:',
+        '## CRITICAL RULES (Read First)',
+        '## Environment Setup',
+        '## Issue Details',
+        '## Contribution Rules (MUST FOLLOW)',
+        '## What Gets PRs Merged Here',
+        '## What Gets PRs Rejected',
+        '## Quirks & Blockers',
+        '\n## Environment\n'
+      ]
+
+      let lastIdx = -1
+      for (const section of sections) {
+        const idx = brief.indexOf(section)
+        expect(idx).toBeGreaterThan(lastIdx)
+        lastIdx = idx
+      }
+    })
+
+    it('brief includes real CONTRIBUTING.md content from fastify', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+      const brief = formatIssueBrief(scored[0], health, repoMeta, mergedPRs, rejectedPRs)
+
+      // Fastify has CONTRIBUTING.md content
+      expect(brief).toContain('### CONTRIBUTING.md')
+      expect(brief).toContain('Fastify')
+    })
+
+    it('brief infers JavaScript environment hints', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+      const brief = formatIssueBrief(scored[0], health, repoMeta, mergedPRs, rejectedPRs)
+
+      // Fastify is JavaScript, no devEnvironment — should infer npm hints
+      expect(brief).toContain('**Language:** JavaScript')
+      expect(brief).toContain('npm install')
+      expect(brief).toContain('npm test')
+    })
+
+    it('generates briefs for all 76 issues without errors', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      for (const issue of scored) {
+        const brief = formatIssueBrief(issue, health, repoMeta, mergedPRs, rejectedPRs)
+        expect(brief).toBeTruthy()
+        expect(brief).toContain(`# Task: ${issue.title}`)
+        expect(brief).toContain('## CRITICAL RULES (Read First)')
+        expect(brief).toContain('## Environment Setup')
       }
     })
   })

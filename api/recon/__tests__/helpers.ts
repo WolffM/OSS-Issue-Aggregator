@@ -220,6 +220,8 @@ export function makeScoredIssue(overrides: Partial<ScoredIssue> = {}): ScoredIss
     repoSlug: 'fastify-fastify',
     dataCompleteness: 'full',
     repoKilled: false,
+    likelyFiles: [],
+    relatedIssues: [],
     ...overrides
   }
 }

@@ -24,6 +24,7 @@ import { scoreIssue } from '../scoring'
 import { analyzeSentiment } from './sentiment'
 import { classifyLifecycle } from './lifecycle'
 import { isMaintainer, daysSince, clamp } from './utils'
+import { detectRelatedIssues } from './related-issues'
 
 // Default beginner labels for scoreIssue() — covers common OSS conventions
 const DEFAULT_BEGINNER_LABELS = ['good first issue', 'help wanted', 'beginner', 'easy', 'starter']
@@ -271,13 +272,18 @@ export function scoreIssues(
       competitionLevel: 'none' as CompetitionLevel,
       repoSlug: health.slug,
       dataCompleteness: 'full' as DataCompleteness,
-      repoKilled: true
+      repoKilled: true,
+      likelyFiles: [],
+      relatedIssues: []
     }))
   }
 
   const repoScore = health ? health.overallViability : 50
   const repoSlug = health?.slug ?? ''
   const dataBase: DataCompleteness = health ? 'full' : 'partial'
+
+  // Detect related issues and likely files across all issues
+  const relatedMap = detectRelatedIssues(issues)
 
   const scored = issues.map(issue => {
     const thread = comments[issue.id]
@@ -341,6 +347,8 @@ export function scoreIssues(
     const dataCompleteness: DataCompleteness =
       dataBase === 'partial' || !thread ? 'partial' : 'full'
 
+    const related = relatedMap.get(issue.id)
+
     return {
       ...issue,
       cvs,
@@ -354,7 +362,9 @@ export function scoreIssues(
       competitionLevel,
       repoSlug,
       dataCompleteness,
-      repoKilled: false
+      repoKilled: false,
+      likelyFiles: related?.likelyFiles ?? [],
+      relatedIssues: related?.relatedIssues ?? []
     } satisfies ScoredIssue
   })
 
