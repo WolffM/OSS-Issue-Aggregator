@@ -94,6 +94,10 @@ export {
 
 export { triggerScrape } from './recon/triggers'
 
+// Pre-computation pipeline
+export { computeAndStore, computeAndStoreAll, applyClaimOverlay } from './recon/precompute'
+export { putRepoHealth, putScoredIssues, putDossier } from './recon/kv-writer'
+
 // Recon analysis engine (M2)
 export { scoreRepoHealth, analyzePRPatterns } from './recon/health-scorer'
 export { scoreIssues } from './recon/issue-scorer'

@@ -21,7 +21,10 @@ import {
   getMergedPRs,
   getRejectedPRs,
   getComments,
-  getClaims
+  getClaims,
+  getRepoHealth,
+  getScoredIssues,
+  getDossier
 } from './kv-reader'
 import { getWatchlist, addToWatchlist, removeFromWatchlist } from './watchlist'
 import { addClaim, removeClaim } from './claims'
@@ -30,6 +33,7 @@ import { scoreRepoHealth } from './health-scorer'
 import { scoreIssues } from './issue-scorer'
 import { compileDossier } from './dossier-compiler'
 import { formatIssueBrief } from './issue-brief'
+import { computeAndStore, computeAndStoreAll, applyClaimOverlay } from './precompute'
 
 // ============================================================================
 // Types & Helpers
@@ -419,6 +423,14 @@ export function createReconRoutes() {
 
     try {
       const { slug } = c.req.valid('param')
+
+      // Try pre-computed first
+      const cached = await getRepoHealth(kv, slug)
+      if (cached) {
+        return c.json({ success: true as const, data: cached }, 200)
+      }
+
+      // Fallback: compute on-the-fly
       const health = await computeHealth(kv, slug)
 
       if (!health) {
@@ -496,6 +508,16 @@ export function createReconRoutes() {
 
     try {
       const { slug } = c.req.valid('param')
+
+      // Try pre-computed first
+      const cached = await getScoredIssues(kv, slug)
+      if (cached) {
+        const claims = await getClaims(kv, slug)
+        const withClaims = applyClaimOverlay(cached, claims ?? [])
+        return c.json({ success: true as const, data: { issues: withClaims, slug } }, 200)
+      }
+
+      // Fallback: compute on-the-fly
       const scored = await computeScoredIssues(kv, slug)
 
       return c.json({ success: true as const, data: { issues: scored, slug } }, 200)
@@ -540,6 +562,14 @@ export function createReconRoutes() {
 
     try {
       const { slug } = c.req.valid('param')
+
+      // Try pre-computed first
+      const cached = await getDossier(kv, slug)
+      if (cached) {
+        return c.json({ success: true as const, data: cached }, 200)
+      }
+
+      // Fallback: compute on-the-fly
       const dossier = await computeDossier(kv, slug)
 
       if (!dossier) {
@@ -594,27 +624,36 @@ export function createReconRoutes() {
     try {
       const { slug, issueId } = c.req.valid('param')
 
-      // Fetch all raw data in one parallel batch
-      const [issues, comments, claims, meta, merged, rejected] = await Promise.all([
-        getReconIssues(kv, slug),
-        getComments(kv, slug),
-        getClaims(kv, slug),
+      // Try pre-computed scored issues + health first (KV reads only, no CPU scoring)
+      const [cachedScored, cachedHealth, meta, merged, rejected, claims] = await Promise.all([
+        getScoredIssues(kv, slug),
+        getRepoHealth(kv, slug),
         getRepoMeta(kv, slug),
         getMergedPRs(kv, slug),
-        getRejectedPRs(kv, slug)
+        getRejectedPRs(kv, slug),
+        getClaims(kv, slug)
       ])
 
       if (!meta) {
         return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
 
-      if (!issues || issues.length === 0) {
-        return c.json({ success: false as const, error: 'No issues found for this repo' }, 404)
-      }
+      let health = cachedHealth
+      let scored = cachedScored
 
-      // Compute health and scored issues from raw data
-      const health = scoreRepoHealth(meta, merged ?? [], rejected ?? [])
-      const scored = scoreIssues(issues, comments ?? {}, health, claims ?? [])
+      if (scored && health) {
+        // Apply live claim overlay to pre-computed data
+        scored = applyClaimOverlay(scored, claims ?? [])
+      } else {
+        // Fallback: compute on-the-fly (may timeout for large repos)
+        const issues = await getReconIssues(kv, slug)
+        if (!issues || issues.length === 0) {
+          return c.json({ success: false as const, error: 'No issues found for this repo' }, 404)
+        }
+        const comments = await getComments(kv, slug)
+        health = scoreRepoHealth(meta, merged ?? [], rejected ?? [])
+        scored = scoreIssues(issues, comments ?? {}, health, claims ?? [])
+      }
 
       // Find the specific issue
       const issue = scored.find(i => i.id === issueId)
@@ -688,8 +727,18 @@ export function createReconRoutes() {
 
       const slugs = await getScrapedSlugs(kv)
 
-      // Score issues for all repos in parallel
-      const results = await Promise.all(slugs.map(slug => computeScoredIssues(kv, slug)))
+      // Read pre-computed scored issues from KV (no CPU scoring)
+      // Falls back to compute on-the-fly per slug if pre-computed data missing
+      const results = await Promise.all(
+        slugs.map(async slug => {
+          const cached = await getScoredIssues(kv, slug)
+          if (cached) {
+            const claims = await getClaims(kv, slug)
+            return applyClaimOverlay(cached, claims ?? [])
+          }
+          return computeScoredIssues(kv, slug)
+        })
+      )
 
       let allIssues = results.flat()
 
@@ -762,6 +811,108 @@ export function createReconRoutes() {
     }
 
     return c.json({ success: true as const, data: { status: 'triggered' as const } }, 200)
+  })
+
+  // --------------------------------------------------------------------------
+  // Pre-computation Routes
+  // --------------------------------------------------------------------------
+
+  // POST /:slug/compute
+  const computeRoute = createRoute({
+    method: 'post',
+    path: '/{slug}/compute',
+    tags: ['Recon - Triggers'],
+    summary: 'Pre-compute scored issues, health, and dossier',
+    description:
+      'Reads raw scraper data from KV, runs scoring + dossier compilation, and writes results back to KV. Designed to be called from environments without CPU limits (GitHub Actions, scraper post-hook).',
+    request: { params: slugParam },
+    responses: {
+      200: {
+        description: 'Computation results',
+        content: {
+          'application/json': {
+            schema: z.object({
+              success: z.literal(true),
+              data: z.object({
+                slug: z.string(),
+                healthComputed: z.boolean(),
+                scoredCount: z.number(),
+                dossierGenerated: z.boolean()
+              })
+            })
+          }
+        }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
+    }
+  })
+
+  app.openapi(computeRoute, async c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+
+    try {
+      const { slug } = c.req.valid('param')
+      const result = await computeAndStore(kv, slug)
+      return c.json({ success: true as const, data: result }, 200)
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
+  })
+
+  // POST /compute-all
+  const computeAllRoute = createRoute({
+    method: 'post',
+    path: '/compute-all',
+    tags: ['Recon - Triggers'],
+    summary: 'Pre-compute all repos',
+    description:
+      'Runs scoring + dossier compilation for every scraped repo and writes results to KV. Sequential to avoid KV write contention.',
+    responses: {
+      200: {
+        description: 'Computation results per repo',
+        content: {
+          'application/json': {
+            schema: z.object({
+              success: z.literal(true),
+              data: z.object({
+                results: z.array(
+                  z.object({
+                    slug: z.string(),
+                    healthComputed: z.boolean(),
+                    scoredCount: z.number(),
+                    dossierGenerated: z.boolean()
+                  })
+                )
+              })
+            })
+          }
+        }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
+    }
+  })
+
+  app.openapi(computeAllRoute, async c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+
+    try {
+      const result = await computeAndStoreAll(kv)
+      return c.json({ success: true as const, data: result }, 200)
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
   })
 
   // --------------------------------------------------------------------------
