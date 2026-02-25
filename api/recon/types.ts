@@ -295,6 +295,35 @@ export const IssueCommentsSchema = z
   .openapi('IssueComments')
 
 // ============================================================================
+// CommentDigest — structured context from comment threads
+// ============================================================================
+
+export interface CommentDigest {
+  participantCount: number
+  maintainerParticipantCount: number
+  lastMaintainerComment: string | null
+  discussedScope: boolean
+  discussedImplementation: boolean
+  referencedIssues: string[]
+  hasConsensus: boolean
+}
+
+export const CommentDigestSchema = z
+  .object({
+    participantCount: z.number().openapi({ example: 5 }),
+    maintainerParticipantCount: z.number().openapi({ example: 2 }),
+    lastMaintainerComment: z
+      .string()
+      .nullable()
+      .openapi({ example: 'Sounds good, lets go with approach B...' }),
+    discussedScope: z.boolean().openapi({ example: false }),
+    discussedImplementation: z.boolean().openapi({ example: true }),
+    referencedIssues: z.array(z.string()).openapi({ example: ['#42', '#108'] }),
+    hasConsensus: z.boolean().openapi({ example: true })
+  })
+  .openapi('CommentDigest')
+
+// ============================================================================
 // ClaimRecord — §4.8
 // ============================================================================
 
@@ -332,6 +361,8 @@ export interface ScoredIssue extends ExtendedIssue {
   claimAuthor: string | null
   complexity: Complexity
   sentimentScore: number
+  sentimentSignals: string[]
+  commentDigest: CommentDigest | null
   contentQualityScore: number
   competitionLevel: CompetitionLevel
   repoSlug: string
@@ -357,6 +388,13 @@ export const ScoredIssueSchema = ExtendedIssueSchema.extend({
   claimAuthor: z.string().nullable().openapi({ example: null }),
   complexity: ComplexitySchema,
   sentimentScore: z.number().openapi({ example: 0.5, description: '-1 to 1' }),
+  sentimentSignals: z.array(z.string()).openapi({
+    example: ['positive: \\bPR\\s+welcome'],
+    description: 'Matched sentiment signal patterns'
+  }),
+  commentDigest: CommentDigestSchema.nullable().openapi({
+    description: 'Structured digest of comment thread context'
+  }),
   contentQualityScore: z.number().openapi({ example: 70, description: '0-100' }),
   competitionLevel: CompetitionLevelSchema,
   repoSlug: z.string().openapi({ example: 'fastify-fastify' }),

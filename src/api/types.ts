@@ -31,6 +31,16 @@ export type DataCompleteness = 'full' | 'partial'
 // Recon Data Types
 // ============================================================================
 
+export interface CommentDigest {
+  participantCount: number
+  maintainerParticipantCount: number
+  lastMaintainerComment: string | null
+  discussedScope: boolean
+  discussedImplementation: boolean
+  referencedIssues: string[]
+  hasConsensus: boolean
+}
+
 export interface ScoredIssue extends Issue {
   authorAssociation: string
   bodyPreview: string
@@ -49,6 +59,8 @@ export interface ScoredIssue extends Issue {
   claimAuthor: string | null
   complexity: Complexity
   sentimentScore: number
+  sentimentSignals: string[]
+  commentDigest: CommentDigest | null
   contentQualityScore: number
   competitionLevel: CompetitionLevel
   repoSlug: string

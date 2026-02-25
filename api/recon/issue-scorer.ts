@@ -23,6 +23,7 @@ import type {
 import { scoreIssue } from '../scoring'
 import { analyzeSentiment } from './sentiment'
 import { classifyLifecycle } from './lifecycle'
+import { extractCommentDigest } from './comment-digest'
 import { isMaintainer, daysSince, clamp } from './utils'
 import { detectRelatedIssues } from './related-issues'
 
@@ -273,6 +274,9 @@ export function scoreIssues(
     // Sentiment
     const sentiment = thread ? analyzeSentiment(thread) : { score: 0, signals: [] }
 
+    // Comment digest
+    const commentDigest = thread ? extractCommentDigest(thread, sentiment.score) : null
+
     // Difficulty via existing scoring engine
     const diffResult = scoreIssue({
       title: issue.title,
@@ -314,7 +318,14 @@ export function scoreIssues(
     const timing = timingScore(lifecycleStage)
 
     // CVS composite: base weighted score + additive reaction & sentiment bonuses
-    const rawCvs = repoScore * 0.3 + issueScore * 0.5 + timing * 0.2 + reactions + commentSentiment
+    let rawCvs = repoScore * 0.3 + issueScore * 0.5 + timing * 0.2 + reactions + commentSentiment
+
+    // Post-hoc penalty: linked PRs are a near-disqualifier.
+    // If someone already has a PR open, contributing is very unlikely to succeed.
+    if (issue.linkedPrUrls.length > 0) {
+      rawCvs = Math.min(rawCvs, 35)
+    }
+
     const cvs = clamp(Math.round(rawCvs), 0, 100)
 
     // Claim & competition
@@ -337,6 +348,8 @@ export function scoreIssues(
       claimAuthor: claimResult.author,
       complexity,
       sentimentScore: Math.round(sentiment.score * 100) / 100,
+      sentimentSignals: sentiment.signals,
+      commentDigest,
       contentQualityScore: contentQuality.scaled,
       competitionLevel,
       repoSlug,

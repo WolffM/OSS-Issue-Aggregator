@@ -215,6 +215,8 @@ export function makeScoredIssue(overrides: Partial<ScoredIssue> = {}): ScoredIss
     claimAuthor: null,
     complexity: 'low',
     sentimentScore: 0,
+    sentimentSignals: [],
+    commentDigest: null,
     contentQualityScore: 40,
     competitionLevel: 'none',
     repoSlug: 'fastify-fastify',

@@ -266,11 +266,11 @@ describe('formatIssueBrief', () => {
     expect(result).toContain('## Description')
   })
 
-  it('truncates long CONTRIBUTING.md content', () => {
+  it('includes full CONTRIBUTING.md content without truncation', () => {
     const longContent = 'A'.repeat(600)
     const result = brief({ meta: { contributingContent: longContent } })
-    expect(result).not.toContain(longContent)
-    expect(result).toContain('*[Content truncated]*')
+    expect(result).toContain(longContent)
+    expect(result).not.toContain('*[Content truncated]*')
   })
 
   // ---- PR Patterns ----

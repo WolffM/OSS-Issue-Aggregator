@@ -658,6 +658,9 @@ describe('scoreIssues', () => {
       expect(result).toHaveProperty('claimAuthor')
       expect(result).toHaveProperty('complexity')
       expect(result).toHaveProperty('sentimentScore')
+      expect(result).toHaveProperty('sentimentSignals')
+      expect(Array.isArray(result.sentimentSignals)).toBe(true)
+      expect(result).toHaveProperty('commentDigest')
       expect(result).toHaveProperty('contentQualityScore')
       expect(result).toHaveProperty('competitionLevel')
       expect(result).toHaveProperty('repoSlug')
@@ -669,6 +672,119 @@ describe('scoreIssues', () => {
       const health = makeHealth()
       const scored = scoreIssues([], {}, health, [])
       expect(scored).toEqual([])
+    })
+  })
+
+  describe('sentiment signals', () => {
+    it('includes sentiment signals in scored output', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issue = makeExtendedIssue({
+        id: 'signals-test',
+        createdAt: recent,
+        updatedAt: recent
+      })
+      const comments: IssueComments = {
+        'signals-test': makeCommentThread([
+          makeComment({ body: 'PR welcome!', authorAssociation: 'MEMBER' })
+        ])
+      }
+
+      const scored = scoreIssues([issue], comments, health, [])
+      expect(scored[0].sentimentSignals.length).toBeGreaterThan(0)
+      expect(scored[0].sentimentSignals[0]).toContain('positive')
+    })
+
+    it('returns empty signals when no comments', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issue = makeExtendedIssue({ createdAt: recent, updatedAt: recent })
+
+      const scored = scoreIssues([issue], {}, health, [])
+      expect(scored[0].sentimentSignals).toEqual([])
+    })
+  })
+
+  describe('comment digest', () => {
+    it('populates commentDigest when comments exist', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issue = makeExtendedIssue({
+        id: 'digest-test',
+        createdAt: recent,
+        updatedAt: recent
+      })
+      const comments: IssueComments = {
+        'digest-test': makeCommentThread([
+          makeComment({ author: 'maint', authorAssociation: 'MEMBER', body: 'Good idea' }),
+          makeComment({ author: 'user1', authorAssociation: 'NONE', body: 'I agree' })
+        ])
+      }
+
+      const scored = scoreIssues([issue], comments, health, [])
+      expect(scored[0].commentDigest).not.toBeNull()
+      expect(scored[0].commentDigest!.participantCount).toBe(2)
+      expect(scored[0].commentDigest!.maintainerParticipantCount).toBe(1)
+    })
+
+    it('returns null commentDigest when no comments', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issue = makeExtendedIssue({ createdAt: recent, updatedAt: recent })
+
+      const scored = scoreIssues([issue], {}, health, [])
+      expect(scored[0].commentDigest).toBeNull()
+    })
+  })
+
+  describe('linked PR near-disqualifier', () => {
+    it('caps CVS at 35 when issue has linked PRs', () => {
+      const recent = new Date(Date.now() - 1 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 95 })
+
+      const issue = makeExtendedIssue({
+        id: 'linked-pr-issue',
+        createdAt: recent,
+        updatedAt: recent,
+        lastCommentAt: recent,
+        thumbsUpCount: 20,
+        commentCount: 3,
+        labels: ['good first issue'],
+        bodyPreview: 'Detailed issue with steps to reproduce. Expected behavior.\n```code```',
+        assignees: [],
+        linkedPrUrls: ['https://github.com/org/repo/pull/42'],
+        reactionGroups: [{ content: 'THUMBS_UP', totalCount: 10 }]
+      })
+      const comments: IssueComments = {
+        'linked-pr-issue': makeCommentThread([
+          makeComment({ body: 'PR welcome!', authorAssociation: 'OWNER' })
+        ])
+      }
+
+      const scored = scoreIssues([issue], comments, health, [])
+      expect(scored[0].cvs).toBeLessThanOrEqual(35)
+      expect(scored[0].cvsTier).not.toBe('go')
+      expect(scored[0].cvsTier).not.toBe('likely')
+      expect(scored[0].cvsTier).not.toBe('maybe')
+      expect(scored[0].competitionLevel).toBe('high')
+    })
+
+    it('does not penalize issues without linked PRs', () => {
+      const recent = new Date(Date.now() - 1 * 86_400_000).toISOString()
+      const health = makeHealth({ overallViability: 95 })
+
+      const issue = makeExtendedIssue({
+        id: 'no-pr-issue',
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 10,
+        labels: ['good first issue'],
+        assignees: [],
+        linkedPrUrls: []
+      })
+
+      const scored = scoreIssues([issue], {}, health, [])
+      expect(scored[0].cvs).toBeGreaterThan(35)
     })
   })
 })

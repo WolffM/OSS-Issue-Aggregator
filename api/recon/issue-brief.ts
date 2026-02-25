@@ -12,7 +12,7 @@
  */
 
 import type { ScoredIssue, RepoHealth, RepoMeta, PRSample } from './types'
-import { truncate, branchPrefixes } from './dossier-compiler'
+import { branchPrefixes } from './dossier-compiler'
 
 export function formatIssueBrief(
   issue: ScoredIssue,
@@ -135,14 +135,14 @@ export function formatIssueBrief(
   if (meta.contributingContent) {
     lines.push('### CONTRIBUTING.md')
     lines.push('')
-    lines.push(truncate(meta.contributingContent, 500))
+    lines.push(meta.contributingContent)
     lines.push('')
   }
 
   if (meta.prTemplateContent) {
     lines.push('### PR Template')
     lines.push('')
-    lines.push(truncate(meta.prTemplateContent, 300))
+    lines.push(meta.prTemplateContent)
     lines.push('')
   }
 
