@@ -1,6 +1,6 @@
 import type { Issue, ProjectConfig } from '../types'
-import { scoreIssue } from '../scoring'
 import { buildHeaders, deduplicateBy } from '../utils'
+import { normalizeToIssue } from './normalize'
 
 interface GitHubIssue {
   id: number
@@ -13,32 +13,6 @@ interface GitHubIssue {
   updated_at: string
   user: { login: string } | null
   pull_request?: unknown
-}
-
-function normalizeGitHubIssue(issue: GitHubIssue, config: ProjectConfig): Issue {
-  const labels = issue.labels.map(l => l.name)
-
-  const scoring = scoreIssue({
-    title: issue.title,
-    body: issue.body || undefined,
-    labels,
-    beginnerLabels: config.beginnerLabels
-  })
-
-  return {
-    id: `github-${config.slug}-${issue.number}`,
-    platform: 'github',
-    project: config.name,
-    title: issue.title,
-    url: issue.html_url,
-    difficulty: scoring.difficulty,
-    difficultyScore: scoring.score,
-    difficultySignals: scoring.signals,
-    labels,
-    createdAt: issue.created_at,
-    updatedAt: issue.updated_at,
-    author: issue.user?.login ?? 'unknown'
-  }
 }
 
 export async function fetchGitHubIssues(config: ProjectConfig, token?: string): Promise<Issue[]> {
@@ -71,5 +45,16 @@ export async function fetchGitHubIssues(config: ProjectConfig, token?: string): 
   // Filter out pull requests (GitHub returns PRs in issues endpoint)
   const issues = allIssues.filter(item => !item.pull_request)
 
-  return issues.map(issue => normalizeGitHubIssue(issue, config))
+  return issues.map(issue =>
+    normalizeToIssue('github', config, {
+      number: issue.number,
+      title: issue.title,
+      body: issue.body || undefined,
+      url: issue.html_url,
+      labels: issue.labels.map(l => l.name),
+      createdAt: issue.created_at,
+      updatedAt: issue.updated_at,
+      author: issue.user?.login ?? 'unknown'
+    })
+  )
 }

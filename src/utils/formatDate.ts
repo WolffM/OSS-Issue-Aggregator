@@ -33,21 +33,3 @@ export function formatRelativeTime(dateString: string): string {
   }
   return 'just now'
 }
-
-/**
- * Sort comparator for sorting by createdAt descending (newest first).
- */
-export function byCreatedAtDesc(a: { createdAt: string }, b: { createdAt: string }): number {
-  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-}
-
-/**
- * Format a date string into a short date (e.g., "Dec 15")
- */
-export function formatShortDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric'
-  })
-}

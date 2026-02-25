@@ -42,26 +42,6 @@ export const IssueSchema = z
   })
   .openapi('Issue')
 
-export const ProjectSummarySchema = z
-  .object({
-    slug: z.string().openapi({ example: 'react' }),
-    name: z.string().openapi({ example: 'React' }),
-    platform: PlatformSchema,
-    pools: z.array(z.string()).openapi({ example: ['web-dev', 'all'] }),
-    contributingUrl: z
-      .string()
-      .url()
-      .openapi({ example: 'https://reactjs.org/docs/how-to-contribute.html' })
-  })
-  .openapi('ProjectSummary')
-
-export const PoolSchema = z
-  .object({
-    value: z.string().openapi({ example: 'web-dev' }),
-    label: z.string().openapi({ example: 'Web Development' })
-  })
-  .openapi('Pool')
-
 // ============================================================================
 // Error Schema
 // ============================================================================
@@ -87,50 +67,6 @@ export const HealthResponseSchema = z
     })
   })
   .openapi('HealthResponse')
-
-// ============================================================================
-// Response Schemas
-// ============================================================================
-
-export const ProjectsResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      projects: z.array(ProjectSummarySchema),
-      pools: z.array(PoolSchema)
-    })
-  })
-  .openapi('ProjectsResponse')
-
-export const ProjectIssuesResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      issues: z.array(IssueSchema),
-      project: z.string()
-    })
-  })
-  .openapi('ProjectIssuesResponse')
-
-export const PoolIssuesResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      issues: z.array(IssueSchema),
-      pool: z.string(),
-      projectCount: z.number(),
-      issueCount: z.number(),
-      errors: z
-        .array(
-          z.object({
-            project: z.string(),
-            error: z.string()
-          })
-        )
-        .optional()
-    })
-  })
-  .openapi('PoolIssuesResponse')
 
 // ============================================================================
 // Issue Marking Schemas

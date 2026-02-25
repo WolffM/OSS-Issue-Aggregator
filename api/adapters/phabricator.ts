@@ -1,6 +1,6 @@
 import type { Issue, ProjectConfig } from '../types'
-import { scoreIssue } from '../scoring'
 import { buildHeaders, checkApiResponse, parseDate } from '../utils'
+import { normalizeToIssue } from './normalize'
 
 interface PhabricatorTask {
   id: number
@@ -29,32 +29,6 @@ interface PhabricatorResponse {
   error_info?: string
 }
 
-function normalizePhabricatorTask(task: PhabricatorTask, config: ProjectConfig): Issue {
-  const taskUrl = `https://phabricator.wikimedia.org/T${task.id}`
-
-  const scoring = scoreIssue({
-    title: task.fields.name,
-    body: task.fields.description?.raw || undefined,
-    labels: config.beginnerLabels, // Phabricator tasks are fetched by project tag
-    beginnerLabels: config.beginnerLabels
-  })
-
-  return {
-    id: `phabricator-${config.slug}-${task.id}`,
-    platform: 'phabricator',
-    project: config.name,
-    title: task.fields.name,
-    url: taskUrl,
-    difficulty: scoring.difficulty,
-    difficultyScore: scoring.score,
-    difficultySignals: scoring.signals,
-    labels: config.beginnerLabels,
-    createdAt: parseDate(task.fields.dateCreated),
-    updatedAt: parseDate(task.fields.dateModified),
-    author: task.fields.authorPHID
-  }
-}
-
 export async function fetchPhabricatorIssues(
   config: ProjectConfig,
   token: string
@@ -81,5 +55,16 @@ export async function fetchPhabricatorIssues(
     throw new Error(`Phabricator API error: ${data.error_code} - ${data.error_info}`)
   }
 
-  return data.result.data.map(task => normalizePhabricatorTask(task, config))
+  return data.result.data.map(task =>
+    normalizeToIssue('phabricator', config, {
+      number: task.id,
+      title: task.fields.name,
+      body: task.fields.description?.raw || undefined,
+      url: `https://phabricator.wikimedia.org/T${task.id}`,
+      labels: config.beginnerLabels, // Phabricator tasks are fetched by project tag
+      createdAt: parseDate(task.fields.dateCreated),
+      updatedAt: parseDate(task.fields.dateModified),
+      author: task.fields.authorPHID
+    })
+  )
 }

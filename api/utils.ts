@@ -6,10 +6,10 @@
 // HTTP Utilities
 // ============================================================================
 
-export const DEFAULT_USER_AGENT = 'oss-issue-aggregator'
+const DEFAULT_USER_AGENT = 'oss-issue-aggregator'
 
 // Some sites block simple user agents, use browser-like UA
-export const BROWSER_USER_AGENT =
+const BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 export function buildHeaders(options?: {
@@ -82,17 +82,6 @@ export function parseDate(value: string | number): string {
 
   // Return original if unparseable
   return value
-}
-
-// ============================================================================
-// Sort Utilities
-// ============================================================================
-
-/**
- * Sort comparator for sorting by createdAt descending (newest first).
- */
-export function byCreatedAtDesc(a: { createdAt: string }, b: { createdAt: string }): number {
-  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
 }
 
 // ============================================================================

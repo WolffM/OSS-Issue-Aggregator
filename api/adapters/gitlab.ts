@@ -1,6 +1,6 @@
 import type { Issue, ProjectConfig } from '../types'
-import { scoreIssue } from '../scoring'
 import { buildHeaders, checkApiResponse } from '../utils'
+import { normalizeToIssue } from './normalize'
 
 interface GitLabIssue {
   id: number
@@ -14,30 +14,6 @@ interface GitLabIssue {
   author: { username: string } | null
 }
 
-function normalizeGitLabIssue(issue: GitLabIssue, config: ProjectConfig): Issue {
-  const scoring = scoreIssue({
-    title: issue.title,
-    body: issue.description || undefined,
-    labels: issue.labels,
-    beginnerLabels: config.beginnerLabels
-  })
-
-  return {
-    id: `gitlab-${config.slug}-${issue.iid}`,
-    platform: 'gitlab',
-    project: config.name,
-    title: issue.title,
-    url: issue.web_url,
-    difficulty: scoring.difficulty,
-    difficultyScore: scoring.score,
-    difficultySignals: scoring.signals,
-    labels: issue.labels,
-    createdAt: issue.created_at,
-    updatedAt: issue.updated_at,
-    author: issue.author?.username ?? 'unknown'
-  }
-}
-
 export async function fetchGitLabIssues(config: ProjectConfig): Promise<Issue[]> {
   const projectId = encodeURIComponent(config.projectId)
   const labels = config.beginnerLabels.join(',')
@@ -48,5 +24,16 @@ export async function fetchGitLabIssues(config: ProjectConfig): Promise<Issue[]>
 
   const data: GitLabIssue[] = await res.json()
 
-  return data.map(issue => normalizeGitLabIssue(issue, config))
+  return data.map(issue =>
+    normalizeToIssue('gitlab', config, {
+      number: issue.iid,
+      title: issue.title,
+      body: issue.description || undefined,
+      url: issue.web_url,
+      labels: issue.labels,
+      createdAt: issue.created_at,
+      updatedAt: issue.updated_at,
+      author: issue.author?.username ?? 'unknown'
+    })
+  )
 }

@@ -17,6 +17,32 @@ import type {
   Dossier
 } from './types'
 
+// ============================================================================
+// Generic Helpers
+// ============================================================================
+
+async function readKV<T>(kv: KVNamespace, key: string): Promise<T | null> {
+  try {
+    const data = await kv.get<T>(key, 'json')
+    return data ?? null
+  } catch {
+    return null
+  }
+}
+
+function unwrapPRs(data: unknown, primaryKey: string): PRSample[] | null {
+  if (!data) return null
+  if (Array.isArray(data)) return data as PRSample[]
+  const obj = data as Record<string, unknown>
+  if (Array.isArray(obj[primaryKey])) return obj[primaryKey] as PRSample[]
+  if (Array.isArray(obj.prs)) return obj.prs as PRSample[]
+  return null
+}
+
+// ============================================================================
+// Public API
+// ============================================================================
+
 export async function getScrapedSlugs(kv: KVNamespace): Promise<string[]> {
   try {
     const slugs = new Set<string>()
@@ -49,37 +75,22 @@ export async function getReconIssues(
   kv: KVNamespace,
   slug: string
 ): Promise<ExtendedIssue[] | null> {
-  try {
-    const data = await kv.get<ReconIssueData>(`recon:${slug}:issues`, 'json')
-    if (!data) return null
-    return data.issues
-  } catch {
-    return null
-  }
+  const data = await readKV<ReconIssueData>(kv, `recon:${slug}:issues`)
+  return data?.issues ?? null
 }
 
 export async function getReconIssuesScrapedAt(
   kv: KVNamespace,
   slug: string
 ): Promise<string | null> {
-  try {
-    const data = await kv.get<ReconIssueData>(`recon:${slug}:issues`, 'json')
-    return data?.scrapedAt ?? null
-  } catch {
-    return null
-  }
+  const data = await readKV<ReconIssueData>(kv, `recon:${slug}:issues`)
+  return data?.scrapedAt ?? null
 }
 
 export async function getMergedPRs(kv: KVNamespace, slug: string): Promise<PRSample[] | null> {
   try {
     const data = await kv.get<unknown>(`recon:${slug}:merged-prs`, 'json')
-    if (!data) return null
-    // Scraper writes { merged: PRSample[], ... } wrapper — unwrap it
-    if (Array.isArray(data)) return data as PRSample[]
-    const obj = data as Record<string, unknown>
-    if (Array.isArray(obj.merged)) return obj.merged as PRSample[]
-    if (Array.isArray(obj.prs)) return obj.prs as PRSample[]
-    return null
+    return unwrapPRs(data, 'merged')
   } catch {
     return null
   }
@@ -88,13 +99,7 @@ export async function getMergedPRs(kv: KVNamespace, slug: string): Promise<PRSam
 export async function getRejectedPRs(kv: KVNamespace, slug: string): Promise<PRSample[] | null> {
   try {
     const data = await kv.get<unknown>(`recon:${slug}:rejected-prs`, 'json')
-    if (!data) return null
-    // Scraper writes { rejected: PRSample[], ... } wrapper — unwrap it
-    if (Array.isArray(data)) return data as PRSample[]
-    const obj = data as Record<string, unknown>
-    if (Array.isArray(obj.rejected)) return obj.rejected as PRSample[]
-    if (Array.isArray(obj.prs)) return obj.prs as PRSample[]
-    return null
+    return unwrapPRs(data, 'rejected')
   } catch {
     return null
   }
@@ -130,40 +135,20 @@ export async function getComments(kv: KVNamespace, slug: string): Promise<IssueC
 }
 
 export async function getRepoHealth(kv: KVNamespace, slug: string): Promise<RepoHealth | null> {
-  try {
-    const data = await kv.get<RepoHealth>(`recon:${slug}:health`, 'json')
-    return data ?? null
-  } catch {
-    return null
-  }
+  return readKV<RepoHealth>(kv, `recon:${slug}:health`)
 }
 
 export async function getScoredIssues(
   kv: KVNamespace,
   slug: string
 ): Promise<ScoredIssue[] | null> {
-  try {
-    const data = await kv.get<ScoredIssue[]>(`recon:${slug}:scored-issues`, 'json')
-    return data ?? null
-  } catch {
-    return null
-  }
+  return readKV<ScoredIssue[]>(kv, `recon:${slug}:scored-issues`)
 }
 
 export async function getClaims(kv: KVNamespace, slug: string): Promise<ClaimRecord[] | null> {
-  try {
-    const data = await kv.get<ClaimRecord[]>(`recon:${slug}:claims`, 'json')
-    return data ?? null
-  } catch {
-    return null
-  }
+  return readKV<ClaimRecord[]>(kv, `recon:${slug}:claims`)
 }
 
 export async function getDossier(kv: KVNamespace, slug: string): Promise<Dossier | null> {
-  try {
-    const data = await kv.get<Dossier>(`recon:${slug}:dossier`, 'json')
-    return data ?? null
-  } catch {
-    return null
-  }
+  return readKV<Dossier>(kv, `recon:${slug}:dossier`)
 }

@@ -1,6 +1,6 @@
 import type { Issue, ProjectConfig } from '../types'
-import { scoreIssue } from '../scoring'
 import { buildHeaders, checkApiResponse, validateJsonResponse } from '../utils'
+import { normalizeToIssue } from './normalize'
 
 interface BugzillaBug {
   id: number
@@ -20,34 +20,6 @@ interface BugzillaResponse {
   bugs: BugzillaBug[]
 }
 
-function normalizeBugzillaBug(bug: BugzillaBug, config: ProjectConfig): Issue {
-  // Combine keywords with component/product for labels
-  const labels = [...bug.keywords]
-  if (bug.component) labels.push(bug.component)
-  if (bug.severity && bug.severity !== 'normal') labels.push(bug.severity)
-
-  const scoring = scoreIssue({
-    title: bug.summary,
-    labels,
-    beginnerLabels: config.beginnerLabels
-  })
-
-  return {
-    id: `bugzilla-${config.slug}-${bug.id}`,
-    platform: 'bugzilla',
-    project: config.name,
-    title: bug.summary,
-    url: `${config.apiBase.replace('/rest', '')}/show_bug.cgi?id=${bug.id}`,
-    difficulty: scoring.difficulty,
-    difficultyScore: scoring.score,
-    difficultySignals: scoring.signals,
-    labels,
-    createdAt: bug.creation_time,
-    updatedAt: bug.last_change_time,
-    author: bug.creator
-  }
-}
-
 export async function fetchBugzillaIssues(config: ProjectConfig): Promise<Issue[]> {
   // Bugzilla REST API - fetch bugs with specific keywords
   const keywords = config.beginnerLabels.join(',')
@@ -61,5 +33,20 @@ export async function fetchBugzillaIssues(config: ProjectConfig): Promise<Issue[
 
   const data: BugzillaResponse = await res.json()
 
-  return data.bugs.map(bug => normalizeBugzillaBug(bug, config))
+  return data.bugs.map(bug => {
+    // Combine keywords with component/product for labels
+    const labels = [...bug.keywords]
+    if (bug.component) labels.push(bug.component)
+    if (bug.severity && bug.severity !== 'normal') labels.push(bug.severity)
+
+    return normalizeToIssue('bugzilla', config, {
+      number: bug.id,
+      title: bug.summary,
+      url: `${config.apiBase.replace('/rest', '')}/show_bug.cgi?id=${bug.id}`,
+      labels,
+      createdAt: bug.creation_time,
+      updatedAt: bug.last_change_time,
+      author: bug.creator
+    })
+  })
 }

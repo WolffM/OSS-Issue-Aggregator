@@ -1,5 +1,4 @@
 import type { Issue, ProjectConfig } from '../types'
-import { scoreIssue } from '../scoring'
 import {
   buildHeaders,
   checkApiResponse,
@@ -8,6 +7,7 @@ import {
   parseCSV,
   deduplicateBy
 } from '../utils'
+import { normalizeToIssue } from './normalize'
 
 interface TracTicket {
   id: string
@@ -20,42 +20,6 @@ interface TracTicket {
   Type: string
   Priority: string
   Component: string
-}
-
-function normalizeTracTicket(ticket: TracTicket, config: ProjectConfig): Issue {
-  // Build labels from keywords, type, priority, component
-  const labels: string[] = []
-  if (ticket.Keywords) {
-    labels.push(...ticket.Keywords.split(/[\s,]+/).filter(Boolean))
-  }
-  if (ticket.Type) labels.push(ticket.Type)
-  if (ticket.Priority && ticket.Priority !== 'normal') labels.push(ticket.Priority)
-  if (ticket.Component) labels.push(ticket.Component)
-
-  // Construct ticket URL from API base
-  const baseUrl = config.apiBase.replace('/query', '').replace(/\/$/, '')
-  const ticketUrl = `${baseUrl}/ticket/${ticket.id}`
-
-  const scoring = scoreIssue({
-    title: ticket.Summary,
-    labels,
-    beginnerLabels: config.beginnerLabels
-  })
-
-  return {
-    id: `trac-${config.slug}-${ticket.id}`,
-    platform: 'trac',
-    project: config.name,
-    title: ticket.Summary,
-    url: ticketUrl,
-    difficulty: scoring.difficulty,
-    difficultyScore: scoring.score,
-    difficultySignals: scoring.signals,
-    labels,
-    createdAt: parseDate(ticket.Created),
-    updatedAt: parseDate(ticket.Modified),
-    author: ticket.Reporter || 'unknown'
-  }
 }
 
 export async function fetchTracIssues(config: ProjectConfig): Promise<Issue[]> {
@@ -82,5 +46,27 @@ export async function fetchTracIssues(config: ProjectConfig): Promise<Issue[]> {
   // Deduplicate by ticket ID
   allTickets = deduplicateBy(allTickets, ticket => ticket.id)
 
-  return allTickets.map(ticket => normalizeTracTicket(ticket, config))
+  return allTickets.map(ticket => {
+    // Build labels from keywords, type, priority, component
+    const labels: string[] = []
+    if (ticket.Keywords) {
+      labels.push(...ticket.Keywords.split(/[\s,]+/).filter(Boolean))
+    }
+    if (ticket.Type) labels.push(ticket.Type)
+    if (ticket.Priority && ticket.Priority !== 'normal') labels.push(ticket.Priority)
+    if (ticket.Component) labels.push(ticket.Component)
+
+    // Construct ticket URL from API base
+    const baseUrl = config.apiBase.replace('/query', '').replace(/\/$/, '')
+
+    return normalizeToIssue('trac', config, {
+      number: ticket.id,
+      title: ticket.Summary,
+      url: `${baseUrl}/ticket/${ticket.id}`,
+      labels,
+      createdAt: parseDate(ticket.Created),
+      updatedAt: parseDate(ticket.Modified),
+      author: ticket.Reporter || 'unknown'
+    })
+  })
 }
