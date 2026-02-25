@@ -74,12 +74,65 @@ describe('formatIssueBrief', () => {
       'DO NOT add Closes, Fixes, or Resolves directives to your PR or commits'
     )
     expect(result).toContain('Only work within this fork repository')
-    expect(result).toContain('Never commit `__pycache__` directories')
+    // Default meta language is TypeScript — should show JS/TS artifacts
+    expect(result).toContain('Never commit')
+    expect(result).toContain('`node_modules/`')
+    expect(result).toContain('`.env`')
+  })
+
+  it('shows Python-specific commit blacklist for Python repos', () => {
+    const result = brief({ meta: { language: 'Python' } })
+    expect(result).toContain('`__pycache__/`')
+    expect(result).toContain('`.mypy_cache/`')
+    expect(result).toContain('`*.pyc`')
+  })
+
+  it('shows generic commit blacklist when language is null', () => {
+    const result = brief({ meta: { language: null } })
+    expect(result).toContain('Never commit `.env`, `*.log`')
+    expect(result).not.toContain('node_modules')
+    expect(result).not.toContain('__pycache__')
   })
 
   it('includes default branch in critical rules', () => {
     const result = brief()
     expect(result).toContain('Always target the `main` branch')
+  })
+
+  it('uses detected branch from branch-target quirk instead of defaultBranch', () => {
+    const result = brief({
+      health: {
+        detectedQuirks: [
+          {
+            type: 'branch-target',
+            description: 'PRs must target a specific branch (not default)',
+            impact: 'important',
+            evidence: "100% of merged PRs target 'master' instead of 'main'",
+            detectedBranch: 'master'
+          }
+        ]
+      }
+    })
+    expect(result).toContain('Always target the `master` branch')
+    expect(result).not.toContain('Always target the `main` branch')
+    expect(result).toContain('Default branch: `master`')
+  })
+
+  // ---- Low Viability Warning ----
+
+  it('shows low viability warning when overallViability < 25', () => {
+    const result = brief({
+      health: { overallViability: 15 }
+    })
+    expect(result).toContain('LOW VIABILITY WARNING')
+    expect(result).toContain('15/100')
+  })
+
+  it('does not show low viability warning when overallViability >= 25', () => {
+    const result = brief({
+      health: { overallViability: 65 }
+    })
+    expect(result).not.toContain('LOW VIABILITY WARNING')
   })
 
   // ---- Environment Setup ----
@@ -91,13 +144,13 @@ describe('formatIssueBrief', () => {
 
   it('includes inferred environment hints for TypeScript', () => {
     const result = brief({ meta: { language: 'TypeScript' } })
-    expect(result).toContain('`npm install`')
+    expect(result).toContain('Check for lock file to determine package manager')
     expect(result).toContain('`npm test`')
   })
 
   it('includes inferred environment hints for Python', () => {
     const result = brief({ meta: { language: 'Python' } })
-    expect(result).toContain('pip install')
+    expect(result).toContain('Check for setup instructions')
     expect(result).toContain('pytest')
   })
 
@@ -142,9 +195,17 @@ describe('formatIssueBrief', () => {
     expect(result).not.toContain('likely pytest')
   })
 
-  it('includes hygiene reminder in environment setup', () => {
+  it('includes language-specific hygiene reminder in environment setup', () => {
     const result = brief()
+    // Default meta is TypeScript — should show JS/TS gitignore entries
+    expect(result).toContain('`node_modules/`')
+    expect(result).toContain('.gitignore')
+  })
+
+  it('includes Python-specific hygiene entries for Python repos', () => {
+    const result = brief({ meta: { language: 'Python' } })
     expect(result).toContain('`__pycache__/`')
+    expect(result).toContain('`.mypy_cache/`')
     expect(result).toContain('.gitignore')
   })
 
@@ -209,7 +270,7 @@ describe('formatIssueBrief', () => {
     const longContent = 'A'.repeat(600)
     const result = brief({ meta: { contributingContent: longContent } })
     expect(result).not.toContain(longContent)
-    expect(result).toContain('...')
+    expect(result).toContain('*[Content truncated]*')
   })
 
   // ---- PR Patterns ----

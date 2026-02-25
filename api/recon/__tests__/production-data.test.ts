@@ -377,6 +377,11 @@ describe('Production Data: fastify/fastify', () => {
   // Full Pipeline via Route Handlers
   // --------------------------------------------------------------------------
   describe('full pipeline via routes', () => {
+    // Pre-compute data that routes now require from KV
+    const preHealth = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+    const preScored = scoreIssues(issues, comments, preHealth, [])
+    const preDossier = compileDossier(SLUG, repoMeta, preHealth, preScored, mergedPRs, rejectedPRs)
+
     function buildKV() {
       return createMockKV({
         'recon:watchlist': ['fastify-fastify'],
@@ -385,7 +390,10 @@ describe('Production Data: fastify/fastify', () => {
         'recon:fastify-fastify:rejected-prs': rejectedPRs,
         'recon:fastify-fastify:repo-meta': repoMeta,
         'recon:fastify-fastify:comments': comments,
-        'recon:fastify-fastify:claims': []
+        'recon:fastify-fastify:claims': [],
+        'recon:fastify-fastify:health': preHealth,
+        'recon:fastify-fastify:scored-issues': preScored,
+        'recon:fastify-fastify:dossier': preDossier
       })
     }
 
@@ -484,7 +492,7 @@ describe('Production Data: fastify/fastify', () => {
 
       // Since fastify is JavaScript and no devEnvironment, should have inferred hints
       expect(brief).toContain('**Language:** JavaScript')
-      expect(brief).toContain('npm install')
+      expect(brief).toContain('Check for lock file to determine package manager')
       expect(brief).toContain('npm test')
 
       // Other existing sections still present
@@ -632,9 +640,9 @@ describe('Production Data: fastify/fastify', () => {
       scored = scoreIssues(issues, comments, health, [])
       const brief = formatIssueBrief(scored[0], health, repoMeta, mergedPRs, rejectedPRs)
 
-      // Fastify is JavaScript, no devEnvironment — should infer npm hints
+      // Fastify is JavaScript, no devEnvironment — should infer hints
       expect(brief).toContain('**Language:** JavaScript')
-      expect(brief).toContain('npm install')
+      expect(brief).toContain('Check for lock file to determine package manager')
       expect(brief).toContain('npm test')
     })
 

@@ -3,36 +3,48 @@ import { scoreRepoHealth, analyzePRPatterns } from '../health-scorer'
 import { makePRSample, makeRepoMeta } from './helpers'
 
 describe('scoreRepoHealth', () => {
-  describe('kill signals', () => {
-    it('kills archived repos', () => {
+  describe('low-activity repos', () => {
+    it('gives near-zero scores for archived repos', () => {
       const meta = makeRepoMeta({ isArchived: true })
       const mergedPRs = [makePRSample()]
       const result = scoreRepoHealth(meta, mergedPRs, [])
 
-      expect(result.killed).toBe(true)
-      expect(result.killReason).toBe('Repository is archived')
-      expect(result.overallViability).toBe(0)
+      expect(result.killed).toBe(false)
+      expect(result.killReason).toBeNull()
       expect(result.maintainerHealthScore).toBe(0)
+      expect(result.mergeAccessibilityScore).toBe(0)
+      expect(result.availabilityScore).toBeLessThanOrEqual(5)
+      expect(result.overallViability).toBeLessThanOrEqual(2)
     })
 
-    it('kills repos with no merged PRs', () => {
+    it('gives low scores for repos with no merged PRs', () => {
       const meta = makeRepoMeta()
       const result = scoreRepoHealth(meta, [], [])
 
-      expect(result.killed).toBe(true)
-      expect(result.killReason).toBe('No merged PRs in last 90 days')
+      expect(result.killed).toBe(false)
+      expect(result.killReason).toBeNull()
+      expect(result.maintainerHealthScore).toBe(10)
+      expect(result.mergeAccessibilityScore).toBe(10)
+      expect(result.overallViability).toBeGreaterThan(0)
+      // Availability can be moderate (recent push, low PR/issue ratio), keeping overall below 35
+      expect(result.overallViability).toBeLessThanOrEqual(35)
     })
 
-    it('kills repos with no recent merged PRs (>90 days)', () => {
+    it('gives low scores for repos with no recent merged PRs (>90 days)', () => {
       const meta = makeRepoMeta()
       const oldPR = makePRSample({ mergedAt: '2023-01-01T00:00:00Z' })
       const result = scoreRepoHealth(meta, [oldPR], [])
 
-      expect(result.killed).toBe(true)
-      expect(result.killReason).toBe('No merged PRs in last 90 days')
+      expect(result.killed).toBe(false)
+      expect(result.killReason).toBeNull()
+      expect(result.maintainerHealthScore).toBe(15)
+      expect(result.mergeAccessibilityScore).toBe(15)
+      expect(result.overallViability).toBeGreaterThan(0)
+      // Availability can be moderate (recent push, low PR/issue ratio), keeping overall below 40
+      expect(result.overallViability).toBeLessThanOrEqual(40)
     })
 
-    it('kills repos with no external contributor merges in 90 days', () => {
+    it('penalizes repos with no external contributor merges in 90 days', () => {
       const meta = makeRepoMeta()
       const recentDate = new Date(Date.now() - 10 * 86_400_000).toISOString()
       const internalPR = makePRSample({
@@ -41,8 +53,11 @@ describe('scoreRepoHealth', () => {
       })
       const result = scoreRepoHealth(meta, [internalPR], [])
 
-      expect(result.killed).toBe(true)
-      expect(result.killReason).toBe('No external contributor PRs merged in last 90 days')
+      expect(result.killed).toBe(false)
+      expect(result.killReason).toBeNull()
+      // External rate < 0.1 gives -20 penalty in mergeAccessibility
+      expect(result.mergeAccessibilityScore).toBeLessThan(50)
+      expect(result.overallViability).toBeGreaterThan(0)
     })
   })
 
@@ -171,14 +186,14 @@ describe('scoreRepoHealth', () => {
       expect(result.detectedQuirks[0].impact).toBe('blocker')
     })
 
-    it('includes quirks even when killed', () => {
+    it('includes quirks for archived repos', () => {
       const meta = makeRepoMeta({
         isArchived: true,
         contributingContent: 'Must sign the CLA before contributing.'
       })
       const result = scoreRepoHealth(meta, [], [])
 
-      expect(result.killed).toBe(true)
+      expect(result.killed).toBe(false)
       expect(result.detectedQuirks.length).toBeGreaterThan(0)
       expect(result.detectedQuirks[0].type).toBe('cla-required')
     })

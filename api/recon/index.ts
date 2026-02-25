@@ -20,7 +20,6 @@ import {
   getRepoMeta,
   getMergedPRs,
   getRejectedPRs,
-  getComments,
   getClaims,
   getRepoHealth,
   getScoredIssues,
@@ -30,8 +29,6 @@ import { getWatchlist, addToWatchlist, removeFromWatchlist } from './watchlist'
 import { addClaim, removeClaim } from './claims'
 import { triggerScrape } from './triggers'
 import { scoreRepoHealth } from './health-scorer'
-import { scoreIssues } from './issue-scorer'
-import { compileDossier } from './dossier-compiler'
 import { formatIssueBrief } from './issue-brief'
 import { computeAndStore, computeAndStoreAll, applyClaimOverlay } from './precompute'
 
@@ -59,41 +56,6 @@ async function computeHealth(kv: KVNamespace, slug: string) {
   ])
   if (!meta) return null
   return scoreRepoHealth(meta, merged ?? [], rejected ?? [])
-}
-
-async function computeScoredIssues(kv: KVNamespace, slug: string) {
-  const [issues, comments, claims, meta, merged, rejected] = await Promise.all([
-    getReconIssues(kv, slug),
-    getComments(kv, slug),
-    getClaims(kv, slug),
-    getRepoMeta(kv, slug),
-    getMergedPRs(kv, slug),
-    getRejectedPRs(kv, slug)
-  ])
-
-  if (!issues || issues.length === 0) return []
-
-  const health = meta ? scoreRepoHealth(meta, merged ?? [], rejected ?? []) : null
-  return scoreIssues(issues, comments ?? {}, health, claims ?? [])
-}
-
-async function computeDossier(kv: KVNamespace, slug: string) {
-  const [meta, merged, rejected, issues, comments, claims] = await Promise.all([
-    getRepoMeta(kv, slug),
-    getMergedPRs(kv, slug),
-    getRejectedPRs(kv, slug),
-    getReconIssues(kv, slug),
-    getComments(kv, slug),
-    getClaims(kv, slug)
-  ])
-
-  if (!meta) return null
-
-  const health = scoreRepoHealth(meta, merged ?? [], rejected ?? [])
-  const scored =
-    issues && issues.length > 0 ? scoreIssues(issues, comments ?? {}, health, claims ?? []) : []
-
-  return compileDossier(slug, meta, health, scored, merged ?? [], rejected ?? [])
 }
 
 // ============================================================================
@@ -485,13 +447,16 @@ export function createReconRoutes() {
     path: '/{slug}/scored-issues',
     tags: ['Recon - Issues'],
     summary: 'Get scored issues',
-    description:
-      'Returns issues with CVS scores computed from repo health, lifecycle, sentiment, and content quality.',
+    description: 'Returns issues with CVS scores, or pending status if not yet computed.',
     request: { params: slugParam },
     responses: {
       200: {
-        description: 'Scored issues for the repo',
-        content: { 'application/json': { schema: ScoredIssuesResponseSchema } }
+        description: 'Scored issues or pending status',
+        content: {
+          'application/json': {
+            schema: z.union([ScoredIssuesResponseSchema, PendingResponseSchema])
+          }
+        }
       },
       500: {
         description: 'Server error',
@@ -509,18 +474,14 @@ export function createReconRoutes() {
     try {
       const { slug } = c.req.valid('param')
 
-      // Try pre-computed first
       const cached = await getScoredIssues(kv, slug)
-      if (cached) {
-        const claims = await getClaims(kv, slug)
-        const withClaims = applyClaimOverlay(cached, claims ?? [])
-        return c.json({ success: true as const, data: { issues: withClaims, slug } }, 200)
+      if (!cached) {
+        return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
 
-      // Fallback: compute on-the-fly
-      const scored = await computeScoredIssues(kv, slug)
-
-      return c.json({ success: true as const, data: { issues: scored, slug } }, 200)
+      const claims = await getClaims(kv, slug)
+      const withClaims = applyClaimOverlay(cached, claims ?? [])
+      return c.json({ success: true as const, data: { issues: withClaims, slug } }, 200)
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
@@ -563,20 +524,12 @@ export function createReconRoutes() {
     try {
       const { slug } = c.req.valid('param')
 
-      // Try pre-computed first
       const cached = await getDossier(kv, slug)
-      if (cached) {
-        return c.json({ success: true as const, data: cached }, 200)
-      }
-
-      // Fallback: compute on-the-fly
-      const dossier = await computeDossier(kv, slug)
-
-      if (!dossier) {
+      if (!cached) {
         return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
 
-      return c.json({ success: true as const, data: dossier }, 200)
+      return c.json({ success: true as const, data: cached }, 200)
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
@@ -624,7 +577,6 @@ export function createReconRoutes() {
     try {
       const { slug, issueId } = c.req.valid('param')
 
-      // Try pre-computed scored issues + health first (KV reads only, no CPU scoring)
       const [cachedScored, cachedHealth, meta, merged, rejected, claims] = await Promise.all([
         getScoredIssues(kv, slug),
         getRepoHealth(kv, slug),
@@ -634,26 +586,11 @@ export function createReconRoutes() {
         getClaims(kv, slug)
       ])
 
-      if (!meta) {
+      if (!cachedScored || !cachedHealth || !meta) {
         return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
 
-      let health = cachedHealth
-      let scored = cachedScored
-
-      if (scored && health) {
-        // Apply live claim overlay to pre-computed data
-        scored = applyClaimOverlay(scored, claims ?? [])
-      } else {
-        // Fallback: compute on-the-fly (may timeout for large repos)
-        const issues = await getReconIssues(kv, slug)
-        if (!issues || issues.length === 0) {
-          return c.json({ success: false as const, error: 'No issues found for this repo' }, 404)
-        }
-        const comments = await getComments(kv, slug)
-        health = scoreRepoHealth(meta, merged ?? [], rejected ?? [])
-        scored = scoreIssues(issues, comments ?? {}, health, claims ?? [])
-      }
+      const scored = applyClaimOverlay(cachedScored, claims ?? [])
 
       // Find the specific issue
       const issue = scored.find(i => i.id === issueId)
@@ -669,12 +606,12 @@ export function createReconRoutes() {
         issue.body = issue.bodyPreview
       }
 
-      const brief = formatIssueBrief(issue, health, meta, merged ?? [], rejected ?? [])
+      const brief = formatIssueBrief(issue, cachedHealth, meta, merged ?? [], rejected ?? [])
 
       return c.json(
         {
           success: true as const,
-          data: { issue, repoHealth: health, brief }
+          data: { issue, repoHealth: cachedHealth, brief }
         },
         200
       )
@@ -693,16 +630,7 @@ export function createReconRoutes() {
     path: '/all-scored-issues',
     tags: ['Recon - Issues'],
     summary: 'Get all scored issues',
-    description:
-      'Returns scored issues across all watchlist repos, sorted by CVS descending. Excludes killed repos by default.',
-    request: {
-      query: z.object({
-        includeKilled: z.string().optional().openapi({
-          example: 'false',
-          description: 'Include issues from killed repos (default: false)'
-        })
-      })
-    },
+    description: 'Returns scored issues across all watchlist repos, sorted by CVS descending.',
     responses: {
       200: {
         description: 'Aggregated scored issues',
@@ -722,30 +650,19 @@ export function createReconRoutes() {
     }
 
     try {
-      const { includeKilled } = c.req.valid('query')
-      const showKilled = includeKilled === 'true'
-
       const slugs = await getScrapedSlugs(kv)
 
-      // Read pre-computed scored issues from KV (no CPU scoring)
-      // Falls back to compute on-the-fly per slug if pre-computed data missing
+      // Read pre-computed scored issues from KV only — skip slugs without pre-computed data
       const results = await Promise.all(
         slugs.map(async slug => {
           const cached = await getScoredIssues(kv, slug)
-          if (cached) {
-            const claims = await getClaims(kv, slug)
-            return applyClaimOverlay(cached, claims ?? [])
-          }
-          return computeScoredIssues(kv, slug)
+          if (!cached) return []
+          const claims = await getClaims(kv, slug)
+          return applyClaimOverlay(cached, claims ?? [])
         })
       )
 
-      let allIssues = results.flat()
-
-      // Filter killed repos unless explicitly requested
-      if (!showKilled) {
-        allIssues = allIssues.filter(issue => !issue.repoKilled)
-      }
+      const allIssues = results.flat()
 
       // Sort by CVS descending
       allIssues.sort((a, b) => b.cvs - a.cvs)

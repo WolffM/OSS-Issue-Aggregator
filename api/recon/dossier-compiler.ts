@@ -13,7 +13,41 @@ import type { RepoMeta, RepoHealth, ScoredIssue, PRSample, Dossier } from './typ
 
 export function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text
-  return text.slice(0, maxLen) + '...'
+
+  // For short limits (e.g. table cell titles), just cut at word boundary + ellipsis
+  if (maxLen < 100) {
+    const slice = text.slice(0, maxLen)
+    const spaceIdx = slice.lastIndexOf(' ')
+    if (spaceIdx > maxLen * 0.5) {
+      return slice.slice(0, spaceIdx) + '...'
+    }
+    return slice + '...'
+  }
+
+  // For longer content, find clean break points
+  const slice = text.slice(0, maxLen)
+  const halfLimit = maxLen * 0.5
+
+  // Try paragraph break first
+  const paraIdx = slice.lastIndexOf('\n\n')
+  if (paraIdx >= halfLimit) {
+    return slice.slice(0, paraIdx) + '\n\n*[Content truncated]*'
+  }
+
+  // Try sentence boundary
+  const sentenceIdx = slice.lastIndexOf('. ')
+  if (sentenceIdx >= halfLimit) {
+    return slice.slice(0, sentenceIdx + 1) + '\n\n*[Content truncated]*'
+  }
+
+  // Fall back to word boundary
+  const spaceIdx = slice.lastIndexOf(' ')
+  if (spaceIdx >= halfLimit) {
+    return slice.slice(0, spaceIdx) + '\n\n*[Content truncated]*'
+  }
+
+  // Last resort: hard cut
+  return slice + '\n\n*[Content truncated]*'
 }
 
 function viabilityVerdict(score: number): string {
@@ -58,20 +92,15 @@ function generateOverview(meta: RepoMeta, health: RepoHealth): string {
   lines.push(details.join(' | '))
   lines.push('')
 
-  if (health.killed) {
-    lines.push(`> **Not Viable** — ${health.killReason}`)
-    lines.push('')
-  } else {
-    const verdict = viabilityVerdict(health.overallViability)
-    lines.push(`**Viability: ${verdict}** (score: ${health.overallViability}/100)`)
-    lines.push('')
-    lines.push('| Metric | Score |')
-    lines.push('|---|---|')
-    lines.push(`| Maintainer Health | ${health.maintainerHealthScore}/100 |`)
-    lines.push(`| Merge Accessibility | ${health.mergeAccessibilityScore}/100 |`)
-    lines.push(`| Availability | ${health.availabilityScore}/100 |`)
-    lines.push('')
-  }
+  const verdict = viabilityVerdict(health.overallViability)
+  lines.push(`**Viability: ${verdict}** (score: ${health.overallViability}/100)`)
+  lines.push('')
+  lines.push('| Metric | Score |')
+  lines.push('|---|---|')
+  lines.push(`| Maintainer Health | ${health.maintainerHealthScore}/100 |`)
+  lines.push(`| Merge Accessibility | ${health.mergeAccessibilityScore}/100 |`)
+  lines.push(`| Availability | ${health.availabilityScore}/100 |`)
+  lines.push('')
 
   if (health.detectedQuirks.length > 0) {
     for (const quirk of health.detectedQuirks) {

@@ -55,17 +55,19 @@ describe('compileDossier', () => {
       expect(result.sections.overview).toContain('Not Viable')
     })
 
-    it('shows kill reason for killed repos', () => {
+    it('shows low viability score with table for low-viability repos', () => {
       const meta = makeRepoMeta()
       const health = makeRepoHealth({
-        killed: true,
-        killReason: 'Repository is archived',
-        overallViability: 0
+        overallViability: 5,
+        maintainerHealthScore: 0,
+        mergeAccessibilityScore: 0,
+        availabilityScore: 5
       })
       const result = compileDossier('test', meta, health, [], [], [])
 
       expect(result.sections.overview).toContain('Not Viable')
-      expect(result.sections.overview).toContain('Repository is archived')
+      expect(result.sections.overview).toContain('5/100')
+      expect(result.sections.overview).toContain('Maintainer Health')
     })
 
     it('includes quirk warnings', () => {

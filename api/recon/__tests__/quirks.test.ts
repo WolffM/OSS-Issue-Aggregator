@@ -92,6 +92,7 @@ describe('detectQuirks', () => {
       const quirk = result.find(q => q.type === 'branch-target')
       expect(quirk).toBeDefined()
       expect(quirk!.impact).toBe('important')
+      expect(quirk!.detectedBranch).toBe('develop')
     })
 
     it('detects from merged PRs targeting non-default branch', () => {
@@ -106,6 +107,7 @@ describe('detectQuirks', () => {
       expect(quirk).toBeDefined()
       expect(quirk!.evidence).toContain('develop')
       expect(quirk!.evidence).toContain('67%')
+      expect(quirk!.detectedBranch).toBe('develop')
     })
 
     it('does not trigger when <30% target non-default', () => {

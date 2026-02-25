@@ -24,6 +24,13 @@ export function formatIssueBrief(
   const lines: string[] = []
   const repo = `${meta.owner}/${meta.repo}`
 
+  // Determine actual target branch: prefer detected quirk over default
+  const branchQuirk = (health.detectedQuirks ?? []).find(q => q.type === 'branch-target')
+  const targetBranch = branchQuirk?.detectedBranch ?? meta.defaultBranch ?? 'main'
+
+  // Language-specific build artifacts
+  const artifacts = getLanguageArtifacts(meta.language)
+
   // Header
   lines.push(`# Task: ${issue.title}`)
   lines.push('')
@@ -31,14 +38,25 @@ export function formatIssueBrief(
   lines.push(`Repo: ${repo} | Complexity: ${issue.complexity}`)
   lines.push('')
 
+  // Low viability warning
+  if (health.overallViability < 25) {
+    lines.push(
+      `> **LOW VIABILITY WARNING:** This repository has very low maintainer activity (viability score: ${health.overallViability}/100). Your PR may not be reviewed.`
+    )
+    lines.push('')
+  }
+
   // Critical Rules — front-loaded so they appear early in the context window
   lines.push('## CRITICAL RULES (Read First)')
   lines.push('')
   lines.push('- DO NOT use GitHub MCP tools to look up issues on other repositories')
   lines.push('- DO NOT add Closes, Fixes, or Resolves directives to your PR or commits')
   lines.push('- Only work within this fork repository')
-  lines.push('- Never commit `__pycache__` directories')
-  lines.push(`- Always target the \`${meta.defaultBranch ?? 'main'}\` branch`)
+  if (artifacts.commitBlacklist.length > 0) {
+    const formatted = artifacts.commitBlacklist.map((a: string) => `\`${a}\``).join(', ')
+    lines.push(`- Never commit ${formatted}`)
+  }
+  lines.push(`- Always target the \`${targetBranch}\` branch`)
   lines.push(`- Merge style: ${health.prPatterns.mergeStyle}`)
   lines.push(
     `- Commit convention: ${health.prPatterns.commitConvention ?? 'no convention detected'}`
@@ -87,7 +105,10 @@ export function formatIssueBrief(
     }
   }
 
-  lines.push(`- **Hygiene:** Add \`__pycache__/\` to \`.gitignore\` before committing`)
+  if (artifacts.gitignoreEntries.length > 0) {
+    const entries = artifacts.gitignoreEntries.map((e: string) => `\`${e}\``).join(', ')
+    lines.push(`- **Hygiene:** Ensure ${entries} are in \`.gitignore\` before committing`)
+  }
   lines.push('')
 
   // Issue Details
@@ -106,7 +127,7 @@ export function formatIssueBrief(
   // Contribution Rules
   lines.push('## Contribution Rules (MUST FOLLOW)')
   lines.push('')
-  lines.push(`Default branch: \`${meta.defaultBranch ?? 'main'}\``)
+  lines.push(`Default branch: \`${targetBranch}\``)
   lines.push(`Merge style: ${health.prPatterns.mergeStyle}`)
   lines.push(`Commit convention: ${health.prPatterns.commitConvention ?? 'no convention detected'}`)
   lines.push('')
@@ -176,7 +197,7 @@ export function formatIssueBrief(
     )
     if (wrongBranch.length > 0) {
       lines.push(
-        `- ${wrongBranch.length} rejected PR(s) targeted non-standard branches. Always target \`${meta.defaultBranch ?? 'main'}\`.`
+        `- ${wrongBranch.length} rejected PR(s) targeted non-standard branches. Always target \`${targetBranch}\`.`
       )
     }
   }
@@ -230,7 +251,7 @@ export function formatIssueBrief(
 
   if (meta.hasContributing) {
     lines.push(
-      `[View CONTRIBUTING.md](https://github.com/${meta.owner}/${meta.repo}/blob/${meta.defaultBranch ?? 'main'}/CONTRIBUTING.md)`
+      `[View CONTRIBUTING.md](https://github.com/${meta.owner}/${meta.repo}/blob/${targetBranch}/CONTRIBUTING.md)`
     )
   }
   lines.push('')
@@ -255,14 +276,14 @@ function inferEnvironmentHints(language: string | null): string[] {
   switch (lang) {
     case 'python':
       hints.push(
-        'Install dependencies: `pip install -e ".[dev]"` or `pip install -r requirements.txt`'
+        'Check for setup instructions: look for `requirements.txt`, `pyproject.toml`, or `setup.py`'
       )
       hints.push('Test runner: likely pytest — run `python -m pytest tests/ -v`')
       break
     case 'typescript':
     case 'javascript':
       hints.push(
-        'Install dependencies: `npm install` (or check for `yarn.lock` / `pnpm-lock.yaml`)'
+        'Check for lock file to determine package manager: `package-lock.json` (npm), `yarn.lock` (yarn), or `pnpm-lock.yaml` (pnpm)'
       )
       hints.push('Run tests: `npm test`')
       break
@@ -290,4 +311,64 @@ function inferEnvironmentHints(language: string | null): string[] {
   }
 
   return hints
+}
+
+// ============================================================================
+// Language Artifacts
+// ============================================================================
+
+interface LanguageArtifacts {
+  commitBlacklist: string[]
+  gitignoreEntries: string[]
+}
+
+function getLanguageArtifacts(language: string | null): LanguageArtifacts {
+  const common: LanguageArtifacts = {
+    commitBlacklist: ['.env', '*.log'],
+    gitignoreEntries: ['.env']
+  }
+
+  if (!language) return common
+
+  const lang = language.toLowerCase()
+
+  switch (lang) {
+    case 'python':
+      return {
+        commitBlacklist: [...common.commitBlacklist, '__pycache__/', '.mypy_cache/', '*.pyc'],
+        gitignoreEntries: ['__pycache__/', '.mypy_cache/', '*.pyc', ...common.gitignoreEntries]
+      }
+    case 'typescript':
+    case 'javascript':
+      return {
+        commitBlacklist: [...common.commitBlacklist, 'node_modules/', 'dist/', '.next/'],
+        gitignoreEntries: ['node_modules/', 'dist/', ...common.gitignoreEntries]
+      }
+    case 'java':
+    case 'kotlin':
+      return {
+        commitBlacklist: [...common.commitBlacklist, 'target/', '*.class'],
+        gitignoreEntries: ['target/', '*.class', ...common.gitignoreEntries]
+      }
+    case 'go':
+      return common
+    case 'rust':
+      return {
+        commitBlacklist: [...common.commitBlacklist, 'target/'],
+        gitignoreEntries: ['target/', ...common.gitignoreEntries]
+      }
+    case 'ruby':
+      return {
+        commitBlacklist: [...common.commitBlacklist, 'vendor/bundle/'],
+        gitignoreEntries: ['vendor/bundle/', ...common.gitignoreEntries]
+      }
+    case 'c#':
+    case 'f#':
+      return {
+        commitBlacklist: [...common.commitBlacklist, 'bin/', 'obj/'],
+        gitignoreEntries: ['bin/', 'obj/', ...common.gitignoreEntries]
+      }
+    default:
+      return common
+  }
 }

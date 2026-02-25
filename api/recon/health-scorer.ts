@@ -2,7 +2,7 @@
  * Repo Health Scoring Engine
  *
  * Computes maintainer health, merge accessibility, and availability scores.
- * Detects kill signals (archived, no merges, no external merges).
+ * Low-activity repos get low-but-nonzero scores instead of being "killed".
  * Pure function — takes data, returns RepoHealth.
  */
 
@@ -14,48 +14,7 @@ function isExternalPR(pr: PRSample): boolean {
   return !isMaintainer(pr.authorAssociation)
 }
 
-function hasMergedInLast90Days(prs: PRSample[]): boolean {
-  return prs.some(pr => pr.mergedAt && daysSince(pr.mergedAt) <= 90)
-}
-
-function hasExternalMergedInLast90Days(prs: PRSample[]): boolean {
-  return prs.some(pr => pr.mergedAt && isExternalPR(pr) && daysSince(pr.mergedAt) <= 90)
-}
-
-function detectKillSignal(meta: RepoMeta, mergedPRs: PRSample[]): string | null {
-  if (meta.isArchived) return 'Repository is archived'
-  if (mergedPRs.length === 0 || !hasMergedInLast90Days(mergedPRs)) {
-    return 'No merged PRs in last 90 days'
-  }
-  if (!hasExternalMergedInLast90Days(mergedPRs)) {
-    return 'No external contributor PRs merged in last 90 days'
-  }
-  return null
-}
-
-function killedHealth(
-  slug: string,
-  killReason: string,
-  meta: RepoMeta,
-  mergedPRs: PRSample[],
-  rejectedPRs: PRSample[]
-): RepoHealth {
-  return {
-    slug,
-    defaultBranch: meta.defaultBranch,
-    maintainerHealthScore: 0,
-    mergeAccessibilityScore: 0,
-    availabilityScore: 0,
-    overallViability: 0,
-    killed: true,
-    killReason,
-    detectedQuirks: detectQuirks(meta, mergedPRs, rejectedPRs),
-    prPatterns: emptyPRPatterns(),
-    analyzedAt: new Date().toISOString()
-  }
-}
-
-function emptyPRPatterns(): PRPatterns {
+function zeroPRPatterns(): PRPatterns {
   return {
     medianFilesChanged: 0,
     medianAdditions: 0,
@@ -214,11 +173,59 @@ export function scoreRepoHealth(
   mergedPRs: PRSample[],
   rejectedPRs: PRSample[]
 ): RepoHealth {
-  const killReason = detectKillSignal(meta, mergedPRs)
-  if (killReason) return killedHealth(meta.slug, killReason, meta, mergedPRs, rejectedPRs)
+  const detectedQuirks = detectQuirks(meta, mergedPRs, rejectedPRs)
 
-  const maintainerHealthScore = scoreMaintainerHealth(mergedPRs)
-  const mergeAccessibilityScore = scoreMergeAccessibility(mergedPRs, rejectedPRs)
+  // Archived repos: near-zero scores but not killed
+  if (meta.isArchived) {
+    const availabilityScore = clamp(scoreAvailability(meta, mergedPRs), 0, 5)
+    return {
+      slug: meta.slug,
+      defaultBranch: meta.defaultBranch,
+      maintainerHealthScore: 0,
+      mergeAccessibilityScore: 0,
+      availabilityScore,
+      overallViability: Math.round(availabilityScore * 0.25),
+      killed: false,
+      killReason: null,
+      detectedQuirks,
+      prPatterns:
+        mergedPRs.length > 0 ? analyzePRPatterns(mergedPRs, rejectedPRs) : zeroPRPatterns(),
+      analyzedAt: new Date().toISOString()
+    }
+  }
+
+  // No merged PRs at all: low baseline scores
+  if (mergedPRs.length === 0) {
+    const availabilityScore = scoreAvailability(meta, mergedPRs)
+    return {
+      slug: meta.slug,
+      defaultBranch: meta.defaultBranch,
+      maintainerHealthScore: 10,
+      mergeAccessibilityScore: 10,
+      availabilityScore,
+      overallViability: Math.round(10 * 0.4 + 10 * 0.35 + availabilityScore * 0.25),
+      killed: false,
+      killReason: null,
+      detectedQuirks,
+      prPatterns: zeroPRPatterns(),
+      analyzedAt: new Date().toISOString()
+    }
+  }
+
+  // No merged PRs in last 90 days: penalize maintainer/merge scores
+  const hasRecentMerges = mergedPRs.some(pr => pr.mergedAt && daysSince(pr.mergedAt) <= 90)
+
+  let maintainerHealthScore: number
+  let mergeAccessibilityScore: number
+
+  if (!hasRecentMerges) {
+    maintainerHealthScore = 15
+    mergeAccessibilityScore = 15
+  } else {
+    maintainerHealthScore = scoreMaintainerHealth(mergedPRs)
+    mergeAccessibilityScore = scoreMergeAccessibility(mergedPRs, rejectedPRs)
+  }
+
   const availabilityScore = scoreAvailability(meta, mergedPRs)
 
   const overallViability = Math.round(
@@ -234,7 +241,7 @@ export function scoreRepoHealth(
     overallViability,
     killed: false,
     killReason: null,
-    detectedQuirks: detectQuirks(meta, mergedPRs, rejectedPRs),
+    detectedQuirks,
     prPatterns: analyzePRPatterns(mergedPRs, rejectedPRs),
     analyzedAt: new Date().toISOString()
   }

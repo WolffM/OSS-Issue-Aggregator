@@ -28,23 +28,26 @@ function makeHealth(overrides: Partial<RepoHealth> = {}): RepoHealth {
 }
 
 describe('scoreIssues', () => {
-  describe('kill signal propagation', () => {
-    it('sets all issues to cvs=0 when repo is killed', () => {
+  describe('low-viability repo scoring', () => {
+    it('scores issues normally even with very low repo viability', () => {
       const health = makeHealth({
-        killed: true,
-        killReason: 'Repository is archived',
-        overallViability: 0
+        overallViability: 5
       })
-      const issues = [makeExtendedIssue(), makeExtendedIssue({ id: 'issue-2' })]
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const issues = [
+        makeExtendedIssue({
+          createdAt: recent,
+          updatedAt: recent,
+          bodyPreview: 'A clear bug report with steps to reproduce and expected behavior.'
+        })
+      ]
 
       const scored = scoreIssues(issues, {}, health, [])
 
-      expect(scored).toHaveLength(2)
-      for (const issue of scored) {
-        expect(issue.cvs).toBe(0)
-        expect(issue.cvsTier).toBe('skip')
-        expect(issue.repoKilled).toBe(true)
-      }
+      expect(scored).toHaveLength(1)
+      expect(scored[0].cvs).toBeGreaterThan(0)
+      expect(scored[0].repoKilled).toBe(false)
+      expect(scored[0].contentQualityScore).toBeGreaterThan(0)
     })
   })
 

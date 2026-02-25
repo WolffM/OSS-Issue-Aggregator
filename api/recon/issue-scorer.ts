@@ -257,27 +257,6 @@ export function scoreIssues(
   health: RepoHealth | null,
   claims: ClaimRecord[]
 ): ScoredIssue[] {
-  // Kill signal short-circuit
-  if (health?.killed) {
-    return issues.map(issue => ({
-      ...issue,
-      cvs: 0,
-      cvsTier: 'skip' as CVSTier,
-      lifecycleStage: classifyLifecycle(issue, comments[issue.id]),
-      claimStatus: 'unclaimed' as ClaimStatus,
-      claimAuthor: null,
-      complexity: 'medium' as Complexity,
-      sentimentScore: 0,
-      contentQualityScore: 0,
-      competitionLevel: 'none' as CompetitionLevel,
-      repoSlug: health.slug,
-      dataCompleteness: 'full' as DataCompleteness,
-      repoKilled: true,
-      likelyFiles: [],
-      relatedIssues: []
-    }))
-  }
-
   const repoScore = health ? health.overallViability : 50
   const repoSlug = health?.slug ?? ''
   const dataBase: DataCompleteness = health ? 'full' : 'partial'

@@ -87,11 +87,13 @@ function detectCLA(meta: RepoMeta): RepoQuirk | null {
 
 function detectBranchTarget(meta: RepoMeta, mergedPRs: PRSample[]): RepoQuirk | null {
   if (meta.contributingContent && /\b(develop|dev)\s+branch/i.test(meta.contributingContent)) {
+    const branchMatch = /\b(develop|dev)\b/i.exec(meta.contributingContent)
     return {
       type: 'branch-target',
       description: 'PRs must target a specific branch (not default)',
       impact: 'important',
-      evidence: "CONTRIBUTING.md mentions 'develop' or 'dev' branch"
+      evidence: "CONTRIBUTING.md mentions 'develop' or 'dev' branch",
+      detectedBranch: branchMatch ? branchMatch[1].toLowerCase() : undefined
     }
   }
 
@@ -100,11 +102,13 @@ function detectBranchTarget(meta: RepoMeta, mergedPRs: PRSample[]): RepoQuirk | 
     const ratio = nonDefault.length / mergedPRs.length
     if (ratio > 0.3) {
       const pct = Math.round(ratio * 100)
+      const detectedBranch = nonDefault[0].baseRefName
       return {
         type: 'branch-target',
         description: 'PRs must target a specific branch (not default)',
         impact: 'important',
-        evidence: `${pct}% of merged PRs target '${nonDefault[0].baseRefName}' instead of '${meta.defaultBranch}'`
+        evidence: `${pct}% of merged PRs target '${detectedBranch}' instead of '${meta.defaultBranch}'`,
+        detectedBranch
       }
     }
   }

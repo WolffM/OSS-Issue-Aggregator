@@ -5,6 +5,8 @@ import {
   makeExtendedIssue,
   makeReconIssueData,
   makeRepoMeta,
+  makeRepoHealth,
+  makeScoredIssue,
   makePRSample
 } from './helpers'
 
@@ -204,19 +206,19 @@ describe('GET /:slug/issues', () => {
 })
 
 describe('GET /:slug/scored-issues', () => {
-  it('returns empty array when no issues exist', async () => {
+  it('returns pending when no pre-computed data exists', async () => {
     const kv = createMockKV()
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/scored-issues')
     const body = await res.json()
-    expect(body.data.issues).toEqual([])
+    expect(body.data.status).toBe('pending')
   })
 
-  it('returns issues with computed CVS scores', async () => {
-    const issue = makeExtendedIssue()
+  it('returns pre-computed scored issues from KV', async () => {
+    const scored = makeScoredIssue()
     const kv = createMockKV({
-      'recon:fastify-fastify:issues': makeReconIssueData([issue])
+      'recon:fastify-fastify:scored-issues': [scored]
     })
     const app = createTestApp(kv)
 
@@ -224,32 +226,14 @@ describe('GET /:slug/scored-issues', () => {
     const body = await res.json()
 
     expect(body.data.issues).toHaveLength(1)
-    const scored = body.data.issues[0]
-
-    // Verify scoring fields are present and reasonable
-    expect(typeof scored.cvs).toBe('number')
-    expect(scored.cvs).toBeGreaterThanOrEqual(0)
-    expect(scored.cvs).toBeLessThanOrEqual(100)
-    expect(['go', 'likely', 'maybe', 'risky', 'skip']).toContain(scored.cvsTier)
-    expect(['fresh', 'triaged', 'accepted', 'stale', 'zombie']).toContain(scored.lifecycleStage)
-    expect(scored.claimStatus).toBe('unclaimed')
-    expect(scored.claimAuthor).toBeNull()
-    expect(['low', 'medium', 'high']).toContain(scored.complexity)
-    expect(typeof scored.sentimentScore).toBe('number')
-    expect(typeof scored.contentQualityScore).toBe('number')
-    expect(['none', 'low', 'medium', 'high']).toContain(scored.competitionLevel)
-    expect(scored.dataCompleteness).toBe('partial') // no health data, no comments
-    expect(scored.repoKilled).toBe(false)
-
-    // Verify original issue fields preserved
-    expect(scored.id).toBe(issue.id)
-    expect(scored.title).toBe(issue.title)
-    expect(scored.authorAssociation).toBe('NONE')
+    expect(body.data.issues[0].id).toBe(scored.id)
+    expect(body.data.issues[0].cvs).toBe(scored.cvs)
+    expect(body.data.slug).toBe('fastify-fastify')
   })
 })
 
 describe('GET /:slug/dossier', () => {
-  it('returns pending when no dossier exists', async () => {
+  it('returns pending when no pre-computed dossier exists', async () => {
     const kv = createMockKV()
     const app = createTestApp(kv)
 
@@ -258,20 +242,32 @@ describe('GET /:slug/dossier', () => {
     expect(body.data.status).toBe('pending')
   })
 
-  it('returns compiled dossier when repo meta available', async () => {
-    const recentDate = new Date(Date.now() - 5 * 86_400_000).toISOString()
-    const createdDate = new Date(Date.now() - 8 * 86_400_000).toISOString()
-    const meta = makeRepoMeta({ slug: 'fastify-fastify' })
-    const mergedPRs = [
-      makePRSample({
-        authorAssociation: 'CONTRIBUTOR',
-        createdAt: createdDate,
-        mergedAt: recentDate
-      })
-    ]
+  it('returns pending when only repo meta available (no pre-computed dossier)', async () => {
     const kv = createMockKV({
-      'recon:fastify-fastify:repo-meta': meta,
-      'recon:fastify-fastify:merged-prs': mergedPRs
+      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/dossier')
+    const body = await res.json()
+    expect(body.data.status).toBe('pending')
+  })
+
+  it('returns pre-computed dossier from KV', async () => {
+    const dossier = {
+      slug: 'fastify-fastify',
+      generatedAt: new Date().toISOString(),
+      sections: {
+        overview: '## Overview',
+        contributionRules: '## Contribution Rules',
+        successPatterns: '## Success Patterns',
+        antiPatterns: '## Anti-Patterns',
+        issueBoard: '## Issue Board',
+        environmentSetup: '## Environment Setup'
+      }
+    }
+    const kv = createMockKV({
+      'recon:fastify-fastify:dossier': dossier
     })
     const app = createTestApp(kv)
 
@@ -300,13 +296,15 @@ describe('GET /all-scored-issues', () => {
     expect(body.data.repoCount).toBe(0)
   })
 
-  it('aggregates issues from multiple repos', async () => {
-    const issue1 = makeExtendedIssue({ id: 'issue-1', title: 'Issue A' })
-    const issue2 = makeExtendedIssue({ id: 'issue-2', title: 'Issue B' })
+  it('aggregates pre-computed issues from multiple repos', async () => {
+    const scored1 = makeScoredIssue({ id: 'issue-1', title: 'Issue A', repoSlug: 'repo-a' })
+    const scored2 = makeScoredIssue({ id: 'issue-2', title: 'Issue B', repoSlug: 'repo-b' })
 
     const kv = createMockKV({
-      'recon:repo-a:issues': makeReconIssueData([issue1]),
-      'recon:repo-b:issues': makeReconIssueData([issue2])
+      'recon:repo-a:issues': makeReconIssueData(),
+      'recon:repo-b:issues': makeReconIssueData(),
+      'recon:repo-a:scored-issues': [scored1],
+      'recon:repo-b:scored-issues': [scored2]
     })
     const app = createTestApp(kv)
 
@@ -316,11 +314,12 @@ describe('GET /all-scored-issues', () => {
     expect(body.data.repoCount).toBe(2)
   })
 
-  it('skips repos with no issue data', async () => {
-    const issue = makeExtendedIssue()
+  it('skips repos without pre-computed scored issues', async () => {
+    const scored = makeScoredIssue({ repoSlug: 'repo-a' })
     const kv = createMockKV({
-      'recon:repo-a:issues': makeReconIssueData([issue]),
-      'recon:repo-empty:repo-meta': { owner: 'repo', repo: 'empty' }
+      'recon:repo-a:issues': makeReconIssueData(),
+      'recon:repo-a:scored-issues': [scored],
+      'recon:repo-empty:issues': makeReconIssueData()
     })
     const app = createTestApp(kv)
 
@@ -359,13 +358,27 @@ describe('POST /:slug/refresh', () => {
 })
 
 describe('GET /:slug/issue-brief/:issueId', () => {
+  it('returns pending when no pre-computed data exists', async () => {
+    const kv = createMockKV({
+      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.status).toBe('pending')
+  })
+
   it('returns body field falling back to bodyPreview when body not in KV', async () => {
-    const issue = makeExtendedIssue({
+    const scored = makeScoredIssue({
       id: 'github-fastify-fastify-100',
       bodyPreview: 'This is the body preview text...'
     })
     const kv = createMockKV({
-      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
+      'recon:fastify-fastify:scored-issues': [scored],
+      'recon:fastify-fastify:health': makeRepoHealth(),
       'recon:fastify-fastify:repo-meta': makeRepoMeta()
     })
     const app = createTestApp(kv)
@@ -379,13 +392,14 @@ describe('GET /:slug/issue-brief/:issueId', () => {
   })
 
   it('returns body field from KV when scraper provides it', async () => {
-    const issue = makeExtendedIssue({
+    const scored = makeScoredIssue({
       id: 'github-fastify-fastify-100',
       body: 'Full body text with all the details and code blocks etc.',
       bodyPreview: 'Full body text with all the...'
     })
     const kv = createMockKV({
-      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
+      'recon:fastify-fastify:scored-issues': [scored],
+      'recon:fastify-fastify:health': makeRepoHealth(),
       'recon:fastify-fastify:repo-meta': makeRepoMeta()
     })
     const app = createTestApp(kv)
@@ -399,9 +413,10 @@ describe('GET /:slug/issue-brief/:issueId', () => {
   })
 
   it('returns 404 for unknown issue ID', async () => {
-    const issue = makeExtendedIssue({ id: 'github-fastify-fastify-100' })
+    const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
     const kv = createMockKV({
-      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
+      'recon:fastify-fastify:scored-issues': [scored],
+      'recon:fastify-fastify:health': makeRepoHealth(),
       'recon:fastify-fastify:repo-meta': makeRepoMeta()
     })
     const app = createTestApp(kv)
@@ -411,9 +426,11 @@ describe('GET /:slug/issue-brief/:issueId', () => {
   })
 
   it('returns brief and repoHealth alongside issue', async () => {
-    const issue = makeExtendedIssue({ id: 'github-fastify-fastify-100' })
+    const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
+    const health = makeRepoHealth()
     const kv = createMockKV({
-      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
+      'recon:fastify-fastify:scored-issues': [scored],
+      'recon:fastify-fastify:health': health,
       'recon:fastify-fastify:repo-meta': makeRepoMeta()
     })
     const app = createTestApp(kv)

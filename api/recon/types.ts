@@ -379,6 +379,7 @@ export interface RepoQuirk {
   description: string
   impact: 'blocker' | 'important' | 'minor'
   evidence: string
+  detectedBranch?: string
 }
 
 export const RepoQuirkSchema = z
@@ -386,7 +387,11 @@ export const RepoQuirkSchema = z
     type: z.string().openapi({ example: 'changeset' }),
     description: z.string().openapi({ example: 'Changeset file required for PRs' }),
     impact: QuirkImpactSchema,
-    evidence: z.string().openapi({ example: "Bot comment: 'missing changeset'" })
+    evidence: z.string().openapi({ example: "Bot comment: 'missing changeset'" }),
+    detectedBranch: z.string().optional().openapi({
+      example: 'develop',
+      description: 'For branch-target quirks: the actual branch PRs should target'
+    })
   })
   .openapi('RepoQuirk')
 
