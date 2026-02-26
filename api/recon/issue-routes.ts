@@ -21,11 +21,8 @@ import {
   slugIssueIdParam
 } from './route-helpers'
 import {
+  getConsolidatedRecon,
   getScrapedSlugs,
-  getReconIssues,
-  getRepoMeta,
-  getMergedPRs,
-  getRejectedPRs,
   getClaims,
   getRepoHealth,
   getScoredIssues,
@@ -36,13 +33,13 @@ import { formatIssueBrief } from './issue-brief'
 import { applyClaimOverlay } from './precompute'
 
 async function computeHealth(kv: KVNamespace, slug: string) {
-  const [meta, merged, rejected] = await Promise.all([
-    getRepoMeta(kv, slug),
-    getMergedPRs(kv, slug),
-    getRejectedPRs(kv, slug)
-  ])
-  if (!meta) return null
-  return scoreRepoHealth(meta, merged ?? [], rejected ?? [])
+  const consolidated = await getConsolidatedRecon(kv, slug)
+  if (!consolidated?.repoMeta) return null
+  return scoreRepoHealth(
+    consolidated.repoMeta,
+    consolidated.mergedPrs ?? [],
+    consolidated.rejectedPrs ?? []
+  )
 }
 
 export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
@@ -129,9 +126,12 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
 
     try {
       const { slug } = c.req.valid('param')
-      const issues = await getReconIssues(kv, slug)
+      const consolidated = await getConsolidatedRecon(kv, slug)
 
-      return c.json({ success: true as const, data: { issues: issues ?? [], slug } }, 200)
+      return c.json(
+        { success: true as const, data: { issues: consolidated?.issues ?? [], slug } },
+        200
+      )
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
@@ -269,15 +269,14 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
     try {
       const { slug, issueId } = c.req.valid('param')
 
-      const [cachedScored, cachedHealth, meta, merged, rejected, claims] = await Promise.all([
+      const [cachedScored, cachedHealth, consolidated, claims] = await Promise.all([
         getScoredIssues(kv, slug),
         getRepoHealth(kv, slug),
-        getRepoMeta(kv, slug),
-        getMergedPRs(kv, slug),
-        getRejectedPRs(kv, slug),
+        getConsolidatedRecon(kv, slug),
         getClaims(kv, slug)
       ])
 
+      const meta = consolidated?.repoMeta ?? null
       if (!cachedScored || !cachedHealth || !meta) {
         return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
@@ -298,7 +297,9 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         issue.body = issue.bodyPreview
       }
 
-      const brief = formatIssueBrief(issue, cachedHealth, meta, merged ?? [], rejected ?? [])
+      const merged = consolidated?.mergedPrs ?? []
+      const rejected = consolidated?.rejectedPrs ?? []
+      const brief = formatIssueBrief(issue, cachedHealth, meta, merged, rejected)
 
       return c.json(
         {

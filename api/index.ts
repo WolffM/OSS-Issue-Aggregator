@@ -69,13 +69,8 @@ export {
 export { createReconRoutes } from './recon'
 
 export {
+  getConsolidatedRecon,
   getScrapedSlugs,
-  getReconIssues,
-  getReconIssuesScrapedAt,
-  getMergedPRs,
-  getRejectedPRs,
-  getRepoMeta,
-  getComments,
   getRepoHealth,
   getScoredIssues,
   getClaims,
@@ -113,7 +108,7 @@ export { formatIssueBrief } from './recon/issue-brief'
 // Recon types
 export type {
   ExtendedIssue,
-  ReconIssueData,
+  ConsolidatedReconData,
   PRSample,
   RepoMeta,
   IssueComments,
@@ -138,7 +133,6 @@ export type {
 export {
   AuthorAssociationSchema,
   ExtendedIssueSchema,
-  ReconIssueDataSchema,
   PRSampleSchema,
   RepoMetaSchema,
   CommentSchema,

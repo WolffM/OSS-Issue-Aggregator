@@ -17,7 +17,7 @@ import { formatIssueBrief } from '../issue-brief'
 import type {
   RepoMeta,
   PRSample,
-  ReconIssueData,
+  ConsolidatedReconData,
   ExtendedIssue,
   IssueComments,
   CommentThread,
@@ -45,13 +45,6 @@ const rejectedPRs: PRSample[] = prsFixture.data.rejected as PRSample[]
 
 const issues: ExtendedIssue[] = issuesFixture.data.items as ExtendedIssue[]
 
-const reconIssueData: ReconIssueData = {
-  issues,
-  scrapedAt: repoMeta.scrapedAt,
-  source: 'hadoku-scraper',
-  dataTypes: ['issues']
-}
-
 // Re-key comments from issue-number → compound-ID
 // Scraper uses issue number as keys; scorer expects compound ID
 const rawThreads = commentsFixture.data.threads as Record<string, CommentThread>
@@ -59,6 +52,20 @@ const comments: IssueComments = {}
 for (const [issueNumber, thread] of Object.entries(rawThreads)) {
   const compoundId = `github-fastify-fastify-${issueNumber}`
   comments[compoundId] = thread
+}
+
+// Build consolidated recon data (new single-key format)
+const consolidatedRecon: ConsolidatedReconData = {
+  scrapedAt: repoMeta.scrapedAt,
+  source: 'hadoku-scraper',
+  platform: 'github',
+  issues,
+  mergedPrs: mergedPRs,
+  rejectedPrs: rejectedPRs,
+  repoMeta,
+  comments: { threads: comments },
+  dataTypes: ['issues', 'prs', 'meta', 'comments'],
+  errors: null
 }
 
 // ============================================================================
@@ -385,11 +392,7 @@ describe('Production Data: fastify/fastify', () => {
     function buildKV() {
       return createMockKV({
         'recon:watchlist': ['fastify-fastify'],
-        'recon:fastify-fastify:issues': reconIssueData,
-        'recon:fastify-fastify:merged-prs': mergedPRs,
-        'recon:fastify-fastify:rejected-prs': rejectedPRs,
-        'recon:fastify-fastify:repo-meta': repoMeta,
-        'recon:fastify-fastify:comments': comments,
+        'recon:fastify-fastify': consolidatedRecon,
         'recon:fastify-fastify:claims': [],
         'recon:fastify-fastify:health': preHealth,
         'recon:fastify-fastify:scored-issues': preScored,

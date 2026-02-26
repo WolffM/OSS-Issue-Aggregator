@@ -11,15 +11,7 @@
  */
 
 import type { ScoredIssue, ClaimRecord, ClaimStatus } from './types'
-import {
-  getReconIssues,
-  getComments,
-  getClaims,
-  getRepoMeta,
-  getMergedPRs,
-  getRejectedPRs,
-  getScrapedSlugs
-} from './kv-reader'
+import { getConsolidatedRecon, getClaims, getScrapedSlugs } from './kv-reader'
 import { putRepoHealth, putScoredIssues, putDossier } from './kv-writer'
 import { scoreRepoHealth } from './health-scorer'
 import { scoreIssues } from './issue-scorer'
@@ -38,23 +30,24 @@ export interface ComputeResult {
  * and writes all three to KV.
  */
 export async function computeAndStore(kv: KVNamespace, slug: string): Promise<ComputeResult> {
-  const [issues, comments, claims, meta, merged, rejected] = await Promise.all([
-    getReconIssues(kv, slug),
-    getComments(kv, slug),
-    getClaims(kv, slug),
-    getRepoMeta(kv, slug),
-    getMergedPRs(kv, slug),
-    getRejectedPRs(kv, slug)
+  const [consolidated, claims] = await Promise.all([
+    getConsolidatedRecon(kv, slug),
+    getClaims(kv, slug)
   ])
 
+  const meta = consolidated?.repoMeta ?? null
   if (!meta) {
     return { slug, healthComputed: false, scoredCount: 0, dossierGenerated: false }
   }
 
-  const health = scoreRepoHealth(meta, merged ?? [], rejected ?? [])
-  const scored =
-    issues && issues.length > 0 ? scoreIssues(issues, comments ?? {}, health, claims ?? []) : []
-  const dossier = compileDossier(slug, meta, health, scored, merged ?? [], rejected ?? [])
+  const issues = consolidated?.issues ?? []
+  const comments = consolidated?.comments?.threads ?? {}
+  const merged = consolidated?.mergedPrs ?? []
+  const rejected = consolidated?.rejectedPrs ?? []
+
+  const health = scoreRepoHealth(meta, merged, rejected)
+  const scored = issues.length > 0 ? scoreIssues(issues, comments, health, claims ?? []) : []
+  const dossier = compileDossier(slug, meta, health, scored, merged, rejected)
 
   await Promise.all([
     putRepoHealth(kv, slug, health),

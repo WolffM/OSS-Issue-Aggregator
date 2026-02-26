@@ -5,7 +5,7 @@
 
 import type {
   ExtendedIssue,
-  ReconIssueData,
+  ConsolidatedReconData,
   ClaimRecord,
   PRSample,
   RepoMeta,
@@ -87,14 +87,21 @@ export function makeExtendedIssue(overrides: Partial<ExtendedIssue> = {}): Exten
   }
 }
 
-export function makeReconIssueData(
-  issues: ExtendedIssue[] = [makeExtendedIssue()]
-): ReconIssueData {
+export function makeConsolidatedReconData(
+  overrides: Partial<ConsolidatedReconData> = {}
+): ConsolidatedReconData {
   return {
-    issues,
     scrapedAt: '2024-01-20T14:45:00Z',
     source: 'hadoku-scraper',
-    dataTypes: ['issues']
+    platform: 'github',
+    issues: [makeExtendedIssue()],
+    mergedPrs: [],
+    rejectedPrs: [],
+    repoMeta: makeRepoMeta(),
+    comments: { threads: {} },
+    dataTypes: ['issues', 'prs', 'meta', 'comments'],
+    errors: null,
+    ...overrides
   }
 }
 

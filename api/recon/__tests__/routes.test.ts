@@ -3,7 +3,7 @@ import { createReconRoutes } from '../index'
 import {
   createMockKV,
   makeExtendedIssue,
-  makeReconIssueData,
+  makeConsolidatedReconData,
   makeRepoMeta,
   makeRepoHealth,
   makeScoredIssue,
@@ -156,17 +156,17 @@ describe('GET /:slug/health', () => {
   it('returns health data when repo meta and PRs available', async () => {
     const recentDate = new Date(Date.now() - 5 * 86_400_000).toISOString()
     const createdDate = new Date(Date.now() - 8 * 86_400_000).toISOString()
-    const meta = makeRepoMeta({ slug: 'fastify-fastify' })
-    const mergedPRs = [
-      makePRSample({
-        authorAssociation: 'CONTRIBUTOR',
-        createdAt: createdDate,
-        mergedAt: recentDate
-      })
-    ]
     const kv = createMockKV({
-      'recon:fastify-fastify:repo-meta': meta,
-      'recon:fastify-fastify:merged-prs': mergedPRs
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ slug: 'fastify-fastify' }),
+        mergedPrs: [
+          makePRSample({
+            authorAssociation: 'CONTRIBUTOR',
+            createdAt: createdDate,
+            mergedAt: recentDate
+          })
+        ]
+      })
     })
     const app = createTestApp(kv)
 
@@ -194,7 +194,7 @@ describe('GET /:slug/issues', () => {
   it('returns issues from KV', async () => {
     const issue = makeExtendedIssue()
     const kv = createMockKV({
-      'recon:fastify-fastify:issues': makeReconIssueData([issue])
+      'recon:fastify-fastify': makeConsolidatedReconData({ issues: [issue] })
     })
     const app = createTestApp(kv)
 
@@ -242,9 +242,9 @@ describe('GET /:slug/dossier', () => {
     expect(body.data.status).toBe('pending')
   })
 
-  it('returns pending when only repo meta available (no pre-computed dossier)', async () => {
+  it('returns pending when only consolidated data available (no pre-computed dossier)', async () => {
     const kv = createMockKV({
-      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+      'recon:fastify-fastify': makeConsolidatedReconData()
     })
     const app = createTestApp(kv)
 
@@ -301,8 +301,8 @@ describe('GET /all-scored-issues', () => {
     const scored2 = makeScoredIssue({ id: 'issue-2', title: 'Issue B', repoSlug: 'repo-b' })
 
     const kv = createMockKV({
-      'recon:repo-a:issues': makeReconIssueData(),
-      'recon:repo-b:issues': makeReconIssueData(),
+      'recon:repo-a': makeConsolidatedReconData(),
+      'recon:repo-b': makeConsolidatedReconData(),
       'recon:repo-a:scored-issues': [scored1],
       'recon:repo-b:scored-issues': [scored2]
     })
@@ -317,9 +317,9 @@ describe('GET /all-scored-issues', () => {
   it('skips repos without pre-computed scored issues', async () => {
     const scored = makeScoredIssue({ repoSlug: 'repo-a' })
     const kv = createMockKV({
-      'recon:repo-a:issues': makeReconIssueData(),
+      'recon:repo-a': makeConsolidatedReconData(),
       'recon:repo-a:scored-issues': [scored],
-      'recon:repo-empty:issues': makeReconIssueData()
+      'recon:repo-empty': makeConsolidatedReconData()
     })
     const app = createTestApp(kv)
 
@@ -360,7 +360,7 @@ describe('POST /:slug/refresh', () => {
 describe('GET /:slug/issue-brief/:issueId', () => {
   it('returns pending when no pre-computed data exists', async () => {
     const kv = createMockKV({
-      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+      'recon:fastify-fastify': makeConsolidatedReconData()
     })
     const app = createTestApp(kv)
 
@@ -377,9 +377,9 @@ describe('GET /:slug/issue-brief/:issueId', () => {
       bodyPreview: 'This is the body preview text...'
     })
     const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
       'recon:fastify-fastify:scored-issues': [scored],
-      'recon:fastify-fastify:health': makeRepoHealth(),
-      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+      'recon:fastify-fastify:health': makeRepoHealth()
     })
     const app = createTestApp(kv)
 
@@ -398,9 +398,9 @@ describe('GET /:slug/issue-brief/:issueId', () => {
       bodyPreview: 'Full body text with all the...'
     })
     const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
       'recon:fastify-fastify:scored-issues': [scored],
-      'recon:fastify-fastify:health': makeRepoHealth(),
-      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+      'recon:fastify-fastify:health': makeRepoHealth()
     })
     const app = createTestApp(kv)
 
@@ -415,9 +415,9 @@ describe('GET /:slug/issue-brief/:issueId', () => {
   it('returns 404 for unknown issue ID', async () => {
     const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
     const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
       'recon:fastify-fastify:scored-issues': [scored],
-      'recon:fastify-fastify:health': makeRepoHealth(),
-      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+      'recon:fastify-fastify:health': makeRepoHealth()
     })
     const app = createTestApp(kv)
 
@@ -429,9 +429,9 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
     const health = makeRepoHealth()
     const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
       'recon:fastify-fastify:scored-issues': [scored],
-      'recon:fastify-fastify:health': health,
-      'recon:fastify-fastify:repo-meta': makeRepoMeta()
+      'recon:fastify-fastify:health': health
     })
     const app = createTestApp(kv)
 

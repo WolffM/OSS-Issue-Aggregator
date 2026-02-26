@@ -103,24 +103,21 @@ export const ExtendedIssueSchema = IssueSchema.extend({
 }).openapi('ExtendedIssue')
 
 // ============================================================================
-// ReconIssueData (KV envelope) — §4.1
+// ConsolidatedReconData (scraper → KV) — single key per repo
 // ============================================================================
 
-export interface ReconIssueData {
-  issues: ExtendedIssue[]
+export interface ConsolidatedReconData {
   scrapedAt: string
   source: string
+  platform: string
+  issues: ExtendedIssue[]
+  mergedPrs: PRSample[]
+  rejectedPrs: PRSample[]
+  repoMeta: RepoMeta | null
+  comments: { threads: IssueComments }
   dataTypes: string[]
+  errors: Record<string, string> | null
 }
-
-export const ReconIssueDataSchema = z
-  .object({
-    issues: z.array(ExtendedIssueSchema),
-    scrapedAt: z.string(),
-    source: z.string(),
-    dataTypes: z.array(z.string())
-  })
-  .openapi('ReconIssueData')
 
 // ============================================================================
 // PRSample (scraper → KV) — §4.2

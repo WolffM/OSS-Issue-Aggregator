@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { computeAndStore, computeAndStoreAll, applyClaimOverlay } from '../precompute'
 import {
   createMockKV,
-  makeReconIssueData,
+  makeConsolidatedReconData,
   makeExtendedIssue,
   makeRepoMeta,
   makePRSample,
@@ -113,15 +113,17 @@ describe('computeAndStore', () => {
     const rejected = [makePRSample({ closedAt: '2024-01-15T00:00:00Z', mergedAt: null })]
 
     const kv = createMockKV({
-      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
-      'recon:fastify-fastify:repo-meta': { meta },
-      'recon:fastify-fastify:merged-prs': { merged },
-      'recon:fastify-fastify:rejected-prs': { rejected },
-      'recon:fastify-fastify:comments': {
-        threads: {
-          'issue-1': makeCommentThread([makeComment()])
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        issues: [issue],
+        repoMeta: meta,
+        mergedPrs: merged,
+        rejectedPrs: rejected,
+        comments: {
+          threads: {
+            'issue-1': makeCommentThread([makeComment()])
+          }
         }
-      }
+      })
     })
 
     const result = await computeAndStore(kv, 'fastify-fastify')
@@ -143,9 +145,8 @@ describe('computeAndStore', () => {
   })
 
   it('handles repos with no issues', async () => {
-    const meta = makeRepoMeta()
     const kv = createMockKV({
-      'recon:fastify-fastify:repo-meta': { meta }
+      'recon:fastify-fastify': makeConsolidatedReconData({ issues: [] })
     })
 
     const result = await computeAndStore(kv, 'fastify-fastify')
@@ -161,13 +162,14 @@ describe('computeAndStore', () => {
 
 describe('computeAndStoreAll', () => {
   it('processes all scraped slugs', async () => {
-    const meta = makeRepoMeta()
-    const issue = makeExtendedIssue()
-
     const kv = createMockKV({
-      'recon:fastify-fastify:issues': makeReconIssueData([issue]),
-      'recon:fastify-fastify:repo-meta': { meta },
-      'recon:other-repo:repo-meta': { meta: makeRepoMeta({ owner: 'other', repo: 'repo' }) }
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        issues: [makeExtendedIssue()]
+      }),
+      'recon:other-repo': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ owner: 'other', repo: 'repo' }),
+        issues: []
+      })
     })
 
     const result = await computeAndStoreAll(kv)
