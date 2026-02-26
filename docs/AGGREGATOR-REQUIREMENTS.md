@@ -10,16 +10,14 @@ hadoku-aggregator is the **intelligence + API layer**. It reads raw scraped data
 
 ## What Already Exists
 
-- `api/adapters/` — 6 platform-specific API fetchers (GitHub, GitLab, Gitea, Phabricator, Bugzilla, Trac)
-- `api/data-sources/` — `IssueDataProvider` interface with `LiveApiProvider` implementation
+- `api/handler.ts` — Hono OpenAPI handler with `/health`, issue marking endpoints, recon route mounting
 - `api/scoring.ts` — Difficulty heuristic engine (label + keyword matching)
-- `api/handler.ts` — Hono OpenAPI handler with `/health`, `/projects`, `/issues/{slug}`, issue marking endpoints
-- `api/types.ts` — `Issue`, `ProjectConfig`, `CachedIssues`, `MarkedIssue` types
-- `api/config.ts` — 20 projects across 6 platforms with pool categorization
-- `src/` — React frontend (project selector, difficulty badges, themes)
-- `SCRAPER_INTEGRATION.md` — Full contract for scraper → KV → aggregator flow
-- KV caching infrastructure (`CACHE_KV` binding)
-- `createOSSFetcher()` programmatic API access
+- `api/types.ts` — `Issue`, `Platform`, `OSSEnv`, `MarkedIssue` types
+- `api/schemas.ts` — Zod schemas for OpenAPI (issue, marking, health responses)
+- `api/recon/` — Full recon pipeline (see file structure below)
+- `src/` — React frontend (scored issue display, health panels, dossier viewer, CVS badges, lifecycle badges, etc.)
+- KV infrastructure (`CACHE_KV` binding) — scraper writes `recon:{slug}`, aggregator reads + writes computed results
+- Dynamic watchlist via `recon:watchlist` KV key (no hardcoded project list)
 
 ## What to Build
 
@@ -32,26 +30,37 @@ Create a new module alongside existing `api/` code for the recon pipeline. The e
 ```
 api/recon/
 ├── index.ts              # Hono route registration for /oss/api/recon/*
-├── kv-reader.ts          # Reads recon:{slug}:* keys from KV
-├── watchlist.ts          # Watchlist CRUD (reads/writes recon:watchlist KV key)
-├── claims.ts             # Claim tracking (reads/writes recon:{slug}:claims KV key)
+├── route-helpers.ts      # Shared schemas and HonoEnv type for routes
+├── watchlist-routes.ts   # Watchlist API endpoints
+├── issue-routes.ts       # Issue/health/dossier/scored-issues API endpoints
+├── claim-routes.ts       # Claim API endpoints
+├── compute-routes.ts     # Pre-computation & trigger routes
+├── kv-reader.ts          # Reads recon:{slug} (consolidated) and recon:{slug}:* keys from KV
+├── kv-writer.ts          # Writes aggregator-computed data to KV
+├── watchlist.ts          # Watchlist CRUD logic (reads/writes recon:watchlist KV key)
+├── claims.ts             # Claim tracking logic (reads/writes recon:{slug}:claims KV key)
 ├── health-scorer.ts      # Repo health scoring engine
 ├── issue-scorer.ts       # CVS scoring engine (extends existing scoring.ts)
 ├── lifecycle.ts          # Issue lifecycle classifier (fresh/triaged/accepted/stale/zombie)
 ├── sentiment.ts          # Comment sentiment analysis (pattern matching)
 ├── quirks.ts             # Repo quirk detector (changesets, CLA, conventional commits)
 ├── dossier-compiler.ts   # Markdown dossier generation
+├── issue-brief.ts        # SWE agent execution context generation
+├── comment-digest.ts     # Structured comment thread context
+├── related-issues.ts     # Issue relationship detection
+├── precompute.ts         # Pre-computation pipeline (compute + store all analysis for a repo)
 ├── types.ts              # RepoHealth, ScoredIssue, Dossier, PRPatterns, ClaimRecord, etc.
-└── triggers.ts           # Calls scraper API to trigger re-scrapes
+├── utils.ts              # Shared utility functions (isMaintainer, isBot, daysSince, etc.)
+├── triggers.ts           # Calls scraper API to trigger re-scrapes
+└── __tests__/            # Unit tests with fixtures
 ```
 
 ---
 
-## Milestone 1: KV Reader + API Stubs
+## Milestone 1: KV Reader + API Routes (complete)
 
-**Duration:** 2-3 days
-**Dependencies:** None — can start with manually seeded KV data or test fixtures
-**Parallel with:** Scraper M1 (extended issue fetching), vibedispatch M1 (fork/assign/review flow)
+**Status:** Complete
+**Dependencies:** None
 
 ### What to Build
 
@@ -100,30 +109,33 @@ api/recon/
    - Add/remove slugs
    - **Canonical slug format:** Validate and normalize to `{owner}-{repo}` (hyphenated). Reject slugs containing `/` — convert to hyphenated on input.
 
-5. **`recon/index.ts`** — Hono routes (stubs that return raw KV data)
+5. **`recon/index.ts`** + route files — Hono OpenAPI routes
 
    ```typescript
-   // Watchlist
+   // Watchlist (watchlist-routes.ts)
    GET  /oss/api/recon/watchlist              → { slugs: string[] }
    POST /oss/api/recon/watchlist/add          → { slug: string } → { success: true }
    POST /oss/api/recon/watchlist/remove       → { slug: string } → { success: true }
 
-   // Per-repo endpoints (stubs — return raw KV data, scoring added in M2)
-   GET  /oss/api/recon/:slug/health           → RepoHealth | { status: "pending" }
-   GET  /oss/api/recon/:slug/issues           → ExtendedIssue[]
-   GET  /oss/api/recon/:slug/scored-issues    → ScoredIssue[] (stub: return issues with placeholder scores)
-   GET  /oss/api/recon/:slug/dossier          → Dossier | { status: "pending" }
+   // Per-repo endpoints (issue-routes.ts)
+   GET  /oss/api/recon/{slug}/health          → RepoHealth | { status: "pending" }
+   GET  /oss/api/recon/{slug}/issues          → ExtendedIssue[]
+   GET  /oss/api/recon/{slug}/scored-issues   → ScoredIssue[]
+   GET  /oss/api/recon/{slug}/dossier         → Dossier | { status: "pending" }
+   GET  /oss/api/recon/{slug}/issue-brief/{issueId} → SWE agent execution context
 
    // Aggregate (excludes killed repos by default)
    GET  /oss/api/recon/all-scored-issues      → ScoredIssue[] (across all watchlist repos)
    GET  /oss/api/recon/all-scored-issues?includeKilled=true  → includes killed repos
 
-   // Trigger
-   POST /oss/api/recon/:slug/refresh          → { status: "triggered" }
+   // Claims (claim-routes.ts — vibedispatch reports claims here)
+   POST /oss/api/recon/{slug}/claim           → { issueId: string, claimedBy: string, forkIssueUrl?: string }
+   POST /oss/api/recon/{slug}/unclaim         → { issueId: string }
 
-   // Claims (vibedispatch reports claims here — see PROJECT-DESIGN.md §4.8)
-   POST /oss/api/recon/:slug/claim            → { issueId: string, claimedBy: string, forkIssueUrl?: string }
-   POST /oss/api/recon/:slug/unclaim          → { issueId: string }
+   // Triggers & compute (compute-routes.ts)
+   POST /oss/api/recon/{slug}/refresh         → { status: "triggered" }
+   POST /oss/api/recon/{slug}/compute         → pre-compute scores/health/dossier
+   POST /oss/api/recon/compute-all            → pre-compute for all watched repos
    ```
 
    Note: vibedispatch calls these endpoints using `AGGREGATOR_API_URL` (e.g., `https://hadoku.me/oss/api`)
@@ -139,28 +151,27 @@ api/recon/
    - Import recon routes and mount under `/oss/api/recon/*`
    - Add to OpenAPI spec
 
-### Validation
+### Validation (M1 complete)
 
-- [ ] `GET /oss/api/recon/watchlist` returns slug list from KV
-- [ ] `POST /oss/api/recon/watchlist/add` adds a slug to KV
-- [ ] `POST /oss/api/recon/watchlist/add` normalizes `owner/repo` to `owner-repo` (hyphenated)
-- [ ] `POST /oss/api/recon/watchlist/add` rejects invalid slug formats
-- [ ] `GET /oss/api/recon/{slug}/issues` returns ExtendedIssue[] from KV
-- [ ] `GET /oss/api/recon/{slug}/scored-issues` returns issues (with placeholder CVS for now)
-- [ ] `POST /oss/api/recon/{slug}/refresh` calls scraper API
-- [ ] `POST /oss/api/recon/{slug}/claim` writes claim to KV, returns success
-- [ ] `POST /oss/api/recon/{slug}/unclaim` removes claim from KV
-- [ ] Duplicate claims for same issueId are deduplicated (idempotent)
-- [ ] All endpoints return `null` / `{ status: "pending" }` for slugs with no data (not 500)
-- [ ] Routes appear in OpenAPI spec
+- [x] `GET /oss/api/recon/watchlist` returns slug list from KV
+- [x] `POST /oss/api/recon/watchlist/add` adds a slug to KV
+- [x] `POST /oss/api/recon/watchlist/add` normalizes `owner/repo` to `owner-repo` (hyphenated)
+- [x] `POST /oss/api/recon/watchlist/add` rejects invalid slug formats
+- [x] `GET /oss/api/recon/{slug}/issues` returns ExtendedIssue[] from KV
+- [x] `GET /oss/api/recon/{slug}/scored-issues` returns scored issues with CVS
+- [x] `POST /oss/api/recon/{slug}/refresh` calls scraper API
+- [x] `POST /oss/api/recon/{slug}/claim` writes claim to KV, returns success
+- [x] `POST /oss/api/recon/{slug}/unclaim` removes claim from KV
+- [x] Duplicate claims for same issueId are deduplicated (idempotent)
+- [x] All endpoints return `null` / `{ status: "pending" }` for slugs with no data (not 500)
+- [x] Routes appear in OpenAPI spec
 
 ---
 
-## Milestone 2: Analysis Engine
+## Milestone 2: Analysis Engine (complete)
 
-**Duration:** 4-5 days
-**Dependencies:** Scraper M1 data in KV (extended issues). Can start with test fixtures.
-**Parallel with:** vibedispatch M2 (Stage 1-2 UI, can mock aggregator responses)
+**Status:** Complete
+**Dependencies:** Scraper M1 data in KV (extended issues)
 
 ### What to Build
 
@@ -291,30 +302,29 @@ api/recon/
    - Scoring runs on-request (CF Worker compute) reading from KV
    - Consider caching scored results in `recon:{slug}:scored-issues` KV key with TTL
 
-### Validation
+### Validation (M2 complete)
 
-- [ ] `GET /oss/api/recon/{slug}/health` returns computed scores (not just raw meta)
-- [ ] Health score meaningfully differentiates active vs abandoned repos
-- [ ] `GET /oss/api/recon/{slug}/scored-issues` returns issues sorted by CVS
-- [ ] CVS > 70 issues are genuinely viable (spot-check 10 issues across 3 repos)
-- [ ] CVS < 30 issues have clear disqualifying factors (claimed, stale, zombie)
-- [ ] Issues with active claims in `recon:{slug}:claims` show `claimStatus: 'claimed'` in scored output
-- [ ] `authorAssociation` on issues correctly influences competition scoring (MEMBER self-assign = skip)
-- [ ] Lifecycle classification is correct for sample issues (manual verification)
-- [ ] Sentiment score identifies "PR welcome" vs "won't fix" correctly
-- [ ] Kill signals correctly disqualify archived/abandoned repos
-- [ ] Killed repos: all issues get `cvs: 0, cvsTier: 'skip', repoKilled: true`
-- [ ] `all-scored-issues` excludes killed repos by default, includes with `?includeKilled=true`
-- [ ] Partial data: repos without health data get `repo_score = 50` (neutral) and `dataCompleteness: 'partial'`
-- [ ] COLLABORATOR authorAssociation correctly classified as internal (not external) for merge rate
+- [x] `GET /oss/api/recon/{slug}/health` returns computed scores (not just raw meta)
+- [x] Health score meaningfully differentiates active vs abandoned repos
+- [x] `GET /oss/api/recon/{slug}/scored-issues` returns issues sorted by CVS
+- [x] CVS > 70 issues are genuinely viable (spot-check 10 issues across 3 repos)
+- [x] CVS < 30 issues have clear disqualifying factors (claimed, stale, zombie)
+- [x] Issues with active claims in `recon:{slug}:claims` show `claimStatus: 'claimed'` in scored output
+- [x] `authorAssociation` on issues correctly influences competition scoring (MEMBER self-assign = skip)
+- [x] Lifecycle classification is correct for sample issues (manual verification)
+- [x] Sentiment score identifies "PR welcome" vs "won't fix" correctly
+- [x] Kill signals correctly disqualify archived/abandoned repos
+- [x] Killed repos: all issues get `cvs: 0, cvsTier: 'skip', repoKilled: true`
+- [x] `all-scored-issues` excludes killed repos by default, includes with `?includeKilled=true`
+- [x] Partial data: repos without health data get `repo_score = 50` (neutral) and `dataCompleteness: 'partial'`
+- [x] COLLABORATOR authorAssociation correctly classified as internal (not external) for merge rate
 
 ---
 
-## Milestone 3: Dossier Compilation + Quirk Detection
+## Milestone 3: Dossier Compilation + Quirk Detection (complete)
 
-**Duration:** 4-5 days
-**Dependencies:** M2 analysis engine complete
-**Parallel with:** vibedispatch M3 (dossier viewer, outcome tracking)
+**Status:** Complete
+**Dependencies:** M2 analysis engine
 
 ### What to Build
 
@@ -382,15 +392,15 @@ api/recon/
      - Time to merge (created → merged gap)
      - External contributor merge rate
 
-### Validation
+### Validation (M3 complete)
 
-- [ ] Quirk detection identifies changesets on a repo known to require them (e.g., Turborepo)
-- [ ] Dossier for fastify includes meaningful contribution rules from CONTRIBUTING.md
-- [ ] Success patterns section reflects actual merged PR characteristics
-- [ ] Anti-patterns section identifies common rejection reasons
-- [ ] Issue board shows top 10 issues with accurate CVS
-- [ ] Dossier markdown renders cleanly when viewed as markdown
-- [ ] `GET /oss/api/recon/{slug}/dossier` returns complete dossier
+- [x] Quirk detection identifies changesets on a repo known to require them (e.g., Turborepo)
+- [x] Dossier for fastify includes meaningful contribution rules from CONTRIBUTING.md
+- [x] Success patterns section reflects actual merged PR characteristics
+- [x] Anti-patterns section identifies common rejection reasons
+- [x] Issue board shows top 10 issues with accurate CVS
+- [x] Dossier markdown renders cleanly when viewed as markdown
+- [x] `GET /oss/api/recon/{slug}/dossier` returns complete dossier
 
 ---
 
@@ -430,8 +440,7 @@ thousands of comments, this could approach the 30s limit. Mitigations:
 
 ### Existing Code Reuse
 
-- `scoring.ts` difficulty scoring → import into `issue-scorer.ts` as one input dimension
-- `types.ts` `Issue` interface → `ExtendedIssue` extends it
+- `scoring.ts` difficulty scoring → imported into `issue-scorer.ts` as one input dimension
+- `types.ts` `Issue` interface → `ExtendedIssue` extends it in `recon/types.ts`
 - `schemas.ts` Zod patterns → same validation approach for recon types
-- `handler.ts` Hono route pattern → same for recon routes
-- `config.ts` project list → seed initial watchlist from existing 20 projects
+- `handler.ts` Hono route pattern → same for recon routes (mounted via `createReconRoutes()`)

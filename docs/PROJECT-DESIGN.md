@@ -45,7 +45,7 @@ vibedispatch reviews PR → user submits PR to origin → tracks outcome
 
 **hadoku-scrape** = data collection. Makes external API calls, runs Patchright browser automation, writes raw + normalized data to Cloudflare KV. Already has OSS issues scraper with 6 platform adapters, scoring engine, and KV write. This is an extension, not greenfield.
 
-**hadoku-aggregator** = intelligence + API. Reads scraped data from KV, runs analysis (CVS scoring, repo health, lifecycle classification, comment sentiment), compiles dossiers, and serves results via Hono API. Already has the data provider interface, KV caching, and OpenAPI endpoints.
+**hadoku-aggregator** = intelligence + API. Reads scraped data from KV, runs analysis (CVS scoring, repo health, lifecycle classification, comment sentiment), compiles dossiers, and serves results via Hono API. Has the full recon pipeline, KV reader/writer, and OpenAPI endpoints.
 
 **vibedispatch** = orchestration + UI. Reads scored data from aggregator API, displays in stage-based UI, and drives the fork→assign→review→submit workflow via `gh` CLI. Already has pipeline store, stage tabs, review queue, and batch operations.
 
@@ -360,9 +360,12 @@ GET  /recon/{slug}/health            → RepoHealth
 GET  /recon/{slug}/issues            → ExtendedIssue[]  (raw unscored — for debugging / fallback display)
 GET  /recon/{slug}/scored-issues     → ScoredIssue[]
 GET  /recon/{slug}/dossier           → Dossier
+GET  /recon/{slug}/issue-brief/{issueId} → SWE agent execution context
 GET  /recon/all-scored-issues        → ScoredIssue[]  (across all watchlist repos, sorted by CVS, excludes killed repos)
 GET  /recon/all-scored-issues?includeKilled=true  → ScoredIssue[]  (includes killed repos)
 POST /recon/{slug}/refresh           → { status: "triggered" }  (tells scraper to re-scrape)
+POST /recon/{slug}/compute           → pre-compute scores, health, and dossier for a repo
+POST /recon/compute-all              → pre-compute for all watched repos
 POST /recon/{slug}/claim             → { issueId: string, claimedBy: string }  (vibedispatch reports a claim)
 POST /recon/{slug}/unclaim           → { issueId: string }
 ```
@@ -407,7 +410,7 @@ GET  /api/v1/oss-recon/status/{slug}         → { slug, last_run, status, data_
 
 | Agent | Repo              | Work                                                                                                                                                                                                                                                                                                           | Validates                                                                                                                                                 |
 | ----- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A     | hadoku-scrape     | Extend `GitHubFetcher` to return ExtendedIssue fields (commentCount, assignees, bodyPreview, thumbsUpCount, linkedPrUrls, lastCommentAt). Write to `recon:{slug}:issues` KV key.                                                                                                                               | `POST /api/v1/oss-recon/scrape` with `data_types: ["issues"]` returns extended data. Manual KV inspection shows new fields.                               |
+| A     | hadoku-scrape     | Extend `GitHubFetcher` to return ExtendedIssue fields (commentCount, assignees, bodyPreview, thumbsUpCount, linkedPrUrls, lastCommentAt). Write to consolidated `recon:{slug}` KV key.                                                                                                                         | `POST /api/v1/oss-recon/scrape` with `data_types: ["issues"]` returns extended data. Manual KV inspection shows new fields.                               |
 | B     | hadoku-aggregator | Create `recon/` module with KV reader. Build `/oss/api/recon/watchlist` CRUD endpoints and `/oss/api/recon/{slug}/health` stub (returns raw repo metadata, no scoring yet). Read from `recon:*` KV keys.                                                                                                       | `GET /oss/api/recon/watchlist` returns slug list. `GET /oss/api/recon/{slug}/health` returns data (even if scoring is just pass-through of scraper data). |
 | C     | vibedispatch      | Build OSS target management: `oss_routes.py` (CRUD for targets), `pipelineStore.ts` extension (ossStage1-5 data), OSS types in `types.ts`, `OSSView.tsx` with StageTabView shell. Build Stage 3-5 flow: fork-and-assign, review-on-fork, submit-to-origin. These are pure `gh` CLI — no aggregator dependency. | User can add a target repo. Fork & assign flow works end-to-end manually (hardcoded issue). PR review on fork works. Submit to origin works.              |
 
@@ -420,11 +423,11 @@ GET  /api/v1/oss-recon/status/{slug}         → { slug, last_run, status, data_
 **Duration:** 4-6 days
 **Scraper agent works first (2-3 days), then aggregator agent consumes the data.**
 
-| Agent | Repo              | Work                                                                                                                                                                                                                                                                                                                 | Depends On                                                          | Validates                                                                                                                                       |
-| ----- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| A     | hadoku-scrape     | Add PR scraping (merged + rejected samples via GitHub API). Add repo metadata scraping (CONTRIBUTING.md, PR templates, CODEOWNERS, default branch). Add comment thread scraping (top 20 issues). Write to `recon:{slug}:merged-prs`, `recon:{slug}:rejected-prs`, `recon:{slug}:repo-meta`, `recon:{slug}:comments`. | Nothing — can start immediately                                     | KV keys populated for a test repo. PR samples have correct fields. CONTRIBUTING.md content retrieved. Comment threads have author associations. |
-| B     | hadoku-aggregator | Build analysis engine: repo health scorer (reads `repo-meta` + `merged-prs` + `rejected-prs`), issue lifecycle classifier (reads `issues` + `comments`), CVS scorer (composite of all signals). Write results to `recon:{slug}:health` and `recon:{slug}:scored-issues`. Expose via API.                             | Scraper has written `recon:*` data to KV                            | `GET /recon/{slug}/health` returns computed scores. `GET /recon/{slug}/scored-issues` returns CVS-scored issues sorted by viability.            |
-| C     | vibedispatch      | Build Stage 1 (Target Repos) UI that reads from aggregator API. Build Stage 2 (Select Issues) UI that displays scored issues. Wire target add/remove to aggregator watchlist endpoints. Add fallback scoring via `gh` CLI for when aggregator is down.                                                               | Aggregator M2 API endpoints available (can use mock data initially) | User adds target → sees health scores. User browses scored issues → can select for work. Selected issue flows into Stage 3 fork-and-assign.     |
+| Agent | Repo              | Work                                                                                                                                                                                                                                                                                     | Depends On                                                          | Validates                                                                                                                                      |
+| ----- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| A     | hadoku-scrape     | Add PR scraping (merged + rejected samples via GitHub API). Add repo metadata scraping (CONTRIBUTING.md, PR templates, CODEOWNERS, default branch). Add comment thread scraping (top 20 issues). All written to consolidated `recon:{slug}` KV key.                                      | Nothing — can start immediately                                     | KV key populated for a test repo. PR samples have correct fields. CONTRIBUTING.md content retrieved. Comment threads have author associations. |
+| B     | hadoku-aggregator | Build analysis engine: repo health scorer (reads `repo-meta` + `merged-prs` + `rejected-prs`), issue lifecycle classifier (reads `issues` + `comments`), CVS scorer (composite of all signals). Write results to `recon:{slug}:health` and `recon:{slug}:scored-issues`. Expose via API. | Scraper has written `recon:*` data to KV                            | `GET /recon/{slug}/health` returns computed scores. `GET /recon/{slug}/scored-issues` returns CVS-scored issues sorted by viability.           |
+| C     | vibedispatch      | Build Stage 1 (Target Repos) UI that reads from aggregator API. Build Stage 2 (Select Issues) UI that displays scored issues. Wire target add/remove to aggregator watchlist endpoints. Add fallback scoring via `gh` CLI for when aggregator is down.                                   | Aggregator M2 API endpoints available (can use mock data initially) | User adds target → sees health scores. User browses scored issues → can select for work. Selected issue flows into Stage 3 fork-and-assign.    |
 
 **M2 Validation gate:** End-to-end flow works: add target → see scored issues → select → fork → assign → review → submit. Aggregator provides real scores from scraper data.
 
@@ -479,11 +482,10 @@ Week 3:
 
 **Blocking dependencies (agents must wait):**
 
-| Blocker                                                        | Who waits                    | What for                                                                   |
-| -------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------- |
-| `recon:{slug}:issues` in KV                                    | Aggregator M2 analysis       | Scraper M1 must write extended issues to KV                                |
-| `recon:{slug}:merged-prs` + `rejected-prs` + `repo-meta` in KV | Aggregator M2 health scoring | Scraper M2 must write PR + meta data to KV                                 |
-| Aggregator M2 API endpoints                                    | vibedispatch M2 Stage 1-2 UI | Aggregator must serve `/recon/watchlist` and `/recon/{slug}/scored-issues` |
+| Blocker                                          | Who waits                    | What for                                                                   |
+| ------------------------------------------------ | ---------------------------- | -------------------------------------------------------------------------- |
+| `recon:{slug}` in KV (consolidated scraper data) | Aggregator M2 analysis       | Scraper must write consolidated data to KV                                 |
+| Aggregator M2 API endpoints                      | vibedispatch M2 Stage 1-2 UI | Aggregator must serve `/recon/watchlist` and `/recon/{slug}/scored-issues` |
 
 **Non-blocking (agents can proceed independently):**
 

@@ -1,20 +1,23 @@
 # OSS Issue Aggregator
 
-> A dashboard to discover beginner-friendly issues across popular open source projects
+> Intelligence + API layer for the OSS contribution pipeline
 
-Find your first open source contribution! This dashboard aggregates beginner-friendly issues from popular open source projects, making it easy to discover opportunities to contribute.
+Scores open source issues for contribution viability, analyzes repo health, and compiles contribution dossiers. Part of the hadoku pipeline: **hadoku-scrape** (data collection) → **hadoku-aggregator** (analysis + API) → **vibedispatch** (orchestration + UI).
 
 **Live at:** [hadoku.me/aggregator](https://hadoku.me/aggregator)
 
 ## Features
 
-- **Multi-Project View**: Browse issues from 20+ major open source projects
-- **Project Selection**: Choose which projects to display with multi-select checkboxes
-- **Difficulty Indicators**: Issues tagged as beginner, intermediate, or unknown
-- **Multi-Platform**: GitHub, GitLab, Gitea, Phabricator, Bugzilla, and Trac projects
+- **Recon Pipeline**: Scores issues using CVS (Contribution Viability Score) combining repo health, issue quality, and timing signals
+- **Repo Health Analysis**: Maintainer activity, merge accessibility, contributor availability, kill signal detection
+- **Dossier Compilation**: 6-section markdown contribution guides per repo (overview, rules, success patterns, anti-patterns, issue board, setup)
+- **Dynamic Watchlist**: Projects managed via API — no hardcoded project lists
+- **Multi-Platform**: GitHub, GitLab, Gitea, Phabricator, Bugzilla, and Trac
+- **Issue Lifecycle**: Classifies issues as fresh, triaged, accepted, stale, or zombie
+- **Sentiment Analysis**: Pattern-matched comment sentiment scoring
+- **Quirk Detection**: Identifies changesets, CLA, conventional commits, branch targeting requirements
 - **Beautiful Themes**: 16 light/dark theme options
 - **Responsive Design**: Works on desktop and mobile
-- **Smart Caching**: Fast loading with 4-minute client-side cache
 
 ## Package Exports
 
@@ -29,23 +32,6 @@ import '@wolffm/oss-aggregator/style.css'
 import { createOSSHandler, type OSSEnv } from '@wolffm/oss-aggregator/api'
 ```
 
-## Supported Projects
-
-| Project                   | Platform    | Category |
-| ------------------------- | ----------- | -------- |
-| MediaWiki                 | Phabricator | Web Dev  |
-| Blender                   | Gitea       | Creative |
-| Node.js                   | GitHub      | Web Dev  |
-| PyTorch                   | GitHub      | ML/AI    |
-| React                     | GitHub      | Web Dev  |
-| Hugging Face Transformers | GitHub      | ML/AI    |
-| Open Library              | GitHub      | Web Dev  |
-| Krita                     | GitLab      | Creative |
-| VLC Media Player          | GitLab      | Media    |
-| Linux Kernel              | Bugzilla    | Systems  |
-| FFmpeg                    | Trac        | Media    |
-| ...and more               |             |          |
-
 ## Development
 
 ```bash
@@ -57,6 +43,9 @@ pnpm dev
 
 # Build (UI + API)
 pnpm build
+
+# Run tests
+pnpm test
 
 # Lint
 pnpm lint
@@ -89,35 +78,76 @@ export default app
 
 ### Environment Variables
 
-| Variable            | Required    | Description                            |
-| ------------------- | ----------- | -------------------------------------- |
-| `GITHUB_TOKEN`      | Recommended | GitHub PAT for higher rate limits      |
-| `PHABRICATOR_TOKEN` | Optional    | API token for Phabricator projects     |
-| `CACHE_KV`          | Optional    | KV namespace for caching blocked sites |
+| Variable            | Required | Description                                 |
+| ------------------- | -------- | ------------------------------------------- |
+| `CACHE_KV`          | Yes      | Cloudflare KV namespace binding             |
+| `SCRAPER_API_URL`   | Yes      | hadoku-scrape base URL for trigger calls    |
+| `SCRAPER_API_KEY`   | Yes      | API key for scraper authentication          |
+| `GITHUB_TOKEN`      | Optional | GitHub PAT (legacy, used by marking system) |
+| `PHABRICATOR_TOKEN` | Optional | Phabricator API token (legacy)              |
 
 ### API Endpoints
 
-| Method | Endpoint                 | Description                           |
-| ------ | ------------------------ | ------------------------------------- |
-| GET    | `/health`                | Health check                          |
-| GET    | `/projects`              | List all projects with pools          |
-| GET    | `/projects/:slug/issues` | Get issues for a specific project     |
-| GET    | `/issues?pool=:pool`     | Get issues for all projects in a pool |
-| GET    | `/openapi.json`          | OpenAPI specification                 |
-| POST   | `/issues/:id/mark`       | Mark an issue (ignored/process)       |
-| DELETE | `/issues/:id/mark`       | Unmark an issue                       |
-| GET    | `/marked?status=:status` | Get marked issues                     |
+All paths are relative to the base path (e.g., `/oss/api`).
 
-### Programmatic Access
+#### Health & Marking
 
-For direct access without HTTP:
+| Method | Endpoint                 | Description                     |
+| ------ | ------------------------ | ------------------------------- |
+| GET    | `/health`                | Health check                    |
+| GET    | `/openapi.json`          | OpenAPI specification           |
+| POST   | `/issues/{issueId}/mark` | Mark an issue (ignored/process) |
+| DELETE | `/issues/{issueId}/mark` | Unmark an issue                 |
+| GET    | `/issues/marked`         | Get marked issues by status     |
 
-```typescript
-import { createOSSFetcher } from '@wolffm/oss-aggregator/api'
+#### Recon Pipeline — Watchlist
 
-const fetcher = createOSSFetcher(env)
-const issues = await fetcher.fetchIssuesByPool('web-dev')
-const projects = fetcher.getProjects()
+| Method | Endpoint                  | Description                      |
+| ------ | ------------------------- | -------------------------------- |
+| GET    | `/recon/watchlist`        | Get all watched repo slugs       |
+| POST   | `/recon/watchlist/add`    | Add a repo to the watchlist      |
+| POST   | `/recon/watchlist/remove` | Remove a repo from the watchlist |
+
+#### Recon Pipeline — Per-Repo Data
+
+| Method | Endpoint                              | Description                              |
+| ------ | ------------------------------------- | ---------------------------------------- |
+| GET    | `/recon/{slug}/health`                | Computed repo health scores              |
+| GET    | `/recon/{slug}/issues`                | Raw unscored issues from KV              |
+| GET    | `/recon/{slug}/scored-issues`         | Issues with CVS scores                   |
+| GET    | `/recon/{slug}/dossier`               | Contribution intelligence dossier        |
+| GET    | `/recon/{slug}/issue-brief/{issueId}` | SWE agent execution context for an issue |
+| GET    | `/recon/all-scored-issues`            | All scored issues across all repos       |
+
+#### Recon Pipeline — Claims & Triggers
+
+| Method | Endpoint                | Description                       |
+| ------ | ----------------------- | --------------------------------- |
+| POST   | `/recon/{slug}/claim`   | Report an issue claim             |
+| POST   | `/recon/{slug}/unclaim` | Remove an issue claim             |
+| POST   | `/recon/{slug}/refresh` | Trigger scraper re-scrape         |
+| POST   | `/recon/{slug}/compute` | Pre-compute scores/health/dossier |
+| POST   | `/recon/compute-all`    | Pre-compute for all watched repos |
+
+## Data Flow
+
+```
+hadoku-scrape (cron)
+  │  fetches from upstream APIs
+  │  writes consolidated data to KV
+  ▼
+Cloudflare KV
+  │  recon:{slug}              → scraper data (issues, PRs, meta, comments)
+  │  recon:{slug}:health       → aggregator-computed health scores
+  │  recon:{slug}:scored-issues → CVS-scored issues
+  │  recon:{slug}:dossier      → compiled dossier
+  │  recon:{slug}:claims       → claim tracking
+  │  recon:watchlist           → watched repo slugs
+  ▼
+hadoku-aggregator API (this repo)
+  │  reads scraper data, runs analysis, serves results
+  ▼
+vibedispatch (UI + orchestration)
 ```
 
 ## Versioning
