@@ -3,12 +3,14 @@
 ## Current State
 
 The aggregator is a Cloudflare Worker (Hono/OpenAPI) that:
+
 - Reads `cached:{slug}` KV keys written by the old `ossissues` scraper module
 - Has its own 6 platform adapters (GitHub, GitLab, Gitea, Phabricator, Bugzilla, Trac) as a live fallback
 - Serves `/oss/api/issues/{slug}`, `/oss/api/projects`, etc.
 - Has a planned `api/recon/` module (from AGGREGATOR-REQUIREMENTS.md) with kv-reader, scorers, dossier compiler
 
 The planned recon module expects to read from **5 separate KV keys** per repo:
+
 ```
 recon:{slug}:issues
 recon:{slug}:merged-prs
@@ -24,31 +26,34 @@ recon:{slug}:comments
 Per the scraper expansion plan, we're consolidating all 5 keys into **one key per repo** to stay within KV free tier write limits.
 
 **New KV layout:**
+
 ```
 recon:{slug}    → ConsolidatedReconData   (one write per repo per cycle)
 ```
 
 **Schema:**
+
 ```typescript
 interface ConsolidatedReconData {
-  scrapedAt: string           // ISO 8601
-  source: string              // "github" | "gitlab" | "gitea" | etc.
-  platform: Platform          // platform enum
+  scrapedAt: string // ISO 8601
+  source: string // "github" | "gitlab" | "gitea" | etc.
+  platform: Platform // platform enum
 
   // All data packed into one value
   issues: ExtendedIssue[]
   mergedPrs: PRSample[]
   rejectedPrs: PRSample[]
   repoMeta: RepoMeta
-  comments: IssueComments     // keyed by issue number
+  comments: IssueComments // keyed by issue number
 
   // Scrape metadata
-  dataTypes: string[]         // which sections were populated
-  errors?: Record<string, string>  // per-section errors (e.g. "comments": "rate limited")
+  dataTypes: string[] // which sections were populated
+  errors?: Record<string, string> // per-section errors (e.g. "comments": "rate limited")
 }
 ```
 
 The aggregator still writes its **analysis results** to separate keys (these are infrequent, aggregator-computed, not per-cycle):
+
 ```
 recon:{slug}:health          → RepoHealth       (written after analysis)
 recon:{slug}:scored-issues   → ScoredIssue[]    (written after scoring)
@@ -73,6 +78,7 @@ Instead of duplicating Pydantic models as Zod schemas, the aggregator should fet
 This uses `openapi-typescript` to generate TypeScript interfaces from the scraper's OpenAPI spec. Run it as a build step or pre-commit hook.
 
 **Benefits:**
+
 - Single source of truth: scraper's Pydantic models → OpenAPI spec → aggregator's TypeScript types
 - No manual schema drift between repos
 - Types update automatically when scraper schema changes
@@ -86,7 +92,7 @@ import type {
   ExtendedIssue,
   PRSample,
   RepoMeta,
-  IssueComments,
+  IssueComments
 } from '../../generated/scraper-types'
 
 // Re-export for convenience
@@ -135,19 +141,20 @@ export const ConsolidatedReconDataSchema = z.object({
   scrapedAt: z.string().datetime(),
   source: z.string(),
   platform: z.string(),
-  issues: z.array(z.any()),        // trust scraper's validation
+  issues: z.array(z.any()), // trust scraper's validation
   mergedPrs: z.array(z.any()),
   rejectedPrs: z.array(z.any()),
   repoMeta: z.any(),
   comments: z.any(),
   dataTypes: z.array(z.string()),
-  errors: z.record(z.string()).optional(),
+  errors: z.record(z.string()).optional()
 })
 ```
 
 ### 3. KV Reader Migration
 
 **Current planned design (from AGGREGATOR-REQUIREMENTS.md):**
+
 ```typescript
 // Reads 5 separate keys
 export async function getReconIssues(kv: KVNamespace, slug: string): Promise<ExtendedIssue[] | null>
@@ -157,6 +164,7 @@ export async function getRepoMeta(kv: KVNamespace, slug: string): Promise<RepoMe
 ```
 
 **New design (consolidated):**
+
 ```typescript
 // api/recon/kv-reader.ts
 
@@ -187,7 +195,10 @@ export async function getReconData(
 }
 
 // Convenience accessors that unpack from the consolidated blob
-export async function getReconIssues(kv: KVNamespace, slug: string): Promise<ExtendedIssue[] | null> {
+export async function getReconIssues(
+  kv: KVNamespace,
+  slug: string
+): Promise<ExtendedIssue[] | null> {
   const data = await getReconData(kv, slug)
   return data?.issues ?? null
 }
@@ -228,12 +239,14 @@ export function clearReconCache() {
 ### 4. Deprecate Old Data Path
 
 The aggregator currently has two data paths:
+
 1. **Live path:** `api/adapters/*.ts` → direct API calls (fallback)
 2. **Cached path:** `api/data-sources/cached-provider.ts` → reads `cached:{slug}` from KV
 
 Both need to be migrated to read from `recon:{slug}` instead.
 
 **Migration steps:**
+
 1. Update `CachedProvider` to read from `recon:{slug}` and unpack `.issues` from the consolidated blob
 2. Map `ExtendedIssue` → `Issue` for backward compatibility with existing `/oss/api/issues/{slug}` endpoint (existing frontend expects the old schema)
 3. Keep `LiveApiProvider` as emergency fallback but log a warning when it's used
@@ -248,7 +261,10 @@ export class CachedProvider implements IssueDataProvider {
     const recon = await getReconData(env.CACHE_KV, config.slug)
     if (!recon) {
       // Fallback: try old cached:{slug} key during migration
-      const legacy = await env.CACHE_KV.get(`cached:${config.slug}`, 'json') as CachedIssues | null
+      const legacy = (await env.CACHE_KV.get(
+        `cached:${config.slug}`,
+        'json'
+      )) as CachedIssues | null
       if (legacy) return legacy.issues
       return []
     }
@@ -266,7 +282,7 @@ export class CachedProvider implements IssueDataProvider {
       labels: ei.labels,
       createdAt: ei.createdAt,
       updatedAt: ei.updatedAt,
-      author: ei.author,
+      author: ei.author
     }))
   }
 }
@@ -292,16 +308,17 @@ Add platform metadata to the recon endpoints:
 ```
 
 Add to `/oss/api/projects` response:
+
 ```typescript
 {
   projects: [
     {
-      slug: "gnome-gnome-shell",
-      name: "GNOME Shell",
-      platform: "gitlab",
-      platformUrl: "https://gitlab.gnome.org",  // NEW
-      pools: ["desktop"],
-      contributingUrl: "https://..."
+      slug: 'gnome-gnome-shell',
+      name: 'GNOME Shell',
+      platform: 'gitlab',
+      platformUrl: 'https://gitlab.gnome.org', // NEW
+      pools: ['desktop'],
+      contributingUrl: 'https://...'
     }
   ]
 }
@@ -317,7 +334,7 @@ interface ProjectConfig {
   slug: string
   name: string
   platform: Platform
-  platformUrl: string           // NEW: "https://github.com" | "https://gitlab.gnome.org" | etc.
+  platformUrl: string // NEW: "https://github.com" | "https://gitlab.gnome.org" | etc.
   apiBase: string
   projectId: string
   beginnerLabels: string[]
@@ -333,28 +350,30 @@ The issue URL field already contains the full URL (e.g., `https://gitlab.gnome.o
 The aggregator's `api/config.ts` currently has 20 projects hardcoded. With 141 repos, this needs to come from the scraper's watchlist instead.
 
 **Option A: Fetch from scraper at build time (recommended)**
+
 ```bash
 # Build step: pull config from scraper
 "generate:config": "curl -s $SCRAPER_API_URL/api/v1/oss-recon/config | node scripts/gen-config.js > src/generated/project-config.ts"
 ```
 
 **Option B: Fetch from watchlist KV at runtime**
+
 ```typescript
 // Read watchlist from KV, merge with any hardcoded overrides
 export async function getProjects(kv: KVNamespace): Promise<ProjectConfig[]> {
-  const watchlist = await kv.get('recon:watchlist', 'json') as string[] | null
+  const watchlist = (await kv.get('recon:watchlist', 'json')) as string[] | null
   if (!watchlist) return HARDCODED_PROJECTS // fallback
 
   // For each slug in watchlist, read recon:{slug} to get platform/metadata
   const projects = await Promise.all(
-    watchlist.map(async (slug) => {
+    watchlist.map(async slug => {
       const data = await getReconData(kv, slug)
       if (!data) return null
       return {
         slug,
         name: data.repoMeta?.name ?? slug,
         platform: data.platform,
-        platformUrl: data.repoMeta?.platformUrl ?? 'https://github.com',
+        platformUrl: data.repoMeta?.platformUrl ?? 'https://github.com'
         // ... map other fields from repoMeta
       }
     })
@@ -368,6 +387,7 @@ export async function getProjects(kv: KVNamespace): Promise<ProjectConfig[]> {
 ### 7. Update PROJECT-DESIGN.md
 
 The consolidated KV schema is a breaking change from the design docs. Update:
+
 - §4.1: Change 5-key pattern to 1-key pattern for scraper-written data
 - §4.2: Note that aggregator-written keys (health, scored-issues, dossier, claims) remain separate
 - §4.3: Add `ConsolidatedReconData` interface
@@ -377,29 +397,29 @@ The consolidated KV schema is a breaking change from the design docs. Update:
 
 ## Implementation Order
 
-| Step | Task | Days | Blocked By |
-|------|------|------|-----------|
-| 1 | **Type generation pipeline** — set up `openapi-typescript` to pull from scraper's OpenAPI spec | 0.5 | Scraper has OpenAPI endpoint |
-| 2 | **KV reader migration** — consolidated single-key reader with in-memory cache | 0.5 | Step 1 (types) |
-| 3 | **CachedProvider update** — read from `recon:{slug}` with legacy `cached:{slug}` fallback | 0.5 | Step 2 |
-| 4 | **Watchlist-driven config** — replace hardcoded 20 projects with KV watchlist | 0.5 | Step 2 |
-| 5 | **Platform metadata in API** — add `platformUrl`, `repoUrl` to responses | 0.5 | Step 3 |
-| 6 | **Frontend platform badges** — show GitHub/GitLab/Codeberg icons in UI | 0.5 | Step 5 |
-| 7 | **Update design docs** — reflect consolidated schema in PROJECT-DESIGN.md | 0.5 | Steps 1-3 |
-| 8 | **Deprecate old paths** — remove `api/adapters/`, delete `cached:{slug}` reads | 0.5 | Steps 3-4 confirmed working |
-| **Total** | | **~3-4 days** | |
+| Step      | Task                                                                                           | Days          | Blocked By                   |
+| --------- | ---------------------------------------------------------------------------------------------- | ------------- | ---------------------------- |
+| 1         | **Type generation pipeline** — set up `openapi-typescript` to pull from scraper's OpenAPI spec | 0.5           | Scraper has OpenAPI endpoint |
+| 2         | **KV reader migration** — consolidated single-key reader with in-memory cache                  | 0.5           | Step 1 (types)               |
+| 3         | **CachedProvider update** — read from `recon:{slug}` with legacy `cached:{slug}` fallback      | 0.5           | Step 2                       |
+| 4         | **Watchlist-driven config** — replace hardcoded 20 projects with KV watchlist                  | 0.5           | Step 2                       |
+| 5         | **Platform metadata in API** — add `platformUrl`, `repoUrl` to responses                       | 0.5           | Step 3                       |
+| 6         | **Frontend platform badges** — show GitHub/GitLab/Codeberg icons in UI                         | 0.5           | Step 5                       |
+| 7         | **Update design docs** — reflect consolidated schema in PROJECT-DESIGN.md                      | 0.5           | Steps 1-3                    |
+| 8         | **Deprecate old paths** — remove `api/adapters/`, delete `cached:{slug}` reads                 | 0.5           | Steps 3-4 confirmed working  |
+| **Total** |                                                                                                | **~3-4 days** |                              |
 
 ---
 
 ## Risk Summary
 
-| Risk | Mitigation |
-|------|-----------|
-| Scraper OpenAPI spec not available yet | Write types manually first, switch to generated later |
+| Risk                                                        | Mitigation                                                                 |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Scraper OpenAPI spec not available yet                      | Write types manually first, switch to generated later                      |
 | Consolidated blob too large for some repos (>25MB KV limit) | Scraper caps at `max_issues_per_repo: 100`, estimated ~500KB avg. Monitor. |
-| Legacy frontend breaks during migration | CachedProvider has fallback to old `cached:{slug}` keys |
-| Watchlist KV key empty on first deploy | Hardcoded config.ts serves as bootstrap fallback |
-| Type drift between scraper Pydantic and aggregator Zod | OpenAPI generation pipeline catches this at build time |
+| Legacy frontend breaks during migration                     | CachedProvider has fallback to old `cached:{slug}` keys                    |
+| Watchlist KV key empty on first deploy                      | Hardcoded config.ts serves as bootstrap fallback                           |
+| Type drift between scraper Pydantic and aggregator Zod      | OpenAPI generation pipeline catches this at build time                     |
 
 ---
 

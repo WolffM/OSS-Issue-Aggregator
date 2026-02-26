@@ -16,17 +16,6 @@ export interface Issue {
   author: string
 }
 
-export interface ProjectConfig {
-  slug: string
-  name: string
-  platform: Platform
-  apiBase: string
-  projectId: string
-  beginnerLabels: string[]
-  contributingUrl: string
-  pool: string[]
-}
-
 export interface OSSEnv {
   GITHUB_TOKEN?: string
   PHABRICATOR_TOKEN?: string
@@ -48,17 +37,4 @@ export interface MarkedIssue {
 export interface MarkedIssuesData {
   issues: MarkedIssue[]
   updatedAt: string
-}
-
-// Cached issue data structure (stored in KV by GitHub Actions)
-export interface CachedIssues {
-  issues: Issue[]
-  cachedAt: string
-  source: string
-}
-
-export interface ProjectResult {
-  project: string
-  issues: Issue[]
-  error?: string
 }

@@ -8,18 +8,6 @@
 // Handler factory (main export for Cloudflare Workers)
 export { createOSSHandler } from './handler'
 
-// Data source abstraction (swap providers here)
-export { createDataProvider, LiveApiProvider } from './data-sources'
-export type { IssueDataProvider } from './data-sources'
-
-// Low-level adapters (used by LiveApiProvider, will be removed when scraper replaces them)
-export { fetchGitHubIssues } from './adapters/github'
-export { fetchGitLabIssues } from './adapters/gitlab'
-export { fetchGiteaIssues } from './adapters/gitea'
-export { fetchPhabricatorIssues } from './adapters/phabricator'
-export { fetchBugzillaIssues } from './adapters/bugzilla'
-export { fetchTracIssues } from './adapters/trac'
-
 // Scoring system
 export { scoreIssue } from './scoring'
 export type { ScoringInput, ScoringResult } from './scoring'
@@ -29,26 +17,11 @@ export type {
   Platform,
   Difficulty,
   Issue,
-  ProjectConfig,
   OSSEnv,
   MarkStatus,
   MarkedIssue,
-  MarkedIssuesData,
-  CachedIssues,
-  ProjectResult
+  MarkedIssuesData
 } from './types'
-
-// Utilities (for advanced use cases)
-export {
-  buildHeaders,
-  checkApiResponse,
-  validateJsonResponse,
-  validateNotHtml,
-  parseDate,
-  deduplicateBy,
-  parseCSV,
-  parseCSVLine
-} from './utils'
 
 // Schemas (for OpenAPI integration)
 export {

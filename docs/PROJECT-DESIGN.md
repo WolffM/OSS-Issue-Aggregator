@@ -51,19 +51,17 @@ vibedispatch reviews PR → user submits PR to origin → tracks outcome
 
 ### Decision 2: KV as the integration bus
 
-All data flows through Cloudflare KV. The scraper writes, the aggregator reads. This is the same pattern already working for the basic issue scraper (`cached:{slug}` keys).
+All data flows through Cloudflare KV. The scraper writes, the aggregator reads.
 
 **Canonical slug format:** Slugs use hyphenated `{owner}-{repo}` format (e.g., `fastify-fastify`, `pytorch-pytorch`). This matches the existing scraper convention (e.g., `huggingface-transformers`) and avoids `/` in KV keys which would create ambiguous colon-separated key parsing. The `owner` and `repo` fields are stored separately in `RepoMeta` for GitHub API calls. The slug is ONLY used for KV keys, URL path segments, and watchlist entries. All three repos must use the same hyphenated format.
 
-New KV key patterns for recon data (slug = hyphenated):
+KV key patterns for scraper-written data (one key per repo per scrape cycle):
 
 ```
-recon:{slug}:issues          → ExtendedIssue[]  (issues with comments, assignees, bodyPreview)
-recon:{slug}:merged-prs      → PRSample[]       (10 most recent merged PRs with metadata)
-recon:{slug}:rejected-prs    → PRSample[]       (8 most recent rejected PRs)
-recon:{slug}:repo-meta       → RepoMeta         (stars, language, license, CONTRIBUTING.md, PR templates)
-recon:{slug}:comments        → IssueComments{}  (per-issue comment threads with author roles)
+recon:{slug}                 → ConsolidatedReconData  (all scraper data packed into one value)
 ```
+
+The `ConsolidatedReconData` envelope contains: `issues` (ExtendedIssue[]), `mergedPrs` (PRSample[]), `rejectedPrs` (PRSample[]), `repoMeta` (RepoMeta), `comments` ({ threads: IssueComments }), plus metadata (`scrapedAt`, `source`, `platform`, `dataTypes`, `errors`). This consolidated format keeps writes within KV free-tier limits when scaling to 100+ repos.
 
 The aggregator writes its analysis results to separate keys:
 
@@ -115,9 +113,9 @@ If the aggregator is unavailable, vibedispatch can fall back to basic `gh` CLI i
 
 ## 4. Shared Data Contracts
 
-### 4.1 ExtendedIssue (scraper → KV)
+### 4.1 ExtendedIssue (inside ConsolidatedReconData)
 
-Written by scraper to `recon:{slug}:issues`. Extends the existing Issue schema.
+Packed inside `recon:{slug}` as the `issues` array. Extends the existing Issue schema.
 
 ```typescript
 interface ExtendedIssue {
@@ -149,23 +147,28 @@ interface ExtendedIssue {
 }
 ```
 
-**KV envelope:** The `recon:{slug}:issues` KV value is wrapped in:
+**KV envelope:** All scraper data is packed into a single `ConsolidatedReconData` value at `recon:{slug}`:
 
 ```typescript
-interface ReconIssueData {
-  issues: ExtendedIssue[]
+interface ConsolidatedReconData {
   scrapedAt: string // ISO timestamp of when the scraper ran
   source: string // "hadoku-scraper"
-  dataTypes: string[] // Which data_types were included in this scrape
+  platform: string // "github" | "gitlab" | "gitea" | etc.
+  issues: ExtendedIssue[]
+  mergedPrs: PRSample[]
+  rejectedPrs: PRSample[]
+  repoMeta: RepoMeta | null
+  comments: { threads: IssueComments }
+  dataTypes: string[] // which sections were populated
+  errors: Record<string, string> | null // per-section errors
 }
 ```
 
-This mirrors the existing `CachedIssues` envelope pattern from the basic scraper.
 The aggregator uses `scrapedAt` to determine data freshness — if > 24h old, consider stale.
 
-### 4.2 PRSample (scraper → KV)
+### 4.2 PRSample (inside ConsolidatedReconData)
 
-Written by scraper to `recon:{slug}:merged-prs` and `recon:{slug}:rejected-prs`.
+Packed inside `recon:{slug}` as the `mergedPrs` and `rejectedPrs` arrays.
 
 ```typescript
 interface PRSample {
@@ -188,9 +191,9 @@ interface PRSample {
 }
 ```
 
-### 4.3 RepoMeta (scraper → KV)
+### 4.3 RepoMeta (inside ConsolidatedReconData)
 
-Written by scraper to `recon:{slug}:repo-meta`.
+Packed inside `recon:{slug}` as the `repoMeta` field (nullable).
 
 ```typescript
 interface RepoMeta {
@@ -218,9 +221,9 @@ interface RepoMeta {
 }
 ```
 
-### 4.4 IssueComments (scraper → KV)
+### 4.4 IssueComments (inside ConsolidatedReconData)
 
-Written by scraper to `recon:{slug}:comments`.
+Packed inside `recon:{slug}` as `comments.threads`.
 
 ```typescript
 // NOTE: Keys are stringified issue numbers. Use String(issueNumber) for lookups.
