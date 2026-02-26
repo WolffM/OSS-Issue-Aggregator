@@ -132,16 +132,33 @@ describe('computeAndStore', () => {
     expect(result.scoredCount).toBe(1)
     expect(result.dossierGenerated).toBe(true)
 
-    // Verify KV was written
-    const storedHealth = await kv.get('recon:fastify-fastify:health', 'json')
+    // Verify KV was written as envelopes with freshness timestamps
+    const storedHealth = (await kv.get('recon:fastify-fastify:health', 'json')) as Record<
+      string,
+      unknown
+    >
     expect(storedHealth).toBeTruthy()
+    expect(storedHealth.data).toBeTruthy()
+    expect(storedHealth.computed_at).toEqual(expect.any(String))
+    expect(storedHealth.scraped_at).toBe('2024-01-20T14:45:00Z')
 
-    const storedScored = await kv.get('recon:fastify-fastify:scored-issues', 'json')
+    const storedScored = (await kv.get('recon:fastify-fastify:scored-issues', 'json')) as Record<
+      string,
+      unknown
+    >
     expect(storedScored).toBeTruthy()
-    expect(Array.isArray(storedScored)).toBe(true)
+    expect(Array.isArray(storedScored.data)).toBe(true)
+    expect(storedScored.computed_at).toEqual(expect.any(String))
+    expect(storedScored.scraped_at).toBe('2024-01-20T14:45:00Z')
 
-    const storedDossier = await kv.get('recon:fastify-fastify:dossier', 'json')
+    const storedDossier = (await kv.get('recon:fastify-fastify:dossier', 'json')) as Record<
+      string,
+      unknown
+    >
     expect(storedDossier).toBeTruthy()
+    expect(storedDossier.data).toBeTruthy()
+    expect(storedDossier.computed_at).toEqual(expect.any(String))
+    expect(storedDossier.scraped_at).toBe('2024-01-20T14:45:00Z')
   })
 
   it('handles repos with no issues', async () => {

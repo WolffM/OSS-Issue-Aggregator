@@ -18,7 +18,8 @@ import type {
   CompetitionLevel,
   Complexity,
   DataCompleteness,
-  CommentThread
+  CommentThread,
+  ScoringMeta
 } from './types'
 import { scoreIssue } from '../scoring'
 import { analyzeSentiment } from './sentiment'
@@ -29,6 +30,16 @@ import { detectRelatedIssues } from './related-issues'
 
 // Default beginner labels for scoreIssue() — covers common OSS conventions
 const DEFAULT_BEGINNER_LABELS = ['good first issue', 'help wanted', 'beginner', 'easy', 'starter']
+
+const ALL_SIGNALS = [
+  'freshness',
+  'activity',
+  'contentQuality',
+  'competition',
+  'complexity',
+  'reactions',
+  'commentSentiment'
+] as const
 
 // ============================================================================
 // Sub-Dimension Scorers
@@ -261,6 +272,7 @@ export function scoreIssues(
   const repoScore = health ? health.overallViability : 50
   const repoSlug = health?.slug ?? ''
   const dataBase: DataCompleteness = health ? 'full' : 'partial'
+  const scored_at = new Date().toISOString()
 
   // Detect related issues and likely files across all issues
   const relatedMap = detectRelatedIssues(issues)
@@ -339,6 +351,23 @@ export function scoreIssues(
 
     const related = relatedMap.get(issue.id)
 
+    // Track which signals contributed non-zero values
+    const signals_used: string[] = []
+    if (freshness > 0) signals_used.push('freshness')
+    if (activity > 0) signals_used.push('activity')
+    if (contentQuality.raw > 0) signals_used.push('contentQuality')
+    if (competition > 0) signals_used.push('competition')
+    if (complexityBonus > 0) signals_used.push('complexity')
+    if (reactions !== 0) signals_used.push('reactions')
+    if (commentSentiment !== 0) signals_used.push('commentSentiment')
+
+    const _scoring: ScoringMeta = {
+      scored_at,
+      data_completeness: dataCompleteness,
+      signals_used,
+      signals_available: [...ALL_SIGNALS]
+    }
+
     return {
       ...issue,
       cvs,
@@ -356,7 +385,8 @@ export function scoreIssues(
       dataCompleteness,
       repoKilled: false,
       likelyFiles: related?.likelyFiles ?? [],
-      relatedIssues: related?.relatedIssues ?? []
+      relatedIssues: related?.relatedIssues ?? [],
+      _scoring
     } satisfies ScoredIssue
   })
 

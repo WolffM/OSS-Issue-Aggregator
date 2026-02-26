@@ -12,7 +12,9 @@ import type {
   RepoHealth,
   ScoredIssue,
   Comment,
-  CommentThread
+  CommentThread,
+  Dossier,
+  KVEnvelope
 } from '../types'
 
 // ============================================================================
@@ -231,6 +233,55 @@ export function makeScoredIssue(overrides: Partial<ScoredIssue> = {}): ScoredIss
     repoKilled: false,
     likelyFiles: [],
     relatedIssues: [],
+    _scoring: {
+      scored_at: '2024-01-20T15:00:00Z',
+      data_completeness: 'full',
+      signals_used: ['freshness', 'activity', 'contentQuality'],
+      signals_available: [
+        'freshness',
+        'activity',
+        'contentQuality',
+        'competition',
+        'complexity',
+        'reactions',
+        'commentSentiment'
+      ]
+    },
+    ...overrides
+  }
+}
+
+export function makeDossier(overrides: Partial<Dossier> = {}): Dossier {
+  return {
+    slug: 'fastify-fastify',
+    generatedAt: '2024-01-20T15:00:00Z',
+    sections: {
+      overview: '## Overview\n\n**fastify/fastify**\n\nStars: 30,000',
+      contributionRules: '## Contribution Rules\n\n**Default branch:** `main`',
+      successPatterns: '## Success Patterns\n\n| Metric | Value |',
+      antiPatterns: '## Anti-Patterns\n\nNo significant anti-patterns detected.',
+      issueBoard: '## Issue Board\n\nNo scored issues available.',
+      environmentSetup: '## Environment Setup\n\n**Language:** TypeScript'
+    },
+    completeness: {
+      overview: true,
+      contributionRules: true,
+      successPatterns: true,
+      antiPatterns: false,
+      issueBoard: false,
+      environmentSetup: true,
+      score: 4,
+      total: 6
+    },
+    ...overrides
+  }
+}
+
+export function makeKVEnvelope<T>(data: T, overrides: Partial<KVEnvelope<T>> = {}): KVEnvelope<T> {
+  return {
+    data,
+    scraped_at: '2024-01-20T14:45:00Z',
+    computed_at: '2024-01-20T15:00:00Z',
     ...overrides
   }
 }

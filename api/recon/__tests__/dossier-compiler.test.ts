@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compileDossier } from '../dossier-compiler'
+import { compileDossier, isSectionPopulated } from '../dossier-compiler'
 import { makeRepoMeta, makeRepoHealth, makeScoredIssue, makePRSample } from './helpers'
 
 describe('compileDossier', () => {
@@ -283,5 +283,110 @@ describe('compileDossier', () => {
         'https://github.com/fastify/fastify/blob/main/CONTRIBUTING.md'
       )
     })
+  })
+
+  describe('completeness field', () => {
+    it('includes completeness with per-section booleans and score/total', () => {
+      const meta = makeRepoMeta()
+      const health = makeRepoHealth()
+      const issues = [makeScoredIssue()]
+      const result = compileDossier('test', meta, health, issues, [], [])
+
+      expect(result.completeness).toBeDefined()
+      expect(typeof result.completeness.overview).toBe('boolean')
+      expect(typeof result.completeness.contributionRules).toBe('boolean')
+      expect(typeof result.completeness.successPatterns).toBe('boolean')
+      expect(typeof result.completeness.antiPatterns).toBe('boolean')
+      expect(typeof result.completeness.issueBoard).toBe('boolean')
+      expect(typeof result.completeness.environmentSetup).toBe('boolean')
+      expect(typeof result.completeness.score).toBe('number')
+      expect(result.completeness.total).toBe(6)
+    })
+
+    it('marks populated sections as true', () => {
+      const meta = makeRepoMeta()
+      const health = makeRepoHealth()
+      const issues = [makeScoredIssue()]
+      const result = compileDossier('test', meta, health, issues, [], [])
+
+      // Overview, contributionRules, successPatterns, issueBoard, environmentSetup
+      // should all be populated for a healthy repo with issues
+      expect(result.completeness.overview).toBe(true)
+      expect(result.completeness.contributionRules).toBe(true)
+      expect(result.completeness.successPatterns).toBe(true)
+      expect(result.completeness.issueBoard).toBe(true)
+      expect(result.completeness.environmentSetup).toBe(true)
+    })
+
+    it('marks anti-patterns as false when no anti-patterns exist', () => {
+      const meta = makeRepoMeta()
+      const health = makeRepoHealth()
+      const result = compileDossier('test', meta, health, [], [], [])
+
+      // "No significant anti-patterns detected." should be marked as not populated
+      expect(result.completeness.antiPatterns).toBe(false)
+    })
+
+    it('marks issue board as false when no issues exist', () => {
+      const meta = makeRepoMeta()
+      const health = makeRepoHealth()
+      const result = compileDossier('test', meta, health, [], [], [])
+
+      // "No scored issues available." should be marked as not populated
+      expect(result.completeness.issueBoard).toBe(false)
+    })
+
+    it('score counts populated sections correctly', () => {
+      const meta = makeRepoMeta()
+      const health = makeRepoHealth()
+      // No issues, no anti-patterns → 2 sections should be unpopulated
+      const result = compileDossier('test', meta, health, [], [], [])
+
+      expect(result.completeness.score).toBeLessThan(6)
+      // overview, contributionRules, successPatterns, environmentSetup should be populated
+      expect(result.completeness.score).toBeGreaterThanOrEqual(4)
+    })
+
+    it('all sections populated when repo has issues and anti-patterns', () => {
+      const meta = makeRepoMeta()
+      const health = makeRepoHealth({
+        prPatterns: {
+          ...makeRepoHealth().prPatterns,
+          topRejectionReasons: ['too large', 'wrong branch']
+        }
+      })
+      const issues = [makeScoredIssue()]
+      const result = compileDossier('test', meta, health, issues, [], [])
+
+      expect(result.completeness.antiPatterns).toBe(true)
+      expect(result.completeness.issueBoard).toBe(true)
+      expect(result.completeness.score).toBe(6)
+    })
+  })
+})
+
+describe('isSectionPopulated', () => {
+  it('returns false for placeholder "No scored issues" text', () => {
+    expect(isSectionPopulated('## Issue Board\n\nNo scored issues available.\n')).toBe(false)
+  })
+
+  it('returns false for placeholder "No significant anti-patterns" text', () => {
+    expect(isSectionPopulated('## Anti-Patterns\n\nNo significant anti-patterns detected.\n')).toBe(
+      false
+    )
+  })
+
+  it('returns true for meaningful content', () => {
+    expect(
+      isSectionPopulated('## Overview\n\n**fastify/fastify**\n\nStars: 30,000 | Forks: 2,200')
+    ).toBe(true)
+  })
+
+  it('returns false for header-only content', () => {
+    expect(isSectionPopulated('## Overview\n\n')).toBe(false)
+  })
+
+  it('returns false for very short content after stripping headers', () => {
+    expect(isSectionPopulated('## Section\n\nOk')).toBe(false)
   })
 })

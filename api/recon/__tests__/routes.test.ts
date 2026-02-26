@@ -7,6 +7,8 @@ import {
   makeRepoMeta,
   makeRepoHealth,
   makeScoredIssue,
+  makeDossier,
+  makeKVEnvelope,
   makePRSample
 } from './helpers'
 
@@ -503,5 +505,239 @@ describe('POST /:slug/unclaim', () => {
 
     const body = await res.json()
     expect(body.data.removed).toBe(false)
+  })
+})
+
+// ============================================================================
+// _meta on all route responses
+// ============================================================================
+
+describe('_meta freshness metadata', () => {
+  function expectMeta(meta: Record<string, unknown>) {
+    expect(meta).toBeDefined()
+    expect(typeof meta.served_at).toBe('string')
+    expect(new Date(meta.served_at as string).getTime()).not.toBeNaN()
+  }
+
+  describe('watchlist routes', () => {
+    it('GET /watchlist includes _meta with served_at only', async () => {
+      const app = createTestApp(createMockKV())
+      const res = await app.request('/watchlist')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBeNull()
+      expect(body._meta.computed_at).toBeNull()
+    })
+
+    it('POST /watchlist/add includes _meta with served_at only', async () => {
+      const app = createTestApp(createMockKV())
+      const res = await app.request('/watchlist/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: 'fastify-fastify' })
+      })
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBeNull()
+      expect(body._meta.computed_at).toBeNull()
+    })
+
+    it('POST /watchlist/remove includes _meta with served_at only', async () => {
+      const kv = createMockKV({ 'recon:watchlist': ['fastify-fastify'] })
+      const app = createTestApp(kv)
+      const res = await app.request('/watchlist/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: 'fastify-fastify' })
+      })
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBeNull()
+      expect(body._meta.computed_at).toBeNull()
+    })
+  })
+
+  describe('data routes with enveloped KV', () => {
+    it('GET /:slug/health includes _meta from envelope', async () => {
+      const health = makeRepoHealth()
+      const envelope = makeKVEnvelope(health, {
+        scraped_at: '2024-06-01T00:00:00Z',
+        computed_at: '2024-06-01T01:00:00Z'
+      })
+      const kv = createMockKV({ 'recon:fastify-fastify:health': envelope })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/fastify-fastify/health')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
+      expect(body._meta.computed_at).toBe('2024-06-01T01:00:00Z')
+    })
+
+    it('GET /:slug/health fallback has _meta with null scraped_at', async () => {
+      // No pre-computed health — falls back to on-the-fly computation
+      const recentDate = new Date(Date.now() - 5 * 86_400_000).toISOString()
+      const kv = createMockKV({
+        'recon:fastify-fastify': makeConsolidatedReconData({
+          repoMeta: makeRepoMeta(),
+          mergedPrs: [makePRSample({ mergedAt: recentDate, createdAt: recentDate })]
+        })
+      })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/fastify-fastify/health')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBeNull()
+      expect(body._meta.computed_at).toBeNull()
+    })
+
+    it('GET /:slug/issues includes _meta with scraped_at from consolidated', async () => {
+      const kv = createMockKV({
+        'recon:fastify-fastify': makeConsolidatedReconData({
+          scrapedAt: '2024-06-01T00:00:00Z'
+        })
+      })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/fastify-fastify/issues')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
+      expect(body._meta.computed_at).toBeNull()
+    })
+
+    it('GET /:slug/scored-issues includes _meta from envelope', async () => {
+      const scored = makeScoredIssue()
+      const envelope = makeKVEnvelope([scored], {
+        scraped_at: '2024-06-01T00:00:00Z',
+        computed_at: '2024-06-01T01:00:00Z'
+      })
+      const kv = createMockKV({ 'recon:fastify-fastify:scored-issues': envelope })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/fastify-fastify/scored-issues')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
+      expect(body._meta.computed_at).toBe('2024-06-01T01:00:00Z')
+    })
+
+    it('GET /:slug/dossier includes _meta from envelope', async () => {
+      const dossier = makeDossier()
+      const envelope = makeKVEnvelope(dossier, {
+        scraped_at: '2024-06-01T00:00:00Z',
+        computed_at: '2024-06-01T01:00:00Z'
+      })
+      const kv = createMockKV({ 'recon:fastify-fastify:dossier': envelope })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/fastify-fastify/dossier')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
+      expect(body._meta.computed_at).toBe('2024-06-01T01:00:00Z')
+    })
+
+    it('GET /:slug/issue-brief/:issueId includes _meta from scored-issues envelope', async () => {
+      const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
+      const health = makeRepoHealth()
+      const scoredEnvelope = makeKVEnvelope([scored], {
+        scraped_at: '2024-06-01T00:00:00Z',
+        computed_at: '2024-06-01T01:00:00Z'
+      })
+      const healthEnvelope = makeKVEnvelope(health)
+      const kv = createMockKV({
+        'recon:fastify-fastify': makeConsolidatedReconData(),
+        'recon:fastify-fastify:scored-issues': scoredEnvelope,
+        'recon:fastify-fastify:health': healthEnvelope
+      })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
+      expect(body._meta.computed_at).toBe('2024-06-01T01:00:00Z')
+    })
+  })
+
+  describe('all-scored-issues timestamp aggregation', () => {
+    it('uses oldest scraped_at and computed_at across repos', async () => {
+      const scored1 = makeScoredIssue({ id: 'issue-1', repoSlug: 'repo-a' })
+      const scored2 = makeScoredIssue({ id: 'issue-2', repoSlug: 'repo-b' })
+
+      const envelope1 = makeKVEnvelope([scored1], {
+        scraped_at: '2024-06-01T00:00:00Z',
+        computed_at: '2024-06-01T01:00:00Z'
+      })
+      const envelope2 = makeKVEnvelope([scored2], {
+        scraped_at: '2024-05-15T00:00:00Z',
+        computed_at: '2024-05-15T01:00:00Z'
+      })
+
+      const kv = createMockKV({
+        'recon:repo-a': makeConsolidatedReconData(),
+        'recon:repo-b': makeConsolidatedReconData(),
+        'recon:repo-a:scored-issues': envelope1,
+        'recon:repo-b:scored-issues': envelope2
+      })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/all-scored-issues')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      // Oldest scraped_at should win
+      expect(body._meta.scraped_at).toBe('2024-05-15T00:00:00Z')
+      expect(body._meta.computed_at).toBe('2024-05-15T01:00:00Z')
+    })
+
+    it('handles mix of enveloped and bare data for timestamp aggregation', async () => {
+      const scored1 = makeScoredIssue({ id: 'issue-1', repoSlug: 'repo-a' })
+      const scored2 = makeScoredIssue({ id: 'issue-2', repoSlug: 'repo-b' })
+
+      // repo-a has envelope, repo-b has bare data
+      const envelope1 = makeKVEnvelope([scored1], {
+        scraped_at: '2024-06-01T00:00:00Z',
+        computed_at: '2024-06-01T01:00:00Z'
+      })
+
+      const kv = createMockKV({
+        'recon:repo-a': makeConsolidatedReconData(),
+        'recon:repo-b': makeConsolidatedReconData(),
+        'recon:repo-a:scored-issues': envelope1,
+        'recon:repo-b:scored-issues': [scored2] // bare array
+      })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/all-scored-issues')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      // Should have scraped_at from the one repo that has it
+      expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
+    })
+
+    it('returns null timestamps when no repos have envelope data', async () => {
+      const kv = createMockKV()
+      const app = createTestApp(kv)
+
+      const res = await app.request('/all-scored-issues')
+      const body = await res.json()
+
+      expectMeta(body._meta)
+      expect(body._meta.scraped_at).toBeNull()
+      expect(body._meta.computed_at).toBeNull()
+    })
   })
 })

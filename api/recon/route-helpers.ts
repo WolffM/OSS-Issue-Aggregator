@@ -5,11 +5,14 @@
 import { z } from '@hono/zod-openapi'
 import type { OSSEnv } from '../types'
 import {
+  type KVEnvelope,
+  type ResponseMeta,
   ExtendedIssueSchema,
   ScoredIssueSchema,
   RepoHealthSchema,
   DossierSchema,
-  ClaimRecordSchema
+  ClaimRecordSchema,
+  ResponseMetaSchema
 } from './types'
 
 // ============================================================================
@@ -30,6 +33,33 @@ export function getErrorMessage(err: unknown): string {
 
 export function requireKV(env: OSSEnv) {
   return env.CACHE_KV ?? null
+}
+
+/** Build _meta from a KVEnvelope (computed data with freshness timestamps). */
+export function buildMeta(envelope: KVEnvelope<unknown> | null): ResponseMeta {
+  return {
+    scraped_at: envelope?.scraped_at ?? null,
+    computed_at: envelope?.computed_at ?? null,
+    served_at: new Date().toISOString()
+  }
+}
+
+/** Build _meta for raw scraper data (no computed_at). */
+export function buildScrapedOnlyMeta(scrapedAt: string | null): ResponseMeta {
+  return {
+    scraped_at: scrapedAt ?? null,
+    computed_at: null,
+    served_at: new Date().toISOString()
+  }
+}
+
+/** Build _meta with only served_at (no freshness source). */
+export function buildServedOnlyMeta(): ResponseMeta {
+  return {
+    scraped_at: null,
+    computed_at: null,
+    served_at: new Date().toISOString()
+  }
 }
 
 // ============================================================================
@@ -89,7 +119,8 @@ export const WatchlistResponseSchema = z
     success: z.literal(true),
     data: z.object({
       slugs: z.array(z.string())
-    })
+    }),
+    _meta: ResponseMetaSchema
   })
   .openapi('WatchlistResponse')
 
@@ -99,7 +130,8 @@ export const WatchlistAddResponseSchema = z
     data: z.object({
       slug: z.string(),
       added: z.boolean()
-    })
+    }),
+    _meta: ResponseMetaSchema
   })
   .openapi('WatchlistAddResponse')
 
@@ -109,7 +141,8 @@ export const WatchlistRemoveResponseSchema = z
     data: z.object({
       slug: z.string(),
       removed: z.boolean()
-    })
+    }),
+    _meta: ResponseMetaSchema
   })
   .openapi('WatchlistRemoveResponse')
 
@@ -119,7 +152,8 @@ export const IssuesResponseSchema = z
     data: z.object({
       issues: z.array(ExtendedIssueSchema),
       slug: z.string()
-    })
+    }),
+    _meta: ResponseMetaSchema
   })
   .openapi('ReconIssuesResponse')
 
@@ -129,7 +163,8 @@ export const ScoredIssuesResponseSchema = z
     data: z.object({
       issues: z.array(ScoredIssueSchema),
       slug: z.string()
-    })
+    }),
+    _meta: ResponseMetaSchema
   })
   .openapi('ReconScoredIssuesResponse')
 
@@ -140,7 +175,8 @@ export const AllScoredIssuesResponseSchema = z
       issues: z.array(ScoredIssueSchema),
       totalCount: z.number(),
       repoCount: z.number()
-    })
+    }),
+    _meta: ResponseMetaSchema
   })
   .openapi('AllScoredIssuesResponse')
 
@@ -194,13 +230,15 @@ export const IssueBriefResponseSchema = z
       issue: ScoredIssueSchema,
       repoHealth: RepoHealthSchema,
       brief: z.string().openapi({ description: 'Markdown-formatted SWE agent execution context' })
-    })
+    }),
+    _meta: ResponseMetaSchema
   })
   .openapi('IssueBriefResponse')
 
 export const DossierResponseSchema = z
   .object({
     success: z.literal(true),
-    data: DossierSchema
+    data: DossierSchema,
+    _meta: ResponseMetaSchema
   })
   .openapi('ReconDossierSuccessResponse')

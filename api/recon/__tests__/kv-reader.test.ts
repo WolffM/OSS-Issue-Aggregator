@@ -4,7 +4,10 @@ import {
   getRepoHealth,
   getScoredIssues,
   getClaims,
-  getDossier
+  getDossier,
+  getRepoHealthEnveloped,
+  getScoredIssuesEnveloped,
+  getDossierEnveloped
 } from '../kv-reader'
 import {
   createMockKV,
@@ -14,9 +17,13 @@ import {
   makePRSample,
   makeRepoMeta,
   makeComment,
-  makeCommentThread
+  makeCommentThread,
+  makeRepoHealth,
+  makeScoredIssue,
+  makeDossier,
+  makeKVEnvelope
 } from './helpers'
-import type { RepoHealth, Dossier } from '../types'
+import type { RepoHealth, Dossier, KVEnvelope } from '../types'
 
 describe('getConsolidatedRecon', () => {
   it('returns null when KV key does not exist', async () => {
@@ -169,6 +176,16 @@ describe('getDossier', () => {
         antiPatterns: '# Anti-Patterns\n...',
         issueBoard: '# Issues\n...',
         environmentSetup: '# Setup\n...'
+      },
+      completeness: {
+        overview: true,
+        contributionRules: true,
+        successPatterns: true,
+        antiPatterns: true,
+        issueBoard: true,
+        environmentSetup: true,
+        score: 6,
+        total: 6
       }
     }
     const kv = createMockKV({ 'recon:test-repo:dossier': dossier })
@@ -176,5 +193,171 @@ describe('getDossier', () => {
     const result = await getDossier(kv, 'test-repo')
     expect(result!.slug).toBe('test-repo')
     expect(result!.sections.overview).toContain('Overview')
+  })
+})
+
+// ============================================================================
+// Enveloped KV Readers
+// ============================================================================
+
+describe('getRepoHealthEnveloped', () => {
+  it('returns null when no data', async () => {
+    const kv = createMockKV()
+    expect(await getRepoHealthEnveloped(kv, 'test-repo')).toBeNull()
+  })
+
+  it('reads new envelope format with scraped_at and computed_at', async () => {
+    const health = makeRepoHealth({ slug: 'test-repo' })
+    const envelope = makeKVEnvelope(health, {
+      scraped_at: '2024-06-01T00:00:00Z',
+      computed_at: '2024-06-01T01:00:00Z'
+    })
+    const kv = createMockKV({ 'recon:test-repo:health': envelope })
+
+    const result = await getRepoHealthEnveloped(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result!.data.slug).toBe('test-repo')
+    expect(result!.data.overallViability).toBe(65)
+    expect(result!.scraped_at).toBe('2024-06-01T00:00:00Z')
+    expect(result!.computed_at).toBe('2024-06-01T01:00:00Z')
+  })
+
+  it('falls back to bare data for pre-migration KV entries', async () => {
+    // Bare RepoHealth (no envelope wrapper) — simulates pre-migration data
+    const health = makeRepoHealth({ slug: 'test-repo', analyzedAt: '2024-03-15T12:00:00Z' })
+    const kv = createMockKV({ 'recon:test-repo:health': health })
+
+    const result = await getRepoHealthEnveloped(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result!.data.slug).toBe('test-repo')
+    expect(result!.scraped_at).toBeNull()
+    // Should extract computed_at from analyzedAt field
+    expect(result!.computed_at).toBe('2024-03-15T12:00:00Z')
+  })
+})
+
+describe('getScoredIssuesEnveloped', () => {
+  it('returns null when no data', async () => {
+    const kv = createMockKV()
+    expect(await getScoredIssuesEnveloped(kv, 'test-repo')).toBeNull()
+  })
+
+  it('reads new envelope format', async () => {
+    const issues = [makeScoredIssue({ id: 'issue-1' }), makeScoredIssue({ id: 'issue-2' })]
+    const envelope = makeKVEnvelope(issues, {
+      scraped_at: '2024-06-01T00:00:00Z',
+      computed_at: '2024-06-01T01:00:00Z'
+    })
+    const kv = createMockKV({ 'recon:test-repo:scored-issues': envelope })
+
+    const result = await getScoredIssuesEnveloped(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result!.data).toHaveLength(2)
+    expect(result!.data[0].id).toBe('issue-1')
+    expect(result!.scraped_at).toBe('2024-06-01T00:00:00Z')
+    expect(result!.computed_at).toBe('2024-06-01T01:00:00Z')
+  })
+
+  it('falls back to bare array for pre-migration KV entries', async () => {
+    // Bare array (no envelope) — simulates pre-migration data
+    const issues = [makeScoredIssue({ id: 'issue-1' })]
+    const kv = createMockKV({ 'recon:test-repo:scored-issues': issues })
+
+    const result = await getScoredIssuesEnveloped(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    // Bare arrays don't have .data at top level, so readEnvelopedKV wraps them
+    expect(result!.scraped_at).toBeNull()
+  })
+})
+
+describe('getDossierEnveloped', () => {
+  it('returns null when no data', async () => {
+    const kv = createMockKV()
+    expect(await getDossierEnveloped(kv, 'test-repo')).toBeNull()
+  })
+
+  it('reads new envelope format', async () => {
+    const dossier = makeDossier({ slug: 'test-repo' })
+    const envelope = makeKVEnvelope(dossier, {
+      scraped_at: '2024-06-01T00:00:00Z',
+      computed_at: '2024-06-01T01:00:00Z'
+    })
+    const kv = createMockKV({ 'recon:test-repo:dossier': envelope })
+
+    const result = await getDossierEnveloped(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result!.data.slug).toBe('test-repo')
+    expect(result!.data.completeness).toBeDefined()
+    expect(result!.scraped_at).toBe('2024-06-01T00:00:00Z')
+    expect(result!.computed_at).toBe('2024-06-01T01:00:00Z')
+  })
+
+  it('falls back to bare dossier for pre-migration KV entries', async () => {
+    // Bare Dossier without envelope — simulates pre-migration
+    const dossier: Dossier = {
+      slug: 'test-repo',
+      generatedAt: '2024-03-15T12:00:00Z',
+      sections: {
+        overview: '# Overview\nTest...',
+        contributionRules: '# Rules\n...',
+        successPatterns: '# Success\n...',
+        antiPatterns: '# Anti\n...',
+        issueBoard: '# Issues\n...',
+        environmentSetup: '# Setup\n...'
+      },
+      completeness: {
+        overview: true,
+        contributionRules: true,
+        successPatterns: true,
+        antiPatterns: true,
+        issueBoard: true,
+        environmentSetup: true,
+        score: 6,
+        total: 6
+      }
+    }
+    const kv = createMockKV({ 'recon:test-repo:dossier': dossier })
+
+    const result = await getDossierEnveloped(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result!.data.slug).toBe('test-repo')
+    expect(result!.scraped_at).toBeNull()
+    // Should extract computed_at from generatedAt field
+    expect(result!.computed_at).toBe('2024-03-15T12:00:00Z')
+  })
+})
+
+describe('bare readers delegate to enveloped', () => {
+  it('getRepoHealth unwraps envelope data', async () => {
+    const health = makeRepoHealth({ slug: 'test-repo', overallViability: 88 })
+    const envelope = makeKVEnvelope(health)
+    const kv = createMockKV({ 'recon:test-repo:health': envelope })
+
+    const result = await getRepoHealth(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result!.slug).toBe('test-repo')
+    expect(result!.overallViability).toBe(88)
+  })
+
+  it('getScoredIssues unwraps envelope data', async () => {
+    const issues = [makeScoredIssue({ id: 'issue-1', cvs: 90 })]
+    const envelope = makeKVEnvelope(issues)
+    const kv = createMockKV({ 'recon:test-repo:scored-issues': envelope })
+
+    const result = await getScoredIssues(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result).toHaveLength(1)
+    expect(result![0].cvs).toBe(90)
+  })
+
+  it('getDossier unwraps envelope data', async () => {
+    const dossier = makeDossier({ slug: 'test-repo' })
+    const envelope = makeKVEnvelope(dossier)
+    const kv = createMockKV({ 'recon:test-repo:dossier': envelope })
+
+    const result = await getDossier(kv, 'test-repo')
+    expect(result).not.toBeNull()
+    expect(result!.slug).toBe('test-repo')
+    expect(result!.completeness).toBeDefined()
   })
 })

@@ -666,12 +666,117 @@ describe('scoreIssues', () => {
       expect(result).toHaveProperty('repoSlug')
       expect(result).toHaveProperty('dataCompleteness')
       expect(result).toHaveProperty('repoKilled')
+      expect(result).toHaveProperty('_scoring')
     })
 
     it('returns empty array for no issues', () => {
       const health = makeHealth()
       const scored = scoreIssues([], {}, health, [])
       expect(scored).toEqual([])
+    })
+  })
+
+  describe('_scoring metadata', () => {
+    it('includes _scoring on every scored issue', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issues = [
+        makeExtendedIssue({ id: 'a', createdAt: recent, updatedAt: recent }),
+        makeExtendedIssue({ id: 'b', createdAt: recent, updatedAt: recent })
+      ]
+
+      const scored = scoreIssues(issues, {}, health, [])
+
+      for (const issue of scored) {
+        expect(issue._scoring).toBeDefined()
+        expect(typeof issue._scoring.scored_at).toBe('string')
+        expect(new Date(issue._scoring.scored_at).getTime()).not.toBeNaN()
+        expect(issue._scoring.data_completeness).toMatch(/^(full|partial)$/)
+        expect(Array.isArray(issue._scoring.signals_used)).toBe(true)
+        expect(Array.isArray(issue._scoring.signals_available)).toBe(true)
+      }
+    })
+
+    it('signals_available always contains all 7 signals', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issue = makeExtendedIssue({ createdAt: recent, updatedAt: recent })
+
+      const scored = scoreIssues([issue], {}, health, [])
+
+      expect(scored[0]._scoring.signals_available).toEqual([
+        'freshness',
+        'activity',
+        'contentQuality',
+        'competition',
+        'complexity',
+        'reactions',
+        'commentSentiment'
+      ])
+    })
+
+    it('scored_at is the same across all issues in a batch', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issues = [
+        makeExtendedIssue({ id: 'a', createdAt: recent, updatedAt: recent }),
+        makeExtendedIssue({ id: 'b', createdAt: recent, updatedAt: recent }),
+        makeExtendedIssue({ id: 'c', createdAt: recent, updatedAt: recent })
+      ]
+
+      const scored = scoreIssues(issues, {}, health, [])
+
+      const timestamps = scored.map(i => i._scoring.scored_at)
+      expect(new Set(timestamps).size).toBe(1)
+    })
+
+    it('signals_used reflects non-zero signals', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issue = makeExtendedIssue({
+        createdAt: recent,
+        updatedAt: recent,
+        thumbsUpCount: 10,
+        reactionGroups: [{ content: 'THUMBS_UP', totalCount: 10 }]
+      })
+
+      const comments: IssueComments = {
+        [issue.id]: makeCommentThread([
+          makeComment({ body: '+1 need this', authorAssociation: 'NONE' })
+        ])
+      }
+
+      const scored = scoreIssues([issue], comments, health, [])
+
+      expect(scored[0]._scoring.signals_used).toContain('freshness')
+      expect(scored[0]._scoring.signals_used).toContain('reactions')
+      expect(scored[0]._scoring.signals_used).toContain('commentSentiment')
+    })
+
+    it('data_completeness is partial when health is null', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const issue = makeExtendedIssue({ createdAt: recent, updatedAt: recent })
+
+      const scored = scoreIssues([issue], {}, null, [])
+
+      expect(scored[0]._scoring.data_completeness).toBe('partial')
+    })
+
+    it('data_completeness is full when health and comments present', () => {
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const health = makeHealth()
+      const issue = makeExtendedIssue({
+        id: 'test-id',
+        createdAt: recent,
+        updatedAt: recent
+      })
+      const comments: IssueComments = {
+        'test-id': makeCommentThread([makeComment()])
+      }
+
+      const scored = scoreIssues([issue], comments, health, [])
+
+      expect(scored[0]._scoring.data_completeness).toBe('full')
     })
   })
 

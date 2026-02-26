@@ -5,7 +5,14 @@
  * Pure function — takes data, returns Dossier.
  */
 
-import type { RepoMeta, RepoHealth, ScoredIssue, PRSample, Dossier } from './types'
+import type {
+  RepoMeta,
+  RepoHealth,
+  ScoredIssue,
+  PRSample,
+  Dossier,
+  DossierCompleteness
+} from './types'
 
 // ============================================================================
 // Helpers
@@ -285,6 +292,48 @@ function generateEnvironmentSetup(meta: RepoMeta): string {
 }
 
 // ============================================================================
+// Section Completeness
+// ============================================================================
+
+const SECTION_NAMES = [
+  'overview',
+  'contributionRules',
+  'successPatterns',
+  'antiPatterns',
+  'issueBoard',
+  'environmentSetup'
+] as const
+
+/** A section is "populated" if it has meaningful content beyond headers and placeholder text. */
+export function isSectionPopulated(content: string): boolean {
+  const stripped = content.replace(/^##?\s+.*$/gm, '').trim()
+  if (/^No\s+(scored\s+issues|significant)\s+/i.test(stripped)) return false
+  return stripped.length > 10
+}
+
+function computeCompleteness(sections: Dossier['sections']): DossierCompleteness {
+  const results: Record<string, boolean> = {}
+  let score = 0
+
+  for (const name of SECTION_NAMES) {
+    const populated = isSectionPopulated(sections[name])
+    results[name] = populated
+    if (populated) score++
+  }
+
+  return {
+    overview: results.overview,
+    contributionRules: results.contributionRules,
+    successPatterns: results.successPatterns,
+    antiPatterns: results.antiPatterns,
+    issueBoard: results.issueBoard,
+    environmentSetup: results.environmentSetup,
+    score,
+    total: SECTION_NAMES.length
+  }
+}
+
+// ============================================================================
 // Main Compiler
 // ============================================================================
 
@@ -296,16 +345,19 @@ export function compileDossier(
   mergedPRs: PRSample[],
   rejectedPRs: PRSample[]
 ): Dossier {
+  const sections = {
+    overview: generateOverview(meta, health),
+    contributionRules: generateContributionRules(meta, health),
+    successPatterns: generateSuccessPatterns(health, mergedPRs),
+    antiPatterns: generateAntiPatterns(health, mergedPRs, rejectedPRs),
+    issueBoard: generateIssueBoard(scoredIssues),
+    environmentSetup: generateEnvironmentSetup(meta)
+  }
+
   return {
     slug,
     generatedAt: new Date().toISOString(),
-    sections: {
-      overview: generateOverview(meta, health),
-      contributionRules: generateContributionRules(meta, health),
-      successPatterns: generateSuccessPatterns(health, mergedPRs),
-      antiPatterns: generateAntiPatterns(health, mergedPRs, rejectedPRs),
-      issueBoard: generateIssueBoard(scoredIssues),
-      environmentSetup: generateEnvironmentSetup(meta)
-    }
+    sections,
+    completeness: computeCompleteness(sections)
   }
 }

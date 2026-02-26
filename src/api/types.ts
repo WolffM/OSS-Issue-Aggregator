@@ -41,6 +41,13 @@ export interface CommentDigest {
   hasConsensus: boolean
 }
 
+export interface ScoringMeta {
+  scored_at: string
+  data_completeness: DataCompleteness
+  signals_used: string[]
+  signals_available: string[]
+}
+
 export interface ScoredIssue extends Issue {
   authorAssociation: string
   bodyPreview: string
@@ -66,6 +73,7 @@ export interface ScoredIssue extends Issue {
   repoSlug: string
   dataCompleteness: DataCompleteness
   repoKilled: boolean
+  _scoring: ScoringMeta
 }
 
 export interface RepoQuirk {
@@ -108,10 +116,22 @@ export interface DossierSections {
   environmentSetup: string
 }
 
+export interface DossierCompleteness {
+  overview: boolean
+  contributionRules: boolean
+  successPatterns: boolean
+  antiPatterns: boolean
+  issueBoard: boolean
+  environmentSetup: boolean
+  score: number
+  total: number
+}
+
 export interface Dossier {
   slug: string
   generatedAt: string
   sections: DossierSections
+  completeness: DossierCompleteness
 }
 
 export interface ClaimRecord {
@@ -125,9 +145,16 @@ export interface ClaimRecord {
 // Recon API Response Types
 // ============================================================================
 
+export interface ResponseMeta {
+  scraped_at: string | null
+  computed_at: string | null
+  served_at: string
+}
+
 export interface ReconSuccessResponse<T> {
   success: true
   data: T
+  _meta?: ResponseMeta
 }
 
 export interface ReconPendingResponse {

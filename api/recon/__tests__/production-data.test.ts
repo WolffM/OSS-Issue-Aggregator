@@ -213,6 +213,32 @@ describe('Production Data: fastify/fastify', () => {
       }
     })
 
+    it('every scored issue has _scoring metadata', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      for (const issue of scored) {
+        expect(issue._scoring).toBeDefined()
+        expect(typeof issue._scoring.scored_at).toBe('string')
+        expect(new Date(issue._scoring.scored_at).getTime()).not.toBeNaN()
+        expect(issue._scoring.data_completeness).toMatch(/^(full|partial)$/)
+        expect(Array.isArray(issue._scoring.signals_used)).toBe(true)
+        expect(issue._scoring.signals_available).toHaveLength(7)
+        // Every signal name should be a known signal
+        for (const signal of issue._scoring.signals_used) {
+          expect(issue._scoring.signals_available).toContain(signal)
+        }
+      }
+    })
+
+    it('_scoring.scored_at is consistent across all issues', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+
+      const timestamps = new Set(scored.map(i => i._scoring.scored_at))
+      expect(timestamps.size).toBe(1)
+    })
+
     it('CVS scores are within 0-100 range', () => {
       health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
       scored = scoreIssues(issues, comments, health, [])
@@ -377,6 +403,37 @@ describe('Production Data: fastify/fastify', () => {
 
       expect(dossier.generatedAt).toBeTruthy()
       expect(new Date(dossier.generatedAt).getTime()).toBeGreaterThan(0)
+    })
+
+    it('has completeness field with per-section booleans', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+      dossier = compileDossier(SLUG, repoMeta, health, scored, mergedPRs, rejectedPRs)
+
+      expect(dossier.completeness).toBeDefined()
+      expect(typeof dossier.completeness.overview).toBe('boolean')
+      expect(typeof dossier.completeness.contributionRules).toBe('boolean')
+      expect(typeof dossier.completeness.successPatterns).toBe('boolean')
+      expect(typeof dossier.completeness.antiPatterns).toBe('boolean')
+      expect(typeof dossier.completeness.issueBoard).toBe('boolean')
+      expect(typeof dossier.completeness.environmentSetup).toBe('boolean')
+      expect(dossier.completeness.total).toBe(6)
+      expect(dossier.completeness.score).toBeGreaterThanOrEqual(0)
+      expect(dossier.completeness.score).toBeLessThanOrEqual(6)
+    })
+
+    it('fastify dossier has high completeness (active popular repo)', () => {
+      health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
+      scored = scoreIssues(issues, comments, health, [])
+      dossier = compileDossier(SLUG, repoMeta, health, scored, mergedPRs, rejectedPRs)
+
+      // Fastify is a well-maintained repo with issues, PRs, and contributing docs
+      expect(dossier.completeness.overview).toBe(true)
+      expect(dossier.completeness.contributionRules).toBe(true)
+      expect(dossier.completeness.successPatterns).toBe(true)
+      expect(dossier.completeness.issueBoard).toBe(true)
+      expect(dossier.completeness.environmentSetup).toBe(true)
+      expect(dossier.completeness.score).toBeGreaterThanOrEqual(5)
     })
   })
 

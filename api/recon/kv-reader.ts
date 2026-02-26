@@ -3,9 +3,20 @@
  *
  * Reads recon:{slug} (consolidated scraper data) and
  * recon:{slug}:* (aggregator-computed data) from Cloudflare KV.
+ *
+ * Computed data is stored in KVEnvelope wrappers that carry
+ * scraped_at / computed_at timestamps. The envelope-aware readers
+ * fall back gracefully to bare (pre-migration) data.
  */
 
-import type { ConsolidatedReconData, RepoHealth, ScoredIssue, ClaimRecord, Dossier } from './types'
+import type {
+  ConsolidatedReconData,
+  RepoHealth,
+  ScoredIssue,
+  ClaimRecord,
+  Dossier,
+  KVEnvelope
+} from './types'
 
 // ============================================================================
 // Generic Helpers
@@ -15,6 +26,38 @@ async function readKV<T>(kv: KVNamespace, key: string): Promise<T | null> {
   try {
     const data = await kv.get<T>(key, 'json')
     return data ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Read an enveloped KV value. Falls back to bare data for backward compat
+ * with KV entries written before the envelope migration.
+ *
+ * Detection: envelopes always have `data` + `computed_at` at the top level.
+ * Bare RepoHealth/ScoredIssue[]/Dossier objects never have both.
+ */
+async function readEnvelopedKV<T>(kv: KVNamespace, key: string): Promise<KVEnvelope<T> | null> {
+  try {
+    const raw = await kv.get<Record<string, unknown>>(key, 'json')
+    if (!raw) return null
+
+    // Detect envelope vs. bare data
+    if (raw.data !== undefined && typeof raw.computed_at === 'string') {
+      return raw as unknown as KVEnvelope<T>
+    }
+
+    // Bare data (pre-migration): wrap with null timestamps,
+    // extracting computed_at from existing timestamp fields if available
+    return {
+      data: raw as unknown as T,
+      scraped_at: null,
+      computed_at:
+        (typeof raw.analyzedAt === 'string' ? raw.analyzedAt : null) ??
+        (typeof raw.generatedAt === 'string' ? raw.generatedAt : null) ??
+        ''
+    }
   } catch {
     return null
   }
@@ -60,18 +103,45 @@ export async function getScrapedSlugs(kv: KVNamespace): Promise<string[]> {
 }
 
 // ============================================================================
-// Public API — Aggregator-computed data (separate keys)
+// Public API — Enveloped Readers (with freshness metadata)
+// ============================================================================
+
+export async function getRepoHealthEnveloped(
+  kv: KVNamespace,
+  slug: string
+): Promise<KVEnvelope<RepoHealth> | null> {
+  return readEnvelopedKV<RepoHealth>(kv, `recon:${slug}:health`)
+}
+
+export async function getScoredIssuesEnveloped(
+  kv: KVNamespace,
+  slug: string
+): Promise<KVEnvelope<ScoredIssue[]> | null> {
+  return readEnvelopedKV<ScoredIssue[]>(kv, `recon:${slug}:scored-issues`)
+}
+
+export async function getDossierEnveloped(
+  kv: KVNamespace,
+  slug: string
+): Promise<KVEnvelope<Dossier> | null> {
+  return readEnvelopedKV<Dossier>(kv, `recon:${slug}:dossier`)
+}
+
+// ============================================================================
+// Public API — Bare Readers (backward-compatible, delegate to enveloped)
 // ============================================================================
 
 export async function getRepoHealth(kv: KVNamespace, slug: string): Promise<RepoHealth | null> {
-  return readKV<RepoHealth>(kv, `recon:${slug}:health`)
+  const env = await getRepoHealthEnveloped(kv, slug)
+  return env?.data ?? null
 }
 
 export async function getScoredIssues(
   kv: KVNamespace,
   slug: string
 ): Promise<ScoredIssue[] | null> {
-  return readKV<ScoredIssue[]>(kv, `recon:${slug}:scored-issues`)
+  const env = await getScoredIssuesEnveloped(kv, slug)
+  return env?.data ?? null
 }
 
 export async function getClaims(kv: KVNamespace, slug: string): Promise<ClaimRecord[] | null> {
@@ -79,5 +149,6 @@ export async function getClaims(kv: KVNamespace, slug: string): Promise<ClaimRec
 }
 
 export async function getDossier(kv: KVNamespace, slug: string): Promise<Dossier | null> {
-  return readKV<Dossier>(kv, `recon:${slug}:dossier`)
+  const env = await getDossierEnveloped(kv, slug)
+  return env?.data ?? null
 }

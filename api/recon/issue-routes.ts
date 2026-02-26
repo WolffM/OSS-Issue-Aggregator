@@ -6,7 +6,7 @@
  */
 
 import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { RepoHealthSchema, DossierSchema } from './types'
+import { RepoHealthSchema, ResponseMetaSchema } from './types'
 import {
   type HonoEnv,
   getErrorMessage,
@@ -17,16 +17,19 @@ import {
   ScoredIssuesResponseSchema,
   AllScoredIssuesResponseSchema,
   IssueBriefResponseSchema,
+  DossierResponseSchema,
   slugParam,
-  slugIssueIdParam
+  slugIssueIdParam,
+  buildMeta,
+  buildScrapedOnlyMeta
 } from './route-helpers'
 import {
   getConsolidatedRecon,
   getScrapedSlugs,
   getClaims,
-  getRepoHealth,
-  getScoredIssues,
-  getDossier
+  getRepoHealthEnveloped,
+  getScoredIssuesEnveloped,
+  getDossierEnveloped
 } from './kv-reader'
 import { scoreRepoHealth } from './health-scorer'
 import { formatIssueBrief } from './issue-brief'
@@ -57,7 +60,11 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         content: {
           'application/json': {
             schema: z.union([
-              z.object({ success: z.literal(true), data: RepoHealthSchema }),
+              z.object({
+                success: z.literal(true),
+                data: RepoHealthSchema,
+                _meta: ResponseMetaSchema
+              }),
               PendingResponseSchema
             ])
           }
@@ -79,10 +86,13 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
     try {
       const { slug } = c.req.valid('param')
 
-      // Try pre-computed first
-      const cached = await getRepoHealth(kv, slug)
-      if (cached) {
-        return c.json({ success: true as const, data: cached }, 200)
+      // Try pre-computed first (with envelope)
+      const envelope = await getRepoHealthEnveloped(kv, slug)
+      if (envelope) {
+        return c.json(
+          { success: true as const, data: envelope.data, _meta: buildMeta(envelope) },
+          200
+        )
       }
 
       // Fallback: compute on-the-fly
@@ -92,7 +102,10 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
 
-      return c.json({ success: true as const, data: health }, 200)
+      return c.json(
+        { success: true as const, data: health, _meta: buildScrapedOnlyMeta(null) },
+        200
+      )
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
@@ -129,7 +142,11 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       const consolidated = await getConsolidatedRecon(kv, slug)
 
       return c.json(
-        { success: true as const, data: { issues: consolidated?.issues ?? [], slug } },
+        {
+          success: true as const,
+          data: { issues: consolidated?.issues ?? [], slug },
+          _meta: buildScrapedOnlyMeta(consolidated?.scrapedAt ?? null)
+        },
         200
       )
     } catch (err) {
@@ -170,14 +187,21 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
     try {
       const { slug } = c.req.valid('param')
 
-      const cached = await getScoredIssues(kv, slug)
-      if (!cached) {
+      const envelope = await getScoredIssuesEnveloped(kv, slug)
+      if (!envelope) {
         return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
 
       const claims = await getClaims(kv, slug)
-      const withClaims = applyClaimOverlay(cached, claims ?? [])
-      return c.json({ success: true as const, data: { issues: withClaims, slug } }, 200)
+      const withClaims = applyClaimOverlay(envelope.data, claims ?? [])
+      return c.json(
+        {
+          success: true as const,
+          data: { issues: withClaims, slug },
+          _meta: buildMeta(envelope)
+        },
+        200
+      )
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
@@ -197,10 +221,7 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         description: 'Dossier data or pending status',
         content: {
           'application/json': {
-            schema: z.union([
-              z.object({ success: z.literal(true), data: DossierSchema }),
-              PendingResponseSchema
-            ])
+            schema: z.union([DossierResponseSchema, PendingResponseSchema])
           }
         }
       },
@@ -220,12 +241,15 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
     try {
       const { slug } = c.req.valid('param')
 
-      const cached = await getDossier(kv, slug)
-      if (!cached) {
+      const envelope = await getDossierEnveloped(kv, slug)
+      if (!envelope) {
         return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
 
-      return c.json({ success: true as const, data: cached }, 200)
+      return c.json(
+        { success: true as const, data: envelope.data, _meta: buildMeta(envelope) },
+        200
+      )
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
@@ -269,19 +293,19 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
     try {
       const { slug, issueId } = c.req.valid('param')
 
-      const [cachedScored, cachedHealth, consolidated, claims] = await Promise.all([
-        getScoredIssues(kv, slug),
-        getRepoHealth(kv, slug),
+      const [scoredEnvelope, healthEnvelope, consolidated, claims] = await Promise.all([
+        getScoredIssuesEnveloped(kv, slug),
+        getRepoHealthEnveloped(kv, slug),
         getConsolidatedRecon(kv, slug),
         getClaims(kv, slug)
       ])
 
       const meta = consolidated?.repoMeta ?? null
-      if (!cachedScored || !cachedHealth || !meta) {
+      if (!scoredEnvelope || !healthEnvelope || !meta) {
         return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
       }
 
-      const scored = applyClaimOverlay(cachedScored, claims ?? [])
+      const scored = applyClaimOverlay(scoredEnvelope.data, claims ?? [])
 
       // Find the specific issue
       const issue = scored.find(i => i.id === issueId)
@@ -299,12 +323,13 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
 
       const merged = consolidated?.mergedPrs ?? []
       const rejected = consolidated?.rejectedPrs ?? []
-      const brief = formatIssueBrief(issue, cachedHealth, meta, merged, rejected)
+      const brief = formatIssueBrief(issue, healthEnvelope.data, meta, merged, rejected)
 
       return c.json(
         {
           success: true as const,
-          data: { issue, repoHealth: cachedHealth, brief }
+          data: { issue, repoHealth: healthEnvelope.data, brief },
+          _meta: buildMeta(scoredEnvelope)
         },
         200
       )
@@ -342,19 +367,34 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       const slugs = await getScrapedSlugs(kv)
 
       // Read pre-computed scored issues from KV only — skip slugs without pre-computed data
-      const results = await Promise.all(
+      const envelopes = await Promise.all(
         slugs.map(async slug => {
-          const cached = await getScoredIssues(kv, slug)
-          if (!cached) return []
+          const envelope = await getScoredIssuesEnveloped(kv, slug)
+          if (!envelope) return null
           const claims = await getClaims(kv, slug)
-          return applyClaimOverlay(cached, claims ?? [])
+          return {
+            issues: applyClaimOverlay(envelope.data, claims ?? []),
+            scraped_at: envelope.scraped_at,
+            computed_at: envelope.computed_at
+          }
         })
       )
 
-      const allIssues = results.flat()
+      const validEnvelopes = envelopes.filter((e): e is NonNullable<typeof e> => e !== null)
+
+      const allIssues = validEnvelopes.flatMap(e => e.issues)
 
       // Sort by CVS descending
       allIssues.sort((a, b) => b.cvs - a.cvs)
+
+      // Use oldest timestamps across repos (worst-case freshness)
+      const scrapedAts = validEnvelopes
+        .map(e => e.scraped_at)
+        .filter((s): s is string => s !== null)
+      const computedAts = validEnvelopes.map(e => e.computed_at).filter((s): s is string => !!s)
+
+      const oldestScraped = scrapedAts.length > 0 ? scrapedAts.sort()[0] : null
+      const oldestComputed = computedAts.length > 0 ? computedAts.sort()[0] : null
 
       return c.json(
         {
@@ -363,6 +403,11 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
             issues: allIssues,
             totalCount: allIssues.length,
             repoCount: slugs.length
+          },
+          _meta: {
+            scraped_at: oldestScraped,
+            computed_at: oldestComputed,
+            served_at: new Date().toISOString()
           }
         },
         200

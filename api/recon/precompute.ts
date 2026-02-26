@@ -40,6 +40,7 @@ export async function computeAndStore(kv: KVNamespace, slug: string): Promise<Co
     return { slug, healthComputed: false, scoredCount: 0, dossierGenerated: false }
   }
 
+  const scraped_at = consolidated?.scrapedAt ?? null
   const issues = consolidated?.issues ?? []
   const comments = consolidated?.comments?.threads ?? {}
   const merged = consolidated?.mergedPrs ?? []
@@ -50,9 +51,9 @@ export async function computeAndStore(kv: KVNamespace, slug: string): Promise<Co
   const dossier = compileDossier(slug, meta, health, scored, merged, rejected)
 
   await Promise.all([
-    putRepoHealth(kv, slug, health),
-    putScoredIssues(kv, slug, scored),
-    putDossier(kv, slug, dossier)
+    putRepoHealth(kv, slug, health, scraped_at),
+    putScoredIssues(kv, slug, scored, scraped_at),
+    putDossier(kv, slug, dossier, scraped_at)
   ])
 
   return {

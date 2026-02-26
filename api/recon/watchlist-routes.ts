@@ -11,7 +11,8 @@ import {
   SlugBodySchema,
   WatchlistResponseSchema,
   WatchlistAddResponseSchema,
-  WatchlistRemoveResponseSchema
+  WatchlistRemoveResponseSchema,
+  buildServedOnlyMeta
 } from './route-helpers'
 import { getWatchlist, addToWatchlist, removeFromWatchlist } from './watchlist'
 import { triggerScrape } from './triggers'
@@ -43,7 +44,7 @@ export function registerWatchlistRoutes(app: OpenAPIHono<HonoEnv>) {
     }
 
     const slugs = await getWatchlist(kv)
-    return c.json({ success: true as const, data: { slugs } }, 200)
+    return c.json({ success: true as const, data: { slugs }, _meta: buildServedOnlyMeta() }, 200)
   })
 
   // POST /watchlist/add
@@ -91,7 +92,7 @@ export function registerWatchlistRoutes(app: OpenAPIHono<HonoEnv>) {
         void triggerScrape(c.env.SCRAPER_API_URL, result.slug, undefined, c.env.SCRAPER_API_KEY)
       }
 
-      return c.json({ success: true as const, data: result }, 200)
+      return c.json({ success: true as const, data: result, _meta: buildServedOnlyMeta() }, 200)
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 400)
     }
@@ -129,6 +130,6 @@ export function registerWatchlistRoutes(app: OpenAPIHono<HonoEnv>) {
 
     const { slug: rawSlug } = c.req.valid('json')
     const result = await removeFromWatchlist(kv, rawSlug)
-    return c.json({ success: true as const, data: result }, 200)
+    return c.json({ success: true as const, data: result, _meta: buildServedOnlyMeta() }, 200)
   })
 }

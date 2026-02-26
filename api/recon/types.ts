@@ -350,6 +350,34 @@ export interface RelatedIssue {
   reason: string
 }
 
+export interface ScoringMeta {
+  scored_at: string
+  data_completeness: DataCompleteness
+  signals_used: string[]
+  signals_available: string[]
+}
+
+export const ScoringMetaSchema = z
+  .object({
+    scored_at: z.string().openapi({ example: '2024-01-20T15:00:00Z' }),
+    data_completeness: DataCompletenessSchema,
+    signals_used: z.array(z.string()).openapi({
+      example: ['freshness', 'activity', 'contentQuality', 'reactions', 'commentSentiment']
+    }),
+    signals_available: z.array(z.string()).openapi({
+      example: [
+        'freshness',
+        'activity',
+        'contentQuality',
+        'competition',
+        'complexity',
+        'reactions',
+        'commentSentiment'
+      ]
+    })
+  })
+  .openapi('ScoringMeta')
+
 export interface ScoredIssue extends ExtendedIssue {
   cvs: number
   cvsTier: CVSTier
@@ -367,6 +395,7 @@ export interface ScoredIssue extends ExtendedIssue {
   repoKilled: boolean
   likelyFiles: string[]
   relatedIssues: RelatedIssue[]
+  _scoring: ScoringMeta
 }
 
 export const RelatedIssueSchema = z
@@ -402,7 +431,8 @@ export const ScoredIssueSchema = ExtendedIssueSchema.extend({
     .openapi({ example: ['src/hooks.ts'], description: 'Files likely affected by this issue' }),
   relatedIssues: z
     .array(RelatedIssueSchema)
-    .openapi({ description: 'Issues that likely overlap in affected code' })
+    .openapi({ description: 'Issues that likely overlap in affected code' }),
+  _scoring: ScoringMetaSchema
 }).openapi('ScoredIssue')
 
 // ============================================================================
@@ -490,6 +520,30 @@ export const RepoHealthSchema = z
 // Dossier (aggregator → KV / API) — §4.7
 // ============================================================================
 
+export interface DossierCompleteness {
+  overview: boolean
+  contributionRules: boolean
+  successPatterns: boolean
+  antiPatterns: boolean
+  issueBoard: boolean
+  environmentSetup: boolean
+  score: number
+  total: number
+}
+
+export const DossierCompletenessSchema = z
+  .object({
+    overview: z.boolean(),
+    contributionRules: z.boolean(),
+    successPatterns: z.boolean(),
+    antiPatterns: z.boolean(),
+    issueBoard: z.boolean(),
+    environmentSetup: z.boolean(),
+    score: z.number().openapi({ example: 5, description: 'Number of non-empty sections' }),
+    total: z.number().openapi({ example: 6, description: 'Total sections' })
+  })
+  .openapi('DossierCompleteness')
+
 export interface Dossier {
   slug: string
   generatedAt: string
@@ -501,6 +555,7 @@ export interface Dossier {
     issueBoard: string
     environmentSetup: string
   }
+  completeness: DossierCompleteness
 }
 
 export const DossierSectionsSchema = z
@@ -518,6 +573,35 @@ export const DossierSchema = z
   .object({
     slug: z.string().openapi({ example: 'fastify-fastify' }),
     generatedAt: z.string().openapi({ example: '2024-01-20T14:45:00Z' }),
-    sections: DossierSectionsSchema
+    sections: DossierSectionsSchema,
+    completeness: DossierCompletenessSchema
   })
   .openapi('Dossier')
+
+// ============================================================================
+// KV Envelope — wraps computed data with freshness timestamps
+// ============================================================================
+
+export interface KVEnvelope<T> {
+  data: T
+  scraped_at: string | null
+  computed_at: string
+}
+
+// ============================================================================
+// API Response Metadata
+// ============================================================================
+
+export interface ResponseMeta {
+  scraped_at: string | null
+  computed_at: string | null
+  served_at: string
+}
+
+export const ResponseMetaSchema = z
+  .object({
+    scraped_at: z.string().nullable().openapi({ example: '2024-01-20T14:45:00Z' }),
+    computed_at: z.string().nullable().openapi({ example: '2024-01-20T15:00:00Z' }),
+    served_at: z.string().openapi({ example: '2024-01-20T15:30:00Z' })
+  })
+  .openapi('ResponseMeta')
