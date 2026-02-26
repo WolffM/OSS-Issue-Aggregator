@@ -181,6 +181,7 @@ export function scoreRepoHealth(
     return {
       slug: meta.slug,
       defaultBranch: meta.defaultBranch,
+      language: meta.language,
       maintainerHealthScore: 0,
       mergeAccessibilityScore: 0,
       availabilityScore,
@@ -200,6 +201,7 @@ export function scoreRepoHealth(
     return {
       slug: meta.slug,
       defaultBranch: meta.defaultBranch,
+      language: meta.language,
       maintainerHealthScore: 10,
       mergeAccessibilityScore: 10,
       availabilityScore,
@@ -235,6 +237,7 @@ export function scoreRepoHealth(
   return {
     slug: meta.slug,
     defaultBranch: meta.defaultBranch,
+    language: meta.language,
     maintainerHealthScore,
     mergeAccessibilityScore,
     availabilityScore,

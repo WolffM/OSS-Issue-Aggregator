@@ -6,6 +6,8 @@ import { makeExtendedIssue, makeClaimRecord, makeComment, makeCommentThread } fr
 function makeHealth(overrides: Partial<RepoHealth> = {}): RepoHealth {
   return {
     slug: 'fastify-fastify',
+    defaultBranch: 'main',
+    language: 'TypeScript',
     maintainerHealthScore: 70,
     mergeAccessibilityScore: 65,
     availabilityScore: 60,
