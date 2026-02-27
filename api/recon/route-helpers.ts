@@ -178,7 +178,10 @@ const SlimScoredIssueSchema = ScoredIssueSchema.omit({
   likelyFiles: true,
   relatedIssues: true,
   _scoring: true,
-  difficultySignals: true
+  difficultySignals: true,
+  bodyPreview: true,
+  linkedPrUrls: true,
+  assignees: true
 }).openapi('SlimScoredIssue')
 
 export const AllScoredIssuesResponseSchema = z
@@ -187,11 +190,24 @@ export const AllScoredIssuesResponseSchema = z
     data: z.object({
       issues: z.array(SlimScoredIssueSchema),
       totalCount: z.number(),
-      repoCount: z.number()
+      repoCount: z.number(),
+      hasMore: z.boolean().optional(),
+      offset: z.number().optional()
     }),
     _meta: ResponseMetaSchema
   })
   .openapi('AllScoredIssuesResponse')
+
+export const AggregateVersionResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: z.object({
+      version: z.number(),
+      repoCount: z.number(),
+      totalCount: z.number()
+    })
+  })
+  .openapi('AggregateVersionResponse')
 
 export const RefreshResponseSchema = z
   .object({

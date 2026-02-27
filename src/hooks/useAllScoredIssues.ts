@@ -3,13 +3,18 @@ import { logger } from '@wolffm/task-ui-components'
 import { ossIssuesClient } from '../api/client'
 import type { ScoredIssue } from '../api/types'
 
+const PAGE_SIZE = 100
+
 interface UseAllScoredIssuesResult {
   issues: ScoredIssue[]
   isLoading: boolean
+  isLoadingMore: boolean
   error: string | null
   totalCount: number
   repoCount: number
   lastFetched: Date | null
+  hasMore: boolean
+  loadMore: () => void
   refetch: () => Promise<void>
 }
 
@@ -17,6 +22,7 @@ interface CacheEntry {
   issues: ScoredIssue[]
   totalCount: number
   repoCount: number
+  hasMore: boolean
   timestamp: number
 }
 
@@ -28,91 +34,145 @@ function isCacheFresh(entry: CacheEntry): boolean {
   return Date.now() - entry.timestamp < CACHE_MAX_AGE
 }
 
-export function useAllScoredIssues(includeKilled = false): UseAllScoredIssuesResult {
+function makeCacheKey(sort: string, dir: string, offset: number): string {
+  return `${sort}:${dir}:${offset}`
+}
+
+export function useAllScoredIssues(
+  includeKilled = false,
+  sortField = 'cvs',
+  sortDirection: 'asc' | 'desc' = 'desc'
+): UseAllScoredIssuesResult {
   const [issues, setIssues] = useState<ScoredIssue[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [totalCount, setTotalCount] = useState(0)
   const [repoCount, setRepoCount] = useState(0)
   const [lastFetched, setLastFetched] = useState<Date | null>(null)
+  const [hasMore, setHasMore] = useState(false)
 
-  const includeKilledRef = useRef(includeKilled)
-  includeKilledRef.current = includeKilled
+  const currentOffsetRef = useRef(0)
+  const generationRef = useRef(0)
 
-  const fetchIssues = useCallback(
-    async (forceRefresh = false) => {
-      const cacheKey = `all-scored-${includeKilled}`
+  const fetchPage = useCallback(
+    async (offset: number, append: boolean, forceRefresh: boolean) => {
+      const generation = ++generationRef.current
+      const key = makeCacheKey(sortField, sortDirection, offset)
 
       if (!forceRefresh) {
-        const cached = cache.get(cacheKey)
+        const cached = cache.get(key)
         if (cached && isCacheFresh(cached)) {
-          setIssues(cached.issues)
+          if (generation !== generationRef.current) return
+          if (append) {
+            setIssues(prev => [...prev, ...cached.issues])
+          } else {
+            setIssues(cached.issues)
+          }
           setTotalCount(cached.totalCount)
           setRepoCount(cached.repoCount)
+          setHasMore(cached.hasMore)
           setLastFetched(new Date(cached.timestamp))
-          setIsLoading(false)
-          logger.info('[useAllScoredIssues] Using cached data', {
-            issueCount: cached.totalCount
+          currentOffsetRef.current = offset + cached.issues.length
+          if (!append) setIsLoading(false)
+          setIsLoadingMore(false)
+          logger.info('[useAllScoredIssues] Using cached page', {
+            offset,
+            count: cached.issues.length
           })
           return
         }
       }
 
-      setIsLoading(true)
+      if (append) {
+        setIsLoadingMore(true)
+      } else {
+        setIsLoading(true)
+      }
       setError(null)
 
       try {
-        const response = await ossIssuesClient.getAllScoredIssues(includeKilled)
+        const response = await ossIssuesClient.getAllScoredIssues({
+          includeKilled,
+          sort: sortField,
+          dir: sortDirection,
+          offset,
+          limit: PAGE_SIZE
+        })
 
-        if (includeKilledRef.current === includeKilled) {
-          const now = Date.now()
-          setIssues(response.data.issues)
-          setTotalCount(response.data.totalCount)
-          setRepoCount(response.data.repoCount)
-          setLastFetched(new Date(now))
+        if (generation !== generationRef.current) return
 
-          cache.set(cacheKey, {
-            issues: response.data.issues,
-            totalCount: response.data.totalCount,
-            repoCount: response.data.repoCount,
-            timestamp: now
-          })
+        const pageIssues = response.data.issues
+        const pageHasMore = response.data.hasMore ?? false
+        const now = Date.now()
 
-          logger.info('[useAllScoredIssues] Fetched scored issues', {
-            totalCount: response.data.totalCount,
-            repoCount: response.data.repoCount
-          })
+        if (append) {
+          setIssues(prev => [...prev, ...pageIssues])
+        } else {
+          setIssues(pageIssues)
         }
+        setTotalCount(response.data.totalCount)
+        setRepoCount(response.data.repoCount)
+        setHasMore(pageHasMore)
+        setLastFetched(new Date(now))
+        currentOffsetRef.current = offset + pageIssues.length
+
+        cache.set(key, {
+          issues: pageIssues,
+          totalCount: response.data.totalCount,
+          repoCount: response.data.repoCount,
+          hasMore: pageHasMore,
+          timestamp: now
+        })
+
+        logger.info('[useAllScoredIssues] Fetched page', {
+          offset,
+          count: pageIssues.length,
+          totalCount: response.data.totalCount,
+          hasMore: pageHasMore
+        })
       } catch (err) {
-        if (includeKilledRef.current === includeKilled) {
-          const message = err instanceof Error ? err.message : 'Failed to fetch scored issues'
-          setError(message)
-          logger.error('[useAllScoredIssues] Failed to fetch', { error: String(err) })
-        }
+        if (generation !== generationRef.current) return
+        const message = err instanceof Error ? err.message : 'Failed to fetch scored issues'
+        setError(message)
+        logger.error('[useAllScoredIssues] Failed to fetch', { error: String(err) })
       } finally {
-        if (includeKilledRef.current === includeKilled) {
+        if (generation === generationRef.current) {
           setIsLoading(false)
+          setIsLoadingMore(false)
         }
       }
     },
-    [includeKilled]
+    [includeKilled, sortField, sortDirection]
   )
 
+  // Fetch first page on mount or when sort/direction/includeKilled changes
   useEffect(() => {
-    void fetchIssues()
-  }, [fetchIssues])
+    currentOffsetRef.current = 0
+    void fetchPage(0, false, false)
+  }, [fetchPage])
+
+  const loadMore = useCallback(() => {
+    if (isLoadingMore || !hasMore) return
+    void fetchPage(currentOffsetRef.current, true, false)
+  }, [fetchPage, isLoadingMore, hasMore])
 
   const refetch = useCallback(async () => {
-    await fetchIssues(true)
-  }, [fetchIssues])
+    cache.clear()
+    currentOffsetRef.current = 0
+    await fetchPage(0, false, true)
+  }, [fetchPage])
 
   return {
     issues,
     isLoading,
+    isLoadingMore,
     error,
     totalCount,
     repoCount,
     lastFetched,
+    hasMore,
+    loadMore,
     refetch
   }
 }

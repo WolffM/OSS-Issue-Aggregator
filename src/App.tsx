@@ -4,7 +4,6 @@ import { THEME_ICON_MAP } from '@wolffm/themes'
 import { useTheme } from './hooks/useTheme'
 import { useAllScoredIssues } from './hooks/useAllScoredIssues'
 import { useRepoHealth } from './hooks/useRepoHealth'
-import { useRepoHealthMap } from './hooks/useRepoHealthMap'
 import { useIssueFilters } from './hooks/useIssueFilters'
 import { useClaim } from './hooks/useClaim'
 import {
@@ -48,6 +47,7 @@ function saveSelections(slugs: string[]): void {
 
 export default function App(props: OssAggregatorProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const [selectedProjectSlugs, setSelectedProjectSlugs] = useState<string[]>([])
   const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false)
   const [focusedRepo, setFocusedRepo] = useState<string | null>(null)
@@ -89,13 +89,14 @@ export default function App(props: OssAggregatorProps = {}) {
   const {
     issues: allIssues,
     isLoading: issuesLoading,
+    isLoadingMore,
     error: issuesError,
     repoCount,
     lastFetched,
+    hasMore,
+    loadMore,
     refetch
-  } = useAllScoredIssues(filters.includeKilled)
-
-  const { healthMap } = useRepoHealthMap(selectedProjectSlugs)
+  } = useAllScoredIssues(filters.includeKilled, sortField, sortDirection)
 
   const {
     health: focusedHealth,
@@ -142,7 +143,25 @@ export default function App(props: OssAggregatorProps = {}) {
     }
   }, [selectedProjectSlugs, hasInitializedDefaults])
 
-  // Filter issues by selected projects, then apply toolbar filters/sort
+  // Infinite scroll: observe sentinel element
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting && hasMore && !issuesLoading && !isLoadingMore) {
+          loadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, issuesLoading, isLoadingMore, loadMore])
+
+  // Filter issues by selected projects, then apply toolbar filters
   const displayIssues = useMemo(() => {
     const selectedSet = new Set(selectedProjectSlugs)
 
@@ -236,7 +255,6 @@ export default function App(props: OssAggregatorProps = {}) {
               selectedProjects={selectedProjectSlugs}
               onSelectionChange={setSelectedProjectSlugs}
               disabled={isLoading}
-              repoHealthMap={healthMap}
               focusedRepo={focusedRepo}
               onFocusRepo={setFocusedRepo}
             />
@@ -294,6 +312,15 @@ export default function App(props: OssAggregatorProps = {}) {
                     onIssueClick={handleIssueClick}
                     onRepoClick={handleRepoClick}
                   />
+                )}
+
+                {/* Scroll sentinel for infinite loading */}
+                <div ref={sentinelRef} className="scroll-sentinel" />
+                {isLoadingMore && (
+                  <div className="loading-more">
+                    <div className="loading-state__spinner" />
+                    <span className="loading-more__text">Loading more issues...</span>
+                  </div>
                 )}
               </>
             )}

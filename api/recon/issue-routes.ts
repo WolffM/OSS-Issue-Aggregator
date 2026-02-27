@@ -16,6 +16,7 @@ import {
   IssuesResponseSchema,
   ScoredIssuesResponseSchema,
   AllScoredIssuesResponseSchema,
+  AggregateVersionResponseSchema,
   IssueBriefResponseSchema,
   DossierResponseSchema,
   slugParam,
@@ -29,7 +30,9 @@ import {
   getClaims,
   getRepoHealthEnveloped,
   getScoredIssuesEnveloped,
-  getDossierEnveloped
+  getDossierEnveloped,
+  getAggregate,
+  getAggregateVersion
 } from './kv-reader'
 import { scoreRepoHealth } from './health-scorer'
 import { formatIssueBrief } from './issue-brief'
@@ -41,19 +44,7 @@ import { applyClaimOverlay } from './precompute'
  * limits. The removed fields are not consumed by the UI listing and can still
  * be fetched per-repo via the /:slug/scored-issues endpoint.
  */
-function slimIssue(
-  issue: ScoredIssue
-): Omit<
-  ScoredIssue,
-  | 'body'
-  | 'reactionGroups'
-  | 'sentimentSignals'
-  | 'commentDigest'
-  | 'likelyFiles'
-  | 'relatedIssues'
-  | '_scoring'
-  | 'difficultySignals'
-> {
+function slimIssue(issue: ScoredIssue) {
   const {
     body: _body,
     reactionGroups: _rg,
@@ -63,10 +54,24 @@ function slimIssue(
     relatedIssues: _ri,
     _scoring,
     difficultySignals: _ds,
+    bodyPreview: _bp,
+    linkedPrUrls: _lp,
+    assignees: _as,
     ...slim
   } = issue
   return slim
 }
+
+const VALID_SORT_FIELDS = new Set([
+  'cvs',
+  'title',
+  'repo',
+  'lifecycle',
+  'complexity',
+  'sentiment',
+  'competition',
+  'createdAt'
+])
 
 async function computeHealth(kv: KVNamespace, slug: string) {
   const consolidated = await getConsolidatedRecon(kv, slug)
@@ -377,7 +382,8 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
     path: '/all-scored-issues',
     tags: ['Recon - Issues'],
     summary: 'Get all scored issues',
-    description: 'Returns scored issues across all watchlist repos, sorted by CVS descending.',
+    description:
+      'Returns scored issues across all watchlist repos. Supports pagination via sort/dir/offset/limit query params. When limit is omitted, returns all issues (backward compat).',
     responses: {
       200: {
         description: 'Aggregated scored issues',
@@ -397,9 +403,67 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
     }
 
     try {
+      const url = new URL(c.req.url)
+      const sortParam = url.searchParams.get('sort') ?? 'cvs'
+      const dirParam = url.searchParams.get('dir') ?? 'desc'
+      const offsetParam = url.searchParams.get('offset')
+      const limitParam = url.searchParams.get('limit')
+
+      const sort = VALID_SORT_FIELDS.has(sortParam) ? sortParam : 'cvs'
+      const dir = dirParam === 'asc' ? 'asc' : 'desc'
+      const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10) || 0) : 0
+      const limit = limitParam ? Math.min(500, Math.max(1, parseInt(limitParam, 10) || 100)) : null
+      const isPaginated = limitParam !== null
+
+      // Try pre-aggregated KV key first (fast path: 1 KV read)
+      const aggregateIssues = await getAggregate(kv, sort)
+
+      if (aggregateIssues) {
+        const versionMeta = await getAggregateVersion(kv)
+        const totalCount = aggregateIssues.length
+        const repoCount = versionMeta?.repoCount ?? 0
+
+        // Apply direction
+        const ordered = dir === 'desc' ? [...aggregateIssues].reverse() : aggregateIssues
+
+        if (isPaginated && limit !== null) {
+          const page = ordered.slice(offset, offset + limit)
+          const hasMore = offset + limit < totalCount
+
+          c.header('Cache-Control', 'public, max-age=120, stale-while-revalidate=300')
+          return c.json(
+            {
+              success: true as const,
+              data: { issues: page, totalCount, repoCount, hasMore, offset },
+              _meta: {
+                scraped_at: null,
+                computed_at: versionMeta ? new Date(versionMeta.version).toISOString() : null,
+                served_at: new Date().toISOString()
+              }
+            },
+            200
+          )
+        }
+
+        // No limit — return all (backward compat)
+        c.header('Cache-Control', 'public, max-age=120, stale-while-revalidate=300')
+        return c.json(
+          {
+            success: true as const,
+            data: { issues: ordered, totalCount, repoCount },
+            _meta: {
+              scraped_at: null,
+              computed_at: versionMeta ? new Date(versionMeta.version).toISOString() : null,
+              served_at: new Date().toISOString()
+            }
+          },
+          200
+        )
+      }
+
+      // Fallback: N+1 KV reads (pre-aggregate keys not yet built)
       const slugs = await getScrapedSlugs(kv)
 
-      // Read pre-computed scored issues from KV only — skip slugs without pre-computed data
       const envelopes = await Promise.all(
         slugs.map(async slug => {
           const envelope = await getScoredIssuesEnveloped(kv, slug)
@@ -414,14 +478,11 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       )
 
       const validEnvelopes = envelopes.filter((e): e is NonNullable<typeof e> => e !== null)
-
-      // Strip heavy fields to stay within Worker resource limits (~35 MB → ~15 MB)
       const allIssues = validEnvelopes.flatMap(e => e.issues.map(slimIssue))
 
-      // Sort by CVS descending
+      // Sort by CVS descending (fallback only supports default sort)
       allIssues.sort((a, b) => b.cvs - a.cvs)
 
-      // Use oldest timestamps across repos (worst-case freshness)
       const scrapedAts = validEnvelopes
         .map(e => e.scraped_at)
         .filter((s): s is string => s !== null)
@@ -446,6 +507,46 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         },
         200
       )
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
+  })
+
+  // GET /all-scored-issues/version
+  const aggregateVersionRoute = createRoute({
+    method: 'get',
+    path: '/all-scored-issues/version',
+    tags: ['Recon - Issues'],
+    summary: 'Get aggregate version metadata',
+    description: 'Returns version timestamp and counts for the pre-aggregated issue data.',
+    responses: {
+      200: {
+        description: 'Aggregate version metadata',
+        content: { 'application/json': { schema: AggregateVersionResponseSchema } }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
+    }
+  })
+
+  app.openapi(aggregateVersionRoute, async c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+
+    try {
+      const versionMeta = await getAggregateVersion(kv)
+      if (!versionMeta) {
+        return c.json(
+          { success: true as const, data: { version: 0, repoCount: 0, totalCount: 0 } },
+          200
+        )
+      }
+
+      return c.json({ success: true as const, data: versionMeta }, 200)
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }

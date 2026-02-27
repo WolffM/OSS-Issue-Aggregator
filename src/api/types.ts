@@ -172,7 +172,14 @@ export type AllScoredIssuesResponse = ReconSuccessResponse<{
   issues: ScoredIssue[]
   totalCount: number
   repoCount: number
+  hasMore?: boolean
+  offset?: number
 }>
+
+export interface AggregateVersionResponse {
+  success: true
+  data: { version: number; repoCount: number; totalCount: number }
+}
 export type ClaimResponse = ReconSuccessResponse<ClaimRecord>
 export type UnclaimResponse = ReconSuccessResponse<{ issueId: string; removed: boolean }>
 export type RefreshResponse = ReconSuccessResponse<{ status: 'triggered' }>

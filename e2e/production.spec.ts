@@ -208,8 +208,10 @@ test.describe('UI Content', () => {
 
   test('issue table displays scored issues with CVS data', async ({ page }) => {
     const log = attachLogCollectors(page)
-    await page.goto(BASE, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(5000)
+    await page.goto(BASE)
+
+    // Wait for first table row to appear — implicitly validates fast render
+    await page.waitForSelector('.issue-table__row', { timeout: 10000 })
 
     // The issue count in the toolbar should be > 0
     const issueCountText = await page.locator('.toolbar__count').innerText()
@@ -489,5 +491,152 @@ test.describe('UI Interactions', () => {
     expect(afterAllCount).toBe(initialCount)
 
     expect(log.apiErrors).toEqual([])
+  })
+})
+
+// ============================================================================
+// Performance & Pagination — validate speed improvements and data integrity
+// ============================================================================
+
+test.describe('Performance & Pagination', () => {
+  test('paginated API returns exactly limit issues with hasMore', async ({ request }) => {
+    const start = Date.now()
+    const res = await request.get(`${API}/recon/all-scored-issues?sort=cvs&dir=desc&limit=100`)
+    const elapsed = Date.now() - start
+    console.log(`Paginated API response time: ${elapsed}ms`)
+
+    expect(res.status()).toBe(200)
+    const body = await res.json()
+
+    expect(body.success).toBe(true)
+    expect(body.data.issues).toHaveLength(100)
+    expect(body.data.hasMore).toBe(true)
+    expect(body.data.totalCount).toBeGreaterThan(100)
+    expect(body.data.offset).toBe(0)
+
+    // Response time should be well under 2s for a paginated request
+    expect(elapsed).toBeLessThan(2000)
+  })
+
+  test('paginated response payload is under 500 KB', async ({ request }) => {
+    const res = await request.get(`${API}/recon/all-scored-issues?sort=cvs&dir=desc&limit=100`)
+    const body = await res.text()
+    const sizeKB = Buffer.byteLength(body, 'utf8') / 1024
+
+    console.log(`Paginated response size: ${sizeKB.toFixed(1)} KB`)
+    expect(sizeKB).toBeLessThan(500)
+  })
+
+  test('sort parameter produces correctly sorted results', async ({ request }) => {
+    const res = await request.get(`${API}/recon/all-scored-issues?sort=title&dir=asc&limit=10`)
+    const body = await res.json()
+
+    expect(body.data.issues.length).toBeGreaterThan(1)
+    const titles = body.data.issues.map((i: { title: string }) => i.title)
+    console.log('First 5 sorted titles:', titles.slice(0, 5))
+
+    // Verify ascending order
+    for (let i = 1; i < titles.length; i++) {
+      expect(titles[i].localeCompare(titles[i - 1])).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  test('backward compat: no limit param returns all issues', async ({ request }) => {
+    const res = await request.get(`${API}/recon/all-scored-issues`)
+    expect(res.status()).toBe(200)
+    const body = await res.json()
+
+    expect(body.success).toBe(true)
+    expect(body.data.issues.length).toBeGreaterThan(100)
+    expect(body.data.totalCount).toBe(body.data.issues.length)
+    // hasMore should not be present in backward-compat mode
+    expect(body.data.hasMore).toBeUndefined()
+    console.log(`Backward compat: ${body.data.issues.length} issues returned`)
+  })
+
+  test('version endpoint returns aggregate metadata', async ({ request }) => {
+    const res = await request.get(`${API}/recon/all-scored-issues/version`)
+    expect(res.status()).toBe(200)
+    const body = await res.json()
+
+    expect(body.success).toBe(true)
+    expect(body.data.version).toBeGreaterThan(0)
+    expect(body.data.repoCount).toBeGreaterThan(0)
+    expect(body.data.totalCount).toBeGreaterThan(0)
+    console.log(
+      `Aggregate version: ${body.data.version}, ` +
+        `${body.data.repoCount} repos, ${body.data.totalCount} issues`
+    )
+  })
+})
+
+// ============================================================================
+// Page Load Performance — validate fast initial render and no errors
+// ============================================================================
+
+test.describe('Page Load Performance', () => {
+  test('first issue row renders within 5 seconds', async ({ page }) => {
+    const log = attachLogCollectors(page)
+    const start = Date.now()
+
+    await page.goto(BASE)
+    await page.waitForSelector('.issue-table__row', { timeout: 10000 })
+
+    const elapsed = Date.now() - start
+    console.log(`Time to first issue row: ${elapsed}ms`)
+
+    // Should render within 5s (generous for CI; was previously blocked on 11 MB download)
+    expect(elapsed).toBeLessThan(5000)
+
+    expect(log.apiErrors).toEqual([])
+    expect(log.networkFailures).toEqual([])
+  })
+
+  test('zero console errors during initial page load', async ({ page }) => {
+    const log = attachLogCollectors(page)
+
+    await page.goto(BASE)
+    await page.waitForSelector('.issue-table__row', { timeout: 10000 })
+    // Wait a bit more for any deferred errors
+    await page.waitForTimeout(2000)
+
+    expect(log.consoleErrors).toEqual([])
+    expect(log.apiErrors).toEqual([])
+    expect(log.networkFailures).toEqual([])
+  })
+
+  test('no sidebar health dots rendered (removed feature)', async ({ page }) => {
+    await page.goto(BASE)
+    await page.waitForSelector('.project-selector__name-btn', { timeout: 10000 })
+
+    const healthDots = await page.locator('.project-selector__health-dot').count()
+    expect(healthDots).toBe(0)
+    console.log('Health dots rendered: 0 (removed)')
+  })
+
+  test('stripped fields are absent from paginated API response', async ({ request }) => {
+    const res = await request.get(`${API}/recon/all-scored-issues?sort=cvs&dir=desc&limit=5`)
+    const body = await res.json()
+    const issue = body.data.issues[0]
+
+    // These fields should be stripped
+    expect(issue.body).toBeUndefined()
+    expect(issue.bodyPreview).toBeUndefined()
+    expect(issue.linkedPrUrls).toBeUndefined()
+    expect(issue.assignees).toBeUndefined()
+    expect(issue.sentimentSignals).toBeUndefined()
+    expect(issue.commentDigest).toBeUndefined()
+    expect(issue.likelyFiles).toBeUndefined()
+    expect(issue.relatedIssues).toBeUndefined()
+    expect(issue._scoring).toBeUndefined()
+    expect(issue.difficultySignals).toBeUndefined()
+    expect(issue.reactionGroups).toBeUndefined()
+
+    // Essential fields should be present
+    expect(issue.cvs).toBeDefined()
+    expect(issue.cvsTier).toBeDefined()
+    expect(issue.repoSlug).toBeDefined()
+    expect(issue.title).toBeDefined()
+    console.log('Stripped fields verified absent, essential fields present')
   })
 })

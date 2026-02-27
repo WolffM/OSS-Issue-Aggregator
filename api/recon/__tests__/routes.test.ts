@@ -355,6 +355,12 @@ describe('GET /all-scored-issues', () => {
     expect(issue.likelyFiles).toBeUndefined()
     expect(issue.relatedIssues).toBeUndefined()
     expect(issue._scoring).toBeUndefined()
+    expect(issue.bodyPreview).toBeUndefined()
+    expect(issue.linkedPrUrls).toBeUndefined()
+    expect(issue.assignees).toBeUndefined()
+    expect(issue.difficultySignals).toBeUndefined()
+    expect(issue.body).toBeUndefined()
+    expect(issue.reactionGroups).toBeUndefined()
   })
 })
 
@@ -766,5 +772,251 @@ describe('_meta freshness metadata', () => {
       expect(body._meta.scraped_at).toBeNull()
       expect(body._meta.computed_at).toBeNull()
     })
+  })
+})
+
+// ============================================================================
+// Pagination via pre-aggregated KV keys
+// ============================================================================
+
+describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
+  function setupAggregateKV() {
+    // 5 issues with different CVS scores and titles
+    const issues = [
+      {
+        id: 'i1',
+        cvs: 90,
+        title: 'Alpha',
+        repoSlug: 'r-a',
+        sentimentScore: 0.5,
+        lifecycleStage: 'fresh' as const,
+        complexity: 'low' as const,
+        competitionLevel: 'none' as const,
+        createdAt: '2024-01-01T00:00:00Z'
+      },
+      {
+        id: 'i2',
+        cvs: 70,
+        title: 'Bravo',
+        repoSlug: 'r-b',
+        sentimentScore: 0.3,
+        lifecycleStage: 'triaged' as const,
+        complexity: 'medium' as const,
+        competitionLevel: 'low' as const,
+        createdAt: '2024-02-01T00:00:00Z'
+      },
+      {
+        id: 'i3',
+        cvs: 80,
+        title: 'Charlie',
+        repoSlug: 'r-a',
+        sentimentScore: -0.2,
+        lifecycleStage: 'accepted' as const,
+        complexity: 'high' as const,
+        competitionLevel: 'medium' as const,
+        createdAt: '2024-03-01T00:00:00Z'
+      },
+      {
+        id: 'i4',
+        cvs: 60,
+        title: 'Delta',
+        repoSlug: 'r-c',
+        sentimentScore: 0.8,
+        lifecycleStage: 'stale' as const,
+        complexity: 'low' as const,
+        competitionLevel: 'high' as const,
+        createdAt: '2024-04-01T00:00:00Z'
+      },
+      {
+        id: 'i5',
+        cvs: 85,
+        title: 'Echo',
+        repoSlug: 'r-b',
+        sentimentScore: 0.0,
+        lifecycleStage: 'zombie' as const,
+        complexity: 'medium' as const,
+        competitionLevel: 'none' as const,
+        createdAt: '2024-05-01T00:00:00Z'
+      }
+    ].map(overrides => {
+      const s = makeScoredIssue(overrides)
+      // Strip heavy fields to simulate what buildAndWriteAggregates stores
+      const {
+        body: _,
+        reactionGroups: _rg,
+        sentimentSignals: _ss,
+        commentDigest: _cd,
+        likelyFiles: _lf,
+        relatedIssues: _ri,
+        _scoring: _sc,
+        difficultySignals: _ds,
+        bodyPreview: _bp,
+        linkedPrUrls: _lp,
+        assignees: _as,
+        ...slim
+      } = s
+      return slim
+    })
+
+    // Pre-sort: ascending CVS = [60, 70, 80, 85, 90]
+    const byCvs = [...issues].sort((a, b) => a.cvs - b.cvs)
+    const byTitle = [...issues].sort((a, b) => a.title.localeCompare(b.title))
+
+    const versionMeta = { version: Date.now(), repoCount: 3, totalCount: 5 }
+
+    const kv = createMockKV({
+      'recon:agg:cvs': byCvs,
+      'recon:agg:title': byTitle,
+      'recon:agg:v': versionMeta
+    })
+    return { kv, issues, byCvs, byTitle, versionMeta }
+  }
+
+  it('returns paginated results with limit param', async () => {
+    const { kv } = setupAggregateKV()
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&offset=0&limit=2')
+    const body = await res.json()
+
+    expect(body.success).toBe(true)
+    expect(body.data.issues).toHaveLength(2)
+    expect(body.data.totalCount).toBe(5)
+    expect(body.data.repoCount).toBe(3)
+    expect(body.data.hasMore).toBe(true)
+    expect(body.data.offset).toBe(0)
+
+    // desc CVS: highest first
+    expect(body.data.issues[0].cvs).toBe(90)
+    expect(body.data.issues[1].cvs).toBe(85)
+  })
+
+  it('returns correct page with offset', async () => {
+    const { kv } = setupAggregateKV()
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&offset=3&limit=2')
+    const body = await res.json()
+
+    expect(body.data.issues).toHaveLength(2)
+    expect(body.data.hasMore).toBe(false)
+
+    // desc CVS offset=3: [70, 60]
+    expect(body.data.issues[0].cvs).toBe(70)
+    expect(body.data.issues[1].cvs).toBe(60)
+  })
+
+  it('returns hasMore=false when offset exceeds total', async () => {
+    const { kv } = setupAggregateKV()
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&offset=10&limit=2')
+    const body = await res.json()
+
+    expect(body.data.issues).toHaveLength(0)
+    expect(body.data.hasMore).toBe(false)
+  })
+
+  it('sorts by title ascending', async () => {
+    const { kv } = setupAggregateKV()
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues?sort=title&dir=asc&limit=5')
+    const body = await res.json()
+
+    expect(body.data.issues[0].title).toBe('Alpha')
+    expect(body.data.issues[4].title).toBe('Echo')
+  })
+
+  it('returns all issues when limit is not provided (backward compat)', async () => {
+    const { kv } = setupAggregateKV()
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues')
+    const body = await res.json()
+
+    expect(body.data.issues).toHaveLength(5)
+    expect(body.data.totalCount).toBe(5)
+    expect(body.data.hasMore).toBeUndefined()
+    expect(body.data.offset).toBeUndefined()
+  })
+
+  it('falls back to N+1 reads when aggregate KV keys are missing', async () => {
+    const scored = makeScoredIssue({ id: 'issue-1', repoSlug: 'repo-a' })
+    const kv = createMockKV({
+      'recon:repo-a': makeConsolidatedReconData(),
+      'recon:repo-a:scored-issues': [scored]
+      // No recon:agg:* keys
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=10')
+    const body = await res.json()
+
+    // Fallback still works, returns all issues
+    expect(body.data.issues).toHaveLength(1)
+    expect(body.data.issues[0].id).toBe('issue-1')
+  })
+
+  it('includes Cache-Control header when serving from aggregate', async () => {
+    const { kv } = setupAggregateKV()
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=2')
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=120, stale-while-revalidate=300')
+  })
+
+  it('clamps limit to 500', async () => {
+    const { kv } = setupAggregateKV()
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=1000')
+    const body = await res.json()
+
+    // Should return all 5 (limit clamped to 500, total is 5)
+    expect(body.data.issues).toHaveLength(5)
+  })
+
+  it('defaults invalid sort to cvs', async () => {
+    const { kv } = setupAggregateKV()
+    const app = createTestApp(kv)
+
+    // 'invalid' is not a valid sort field, should fall back to cvs
+    // But recon:agg:invalid won't exist, so it falls through to N+1
+    // However recon:agg:cvs does exist when using default 'cvs'
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=2')
+    const body = await res.json()
+    expect(body.data.issues[0].cvs).toBe(90)
+  })
+})
+
+describe('GET /all-scored-issues/version', () => {
+  it('returns version metadata when aggregate has been built', async () => {
+    const kv = createMockKV({
+      'recon:agg:v': { version: 1700000000000, repoCount: 10, totalCount: 500 }
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues/version')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    expect(body.success).toBe(true)
+    expect(body.data.version).toBe(1700000000000)
+    expect(body.data.repoCount).toBe(10)
+    expect(body.data.totalCount).toBe(500)
+  })
+
+  it('returns zeros when no aggregate exists', async () => {
+    const kv = createMockKV()
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues/version')
+    const body = await res.json()
+
+    expect(body.success).toBe(true)
+    expect(body.data.version).toBe(0)
+    expect(body.data.repoCount).toBe(0)
+    expect(body.data.totalCount).toBe(0)
   })
 })

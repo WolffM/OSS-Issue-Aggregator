@@ -10,6 +10,28 @@
 
 import type { RepoHealth, ScoredIssue, Dossier, KVEnvelope } from './types'
 
+// Slim issue type used by aggregate KV keys (heavy fields already stripped)
+export type SlimScoredIssue = Omit<
+  ScoredIssue,
+  | 'body'
+  | 'reactionGroups'
+  | 'sentimentSignals'
+  | 'commentDigest'
+  | 'likelyFiles'
+  | 'relatedIssues'
+  | '_scoring'
+  | 'difficultySignals'
+  | 'bodyPreview'
+  | 'linkedPrUrls'
+  | 'assignees'
+>
+
+export interface AggregateVersion {
+  version: number
+  repoCount: number
+  totalCount: number
+}
+
 export async function putRepoHealth(
   kv: KVNamespace,
   slug: string,
@@ -50,4 +72,16 @@ export async function putDossier(
     computed_at: new Date().toISOString()
   }
   await kv.put(`recon:${slug}:dossier`, JSON.stringify(envelope))
+}
+
+export async function putAggregate(
+  kv: KVNamespace,
+  sortField: string,
+  issues: SlimScoredIssue[]
+): Promise<void> {
+  await kv.put(`recon:agg:${sortField}`, JSON.stringify(issues))
+}
+
+export async function putAggregateVersion(kv: KVNamespace, meta: AggregateVersion): Promise<void> {
+  await kv.put('recon:agg:v', JSON.stringify(meta))
 }

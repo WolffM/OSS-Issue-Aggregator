@@ -4,8 +4,8 @@ import type {
   CVSTier,
   LifecycleStage,
   Complexity,
-  CompetitionLevel,
-  ClaimStatus
+  ClaimStatus,
+  CompetitionLevel
 } from '../api/types'
 
 export type SortField =
@@ -78,27 +78,6 @@ function savePersistedState(state: PersistedState): void {
   } catch {
     // Ignore storage errors
   }
-}
-
-const LIFECYCLE_ORDER: Record<LifecycleStage, number> = {
-  fresh: 0,
-  triaged: 1,
-  accepted: 2,
-  stale: 3,
-  zombie: 4
-}
-
-const COMPLEXITY_ORDER: Record<Complexity, number> = {
-  low: 0,
-  medium: 1,
-  high: 2
-}
-
-const COMPETITION_ORDER: Record<CompetitionLevel, number> = {
-  none: 0,
-  low: 1,
-  medium: 2,
-  high: 3
 }
 
 export function useIssueFilters(): UseIssueFiltersResult {
@@ -179,41 +158,9 @@ export function useIssueFilters(): UseIssueFiltersResult {
         )
       }
 
-      // Sort
-      result = [...result].sort((a, b) => {
-        let cmp = 0
-        switch (sortField) {
-          case 'cvs':
-            cmp = a.cvs - b.cvs
-            break
-          case 'title':
-            cmp = a.title.localeCompare(b.title)
-            break
-          case 'repo':
-            cmp = a.repoSlug.localeCompare(b.repoSlug)
-            break
-          case 'lifecycle':
-            cmp = LIFECYCLE_ORDER[a.lifecycleStage] - LIFECYCLE_ORDER[b.lifecycleStage]
-            break
-          case 'complexity':
-            cmp = COMPLEXITY_ORDER[a.complexity] - COMPLEXITY_ORDER[b.complexity]
-            break
-          case 'sentiment':
-            cmp = a.sentimentScore - b.sentimentScore
-            break
-          case 'competition':
-            cmp = COMPETITION_ORDER[a.competitionLevel] - COMPETITION_ORDER[b.competitionLevel]
-            break
-          case 'createdAt':
-            cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-            break
-        }
-        return sortDirection === 'asc' ? cmp : -cmp
-      })
-
       return result
     },
-    [filters, searchQuery, sortField, sortDirection]
+    [filters, searchQuery]
   )
 
   return {

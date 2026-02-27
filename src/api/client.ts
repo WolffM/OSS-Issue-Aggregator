@@ -6,6 +6,7 @@ import type {
   ScoredIssuesResponse,
   DossierResponse,
   AllScoredIssuesResponse,
+  AggregateVersionResponse,
   ClaimResponse,
   UnclaimResponse,
   RefreshResponse
@@ -88,9 +89,27 @@ class OssIssuesClient {
 
   // ---- Recon: Aggregate ----
 
-  async getAllScoredIssues(includeKilled = false): Promise<AllScoredIssuesResponse> {
-    const query = includeKilled ? '?includeKilled=true' : ''
-    return this.fetch<AllScoredIssuesResponse>(`/recon/all-scored-issues${query}`)
+  async getAllScoredIssues(params?: {
+    includeKilled?: boolean
+    sort?: string
+    dir?: 'asc' | 'desc'
+    offset?: number
+    limit?: number
+  }): Promise<AllScoredIssuesResponse> {
+    const searchParams = new URLSearchParams()
+    if (params?.includeKilled) searchParams.set('includeKilled', 'true')
+    if (params?.sort) searchParams.set('sort', params.sort)
+    if (params?.dir) searchParams.set('dir', params.dir)
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset))
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit))
+    const query = searchParams.toString()
+    return this.fetch<AllScoredIssuesResponse>(
+      `/recon/all-scored-issues${query ? `?${query}` : ''}`
+    )
+  }
+
+  async getAggVersion(): Promise<AggregateVersionResponse> {
+    return this.fetch<AggregateVersionResponse>('/recon/all-scored-issues/version')
   }
 
   // ---- Recon: Claims ----

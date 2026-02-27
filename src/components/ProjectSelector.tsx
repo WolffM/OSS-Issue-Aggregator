@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import type { RepoHealth } from '../api/types'
 
 interface ProjectItem {
   slug: string
@@ -11,17 +10,8 @@ interface ProjectSelectorProps {
   selectedProjects: string[]
   onSelectionChange: (slugs: string[]) => void
   disabled?: boolean
-  repoHealthMap?: Map<string, RepoHealth | null>
   focusedRepo?: string | null
   onFocusRepo?: (slug: string | null) => void
-}
-
-function healthDotClass(health: RepoHealth | null | undefined): string {
-  if (!health) return ''
-  if (health.killed) return 'project-selector__health-dot--killed'
-  if (health.overallViability >= 70) return 'project-selector__health-dot--viable'
-  if (health.overallViability >= 40) return 'project-selector__health-dot--caution'
-  return 'project-selector__health-dot--killed'
 }
 
 export function ProjectSelector({
@@ -29,7 +19,6 @@ export function ProjectSelector({
   selectedProjects,
   onSelectionChange,
   disabled,
-  repoHealthMap,
   focusedRepo,
   onFocusRepo
 }: ProjectSelectorProps) {
@@ -104,33 +93,27 @@ export function ProjectSelector({
       </div>
 
       <div className="project-selector__list">
-        {filteredProjects.map(project => {
-          const health = repoHealthMap?.get(project.slug)
-          const dotClass = healthDotClass(health)
-
-          return (
-            <div
-              key={project.slug}
-              className={`project-selector__item ${selectedProjects.includes(project.slug) ? 'project-selector__item--selected' : ''} ${focusedRepo === project.slug ? 'project-selector__item--focused' : ''}`}
+        {filteredProjects.map(project => (
+          <div
+            key={project.slug}
+            className={`project-selector__item ${selectedProjects.includes(project.slug) ? 'project-selector__item--selected' : ''} ${focusedRepo === project.slug ? 'project-selector__item--focused' : ''}`}
+          >
+            <input
+              type="checkbox"
+              className="project-selector__checkbox"
+              checked={selectedProjects.includes(project.slug)}
+              onChange={() => handleToggle(project.slug)}
+              disabled={disabled}
+            />
+            <button
+              type="button"
+              className="project-selector__name-btn"
+              onClick={() => handleFocus(project.slug)}
             >
-              <input
-                type="checkbox"
-                className="project-selector__checkbox"
-                checked={selectedProjects.includes(project.slug)}
-                onChange={() => handleToggle(project.slug)}
-                disabled={disabled}
-              />
-              <button
-                type="button"
-                className="project-selector__name-btn"
-                onClick={() => handleFocus(project.slug)}
-              >
-                {project.name}
-              </button>
-              {dotClass && <span className={`project-selector__health-dot ${dotClass}`} />}
-            </div>
-          )
-        })}
+              {project.name}
+            </button>
+          </div>
+        ))}
       </div>
 
       <div className="project-selector__count">

@@ -17,6 +17,7 @@ import type {
   Dossier,
   KVEnvelope
 } from './types'
+import type { SlimScoredIssue, AggregateVersion } from './kv-writer'
 
 // ============================================================================
 // Generic Helpers
@@ -151,4 +152,19 @@ export async function getClaims(kv: KVNamespace, slug: string): Promise<ClaimRec
 export async function getDossier(kv: KVNamespace, slug: string): Promise<Dossier | null> {
   const env = await getDossierEnveloped(kv, slug)
   return env?.data ?? null
+}
+
+// ============================================================================
+// Public API — Aggregate Readers (pre-computed sorted issue lists)
+// ============================================================================
+
+export async function getAggregate(
+  kv: KVNamespace,
+  sortField: string
+): Promise<SlimScoredIssue[] | null> {
+  return readKV<SlimScoredIssue[]>(kv, `recon:agg:${sortField}`)
+}
+
+export async function getAggregateVersion(kv: KVNamespace): Promise<AggregateVersion | null> {
+  return readKV<AggregateVersion>(kv, 'recon:agg:v')
 }
