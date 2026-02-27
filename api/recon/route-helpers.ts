@@ -168,11 +168,24 @@ export const ScoredIssuesResponseSchema = z
   })
   .openapi('ReconScoredIssuesResponse')
 
+// Slim variant of ScoredIssueSchema for the aggregate listing.
+// Strips heavy fields to keep the response within Worker resource limits.
+const SlimScoredIssueSchema = ScoredIssueSchema.omit({
+  body: true,
+  reactionGroups: true,
+  sentimentSignals: true,
+  commentDigest: true,
+  likelyFiles: true,
+  relatedIssues: true,
+  _scoring: true,
+  difficultySignals: true
+}).openapi('SlimScoredIssue')
+
 export const AllScoredIssuesResponseSchema = z
   .object({
     success: z.literal(true),
     data: z.object({
-      issues: z.array(ScoredIssueSchema),
+      issues: z.array(SlimScoredIssueSchema),
       totalCount: z.number(),
       repoCount: z.number()
     }),

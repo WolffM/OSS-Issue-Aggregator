@@ -329,6 +329,33 @@ describe('GET /all-scored-issues', () => {
     const body = await res.json()
     expect(body.data.issues).toHaveLength(1)
   })
+
+  it('strips heavy fields to reduce payload size', async () => {
+    const scored = makeScoredIssue({ id: 'issue-1', repoSlug: 'repo-a' })
+    const kv = createMockKV({
+      'recon:repo-a': makeConsolidatedReconData(),
+      'recon:repo-a:scored-issues': [scored]
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/all-scored-issues')
+    const body = await res.json()
+    const issue = body.data.issues[0]
+
+    // Essential fields must be present
+    expect(issue.id).toBe('issue-1')
+    expect(issue.cvs).toBeDefined()
+    expect(issue.cvsTier).toBeDefined()
+    expect(issue.repoSlug).toBe('repo-a')
+    expect(issue.title).toBeDefined()
+
+    // Heavy fields must be stripped
+    expect(issue.sentimentSignals).toBeUndefined()
+    expect(issue.commentDigest).toBeUndefined()
+    expect(issue.likelyFiles).toBeUndefined()
+    expect(issue.relatedIssues).toBeUndefined()
+    expect(issue._scoring).toBeUndefined()
+  })
 })
 
 describe('POST /:slug/refresh', () => {

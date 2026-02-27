@@ -6,7 +6,7 @@
  */
 
 import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { RepoHealthSchema, ResponseMetaSchema } from './types'
+import { type ScoredIssue, RepoHealthSchema, ResponseMetaSchema } from './types'
 import {
   type HonoEnv,
   getErrorMessage,
@@ -34,6 +34,39 @@ import {
 import { scoreRepoHealth } from './health-scorer'
 import { formatIssueBrief } from './issue-brief'
 import { applyClaimOverlay } from './precompute'
+
+/**
+ * Strip heavy fields from ScoredIssue for the aggregate listing endpoint.
+ * The full payload (~35 MB for 7k+ issues) exceeds Cloudflare Worker resource
+ * limits. The removed fields are not consumed by the UI listing and can still
+ * be fetched per-repo via the /:slug/scored-issues endpoint.
+ */
+function slimIssue(
+  issue: ScoredIssue
+): Omit<
+  ScoredIssue,
+  | 'body'
+  | 'reactionGroups'
+  | 'sentimentSignals'
+  | 'commentDigest'
+  | 'likelyFiles'
+  | 'relatedIssues'
+  | '_scoring'
+  | 'difficultySignals'
+> {
+  const {
+    body: _body,
+    reactionGroups: _rg,
+    sentimentSignals: _ss,
+    commentDigest: _cd,
+    likelyFiles: _lf,
+    relatedIssues: _ri,
+    _scoring,
+    difficultySignals: _ds,
+    ...slim
+  } = issue
+  return slim
+}
 
 async function computeHealth(kv: KVNamespace, slug: string) {
   const consolidated = await getConsolidatedRecon(kv, slug)
@@ -382,7 +415,8 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
 
       const validEnvelopes = envelopes.filter((e): e is NonNullable<typeof e> => e !== null)
 
-      const allIssues = validEnvelopes.flatMap(e => e.issues)
+      // Strip heavy fields to stay within Worker resource limits (~35 MB → ~15 MB)
+      const allIssues = validEnvelopes.flatMap(e => e.issues.map(slimIssue))
 
       // Sort by CVS descending
       allIssues.sort((a, b) => b.cvs - a.cvs)
