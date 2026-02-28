@@ -234,7 +234,7 @@ test.describe('UI Content', () => {
 
   test('footer shows correct issue and project counts', async ({ page }) => {
     await page.goto(BASE, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(5000)
+    await page.locator('.oss-aggregator__footer').waitFor({ state: 'visible' })
 
     const footerText = await page.locator('.oss-aggregator__footer').innerText()
     console.log('Footer text:', footerText)
