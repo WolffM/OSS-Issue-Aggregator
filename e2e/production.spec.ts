@@ -606,15 +606,6 @@ test.describe('Page Load Performance', () => {
     expect(log.networkFailures).toEqual([])
   })
 
-  test('no sidebar health dots rendered (removed feature)', async ({ page }) => {
-    await page.goto(BASE)
-    await page.waitForSelector('.project-selector__name-btn', { timeout: 10000 })
-
-    const healthDots = await page.locator('.project-selector__health-dot').count()
-    expect(healthDots).toBe(0)
-    console.log('Health dots rendered: 0 (removed)')
-  })
-
   test('stripped fields are absent from paginated API response', async ({ request }) => {
     const res = await request.get(`${API}/recon/all-scored-issues?sort=cvs&dir=desc&limit=5`)
     const body = await res.json()

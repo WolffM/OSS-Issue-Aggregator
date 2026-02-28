@@ -23,18 +23,3 @@ export interface OSSEnv {
   SCRAPER_API_URL?: string
   SCRAPER_API_KEY?: string
 }
-
-// Issue marking system
-export type MarkStatus = 'ignored' | 'process'
-
-export interface MarkedIssue {
-  issueId: string
-  status: MarkStatus
-  markedAt: string
-  reason?: string
-}
-
-export interface MarkedIssuesData {
-  issues: MarkedIssue[]
-  updatedAt: string
-}

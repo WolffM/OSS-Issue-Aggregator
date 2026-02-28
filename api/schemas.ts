@@ -4,10 +4,6 @@
 
 import { z } from '@hono/zod-openapi'
 
-// ============================================================================
-// Base Schemas
-// ============================================================================
-
 export const PlatformSchema = z
   .enum(['github', 'gitlab', 'gitea', 'phabricator', 'bugzilla', 'trac'])
   .openapi('Platform')
@@ -42,20 +38,12 @@ export const IssueSchema = z
   })
   .openapi('Issue')
 
-// ============================================================================
-// Error Schema
-// ============================================================================
-
 export const ErrorResponseSchema = z
   .object({
     success: z.literal(false),
     error: z.string()
   })
   .openapi('ErrorResponse')
-
-// ============================================================================
-// Health Schema
-// ============================================================================
 
 export const HealthResponseSchema = z
   .object({
@@ -67,57 +55,3 @@ export const HealthResponseSchema = z
     })
   })
   .openapi('HealthResponse')
-
-// ============================================================================
-// Issue Marking Schemas
-// ============================================================================
-
-export const MarkStatusSchema = z.enum(['ignored', 'process']).openapi('MarkStatus')
-
-export const MarkedIssueSchema = z
-  .object({
-    issueId: z.string().openapi({ example: 'github-react-12345' }),
-    status: MarkStatusSchema,
-    markedAt: z.string().openapi({ example: '2024-01-20T14:45:00Z' }),
-    reason: z.string().optional().openapi({ example: 'Already fixed' })
-  })
-  .openapi('MarkedIssue')
-
-export const MarkIssueRequestSchema = z
-  .object({
-    status: MarkStatusSchema,
-    reason: z.string().optional().openapi({ example: 'Already fixed' })
-  })
-  .openapi('MarkIssueRequest')
-
-export const MarkIssueResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      issueId: z.string(),
-      status: MarkStatusSchema,
-      markedAt: z.string()
-    })
-  })
-  .openapi('MarkIssueResponse')
-
-export const UnmarkIssueResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      issueId: z.string(),
-      removed: z.boolean()
-    })
-  })
-  .openapi('UnmarkIssueResponse')
-
-export const MarkedIssuesResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      issues: z.array(MarkedIssueSchema),
-      status: MarkStatusSchema,
-      count: z.number()
-    })
-  })
-  .openapi('MarkedIssuesResponse')

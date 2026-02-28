@@ -8,20 +8,8 @@
 // Handler factory (main export for Cloudflare Workers)
 export { createOSSHandler } from './handler'
 
-// Scoring system
-export { scoreIssue } from './scoring'
-export type { ScoringInput, ScoringResult } from './scoring'
-
 // Types
-export type {
-  Platform,
-  Difficulty,
-  Issue,
-  OSSEnv,
-  MarkStatus,
-  MarkedIssue,
-  MarkedIssuesData
-} from './types'
+export type { Platform, Difficulty, Issue, OSSEnv } from './types'
 
 // Schemas (for OpenAPI integration)
 export {
@@ -29,13 +17,7 @@ export {
   DifficultySchema,
   IssueSchema,
   ErrorResponseSchema,
-  HealthResponseSchema,
-  MarkStatusSchema,
-  MarkedIssueSchema,
-  MarkIssueRequestSchema,
-  MarkIssueResponseSchema,
-  UnmarkIssueResponseSchema,
-  MarkedIssuesResponseSchema
+  HealthResponseSchema
 } from './schemas'
 
 // Recon pipeline
@@ -58,16 +40,16 @@ export { triggerScrape } from './recon/triggers'
 export { computeAndStore, computeAndStoreAll, applyClaimOverlay } from './recon/precompute'
 export { putRepoHealth, putScoredIssues, putDossier } from './recon/kv-writer'
 
-// Recon analysis engine (M2)
+// Recon analysis engine
 export { scoreRepoHealth, analyzePRPatterns } from './recon/health-scorer'
 export { scoreIssues } from './recon/issue-scorer'
 export { classifyLifecycle } from './recon/lifecycle'
 export { analyzeSentiment } from './recon/sentiment'
 export { isMaintainer, isBot, daysBetween, daysSince, median, clamp } from './recon/utils'
 
-// Recon intelligence (M3)
+// Recon intelligence
 export { detectQuirks } from './recon/quirks'
-export { compileDossier, truncate, branchPrefixes } from './recon/dossier-compiler'
+export { compileDossier } from './recon/dossier-compiler'
 export { formatIssueBrief } from './recon/issue-brief'
 
 // Recon types

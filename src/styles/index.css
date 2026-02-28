@@ -224,25 +224,6 @@
   color: var(--color-primary);
 }
 
-.project-selector__health-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.project-selector__health-dot--viable {
-  background-color: var(--color-success);
-}
-
-.project-selector__health-dot--caution {
-  background-color: var(--color-warning);
-}
-
-.project-selector__health-dot--killed {
-  background-color: var(--color-danger);
-}
-
 .project-selector__count {
   padding: 0.5rem 0.75rem;
   font-size: 0.75rem;
@@ -490,9 +471,7 @@
 .issue-card--likely {
   border-left-color: var(--color-primary);
 }
-.issue-card--maybe {
-  border-left-color: var(--color-warning);
-}
+.issue-card--maybe,
 .issue-card--risky {
   border-left-color: var(--color-warning);
 }
@@ -599,22 +578,15 @@
   background-color: var(--color-success-bg);
   color: var(--color-success);
 }
-
 .cvs-badge--likely {
   background-color: var(--color-primary-bg);
   color: var(--color-primary);
 }
-
-.cvs-badge--maybe {
-  background-color: var(--color-warning-bg);
-  color: var(--color-warning);
-}
-
+.cvs-badge--maybe,
 .cvs-badge--risky {
   background-color: var(--color-warning-bg);
   color: var(--color-warning);
 }
-
 .cvs-badge--skip {
   background-color: var(--color-danger-light);
   color: var(--color-danger);
@@ -633,26 +605,19 @@
   text-transform: capitalize;
 }
 
-.lifecycle-badge--fresh {
-  background-color: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.lifecycle-badge--triaged {
-  background-color: var(--color-primary-bg);
-  color: var(--color-primary);
-}
-
+.lifecycle-badge--fresh,
 .lifecycle-badge--accepted {
   background-color: var(--color-success-bg);
   color: var(--color-success);
 }
-
+.lifecycle-badge--triaged {
+  background-color: var(--color-primary-bg);
+  color: var(--color-primary);
+}
 .lifecycle-badge--stale {
   background-color: var(--color-warning-bg);
   color: var(--color-warning);
 }
-
 .lifecycle-badge--zombie {
   background-color: var(--color-danger-light);
   color: var(--color-danger);
@@ -753,11 +718,9 @@
 .sentiment-indicator--positive .sentiment-indicator__dot {
   background-color: var(--color-success);
 }
-
 .sentiment-indicator--neutral .sentiment-indicator__dot {
   background-color: var(--color-text-muted);
 }
-
 .sentiment-indicator--negative .sentiment-indicator__dot {
   background-color: var(--color-danger);
 }
@@ -886,7 +849,6 @@
   color: var(--color-text-muted);
   font-size: 0.875rem;
 }
-
 .dossier__error {
   color: var(--color-danger);
 }
@@ -935,20 +897,19 @@
 }
 
 /* Scoped markdown styles inside dossier */
+.dossier__content h2,
+.dossier__content h3 {
+  font-weight: 600;
+  color: var(--color-text);
+}
 .dossier__content h2 {
   font-size: 1.125rem;
-  font-weight: 600;
   margin: 0 0 0.75rem;
-  color: var(--color-text);
 }
-
 .dossier__content h3 {
   font-size: 0.9375rem;
-  font-weight: 600;
   margin: 1rem 0 0.5rem;
-  color: var(--color-text);
 }
-
 .dossier__content p {
   margin: 0 0 0.75rem;
 }
@@ -959,14 +920,12 @@
   margin: 0.75rem 0;
   font-size: 0.8125rem;
 }
-
 .dossier__content th,
 .dossier__content td {
   padding: 0.375rem 0.625rem;
   border: 1px solid var(--color-border);
   text-align: left;
 }
-
 .dossier__content th {
   background-color: var(--color-bg-alt);
   font-weight: 600;
@@ -987,17 +946,14 @@
   border-radius: 4px;
   font-family: monospace;
 }
-
 .dossier__content ul,
 .dossier__content ol {
   margin: 0.5rem 0;
   padding-left: 1.5rem;
 }
-
 .dossier__content li {
   margin-bottom: 0.25rem;
 }
-
 .dossier__content a {
   color: var(--color-primary);
 }
@@ -1019,34 +975,30 @@
   font-weight: 500;
 }
 
-.dossier__copy-btn {
+.dossier__copy-btn,
+.dossier__agent-prompt-btn {
   padding: 0.375rem 0.75rem;
   font-size: 0.75rem;
-  border: 1px solid var(--color-border);
   border-radius: 6px;
-  background-color: var(--color-bg);
-  color: var(--color-text);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
+.dossier__copy-btn {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
 .dossier__copy-btn:hover {
   background-color: var(--color-bg-hover);
   border-color: var(--color-primary);
 }
-
 .dossier__agent-prompt-btn {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.75rem;
   font-weight: 600;
   border: 1px solid var(--color-primary);
-  border-radius: 6px;
   background-color: var(--color-primary);
   color: var(--color-bg);
-  cursor: pointer;
-  transition: all 0.15s ease;
 }
-
 .dossier__agent-prompt-btn:hover {
   opacity: 0.9;
 }
@@ -1206,22 +1158,18 @@
   background-color: var(--color-bg-hover);
   border-color: var(--color-primary);
 }
-
 .issue-detail__action-btn--primary {
   background-color: var(--color-primary);
   color: var(--color-bg);
   border-color: var(--color-primary);
 }
-
 .issue-detail__action-btn--primary:hover {
   opacity: 0.9;
 }
-
 .issue-detail__action-btn--claim {
   border-color: var(--color-success);
   color: var(--color-success);
 }
-
 .issue-detail__action-btn--unclaim {
   border-color: var(--color-warning);
   color: var(--color-warning);
@@ -1283,11 +1231,9 @@
 .repo-health__score--viable .repo-health__score-number {
   color: var(--color-success);
 }
-
 .repo-health__score--caution .repo-health__score-number {
   color: var(--color-warning);
 }
-
 .repo-health__score--killed .repo-health__score-number {
   color: var(--color-danger);
 }
@@ -1377,12 +1323,10 @@
   background-color: var(--color-danger-light);
   color: var(--color-danger);
 }
-
 .repo-health__quirk--important .repo-health__quirk-impact {
   background-color: var(--color-warning-bg);
   color: var(--color-warning);
 }
-
 .repo-health__quirk--minor .repo-health__quirk-impact {
   background-color: var(--color-muted-bg);
   color: var(--color-text-muted);
@@ -1473,7 +1417,8 @@
 .platform-icon--github {
   color: var(--color-text);
 }
-.platform-icon--gitlab {
+.platform-icon--gitlab,
+.platform-icon--trac {
   color: var(--color-warning);
 }
 .platform-icon--gitea {
@@ -1484,9 +1429,6 @@
 }
 .platform-icon--bugzilla {
   color: var(--color-danger);
-}
-.platform-icon--trac {
-  color: var(--color-warning);
 }
 
 /* ============================================================================
@@ -1519,12 +1461,24 @@
    Loading / Error / Empty States
    ============================================================================ */
 
-.loading-state {
+.loading-state,
+.error-state,
+.empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 4rem 2rem;
+  text-align: center;
+}
+
+.loading-state {
+  color: var(--color-text-secondary);
+}
+.error-state {
+  color: var(--color-danger);
+}
+.empty-state {
   color: var(--color-text-secondary);
 }
 
@@ -1538,48 +1492,17 @@
   margin-bottom: 1rem;
 }
 
-.loading-state__text {
+.loading-state__text,
+.error-state__message,
+.empty-state__message {
   font-size: 0.875rem;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.skeleton-line {
-  background: linear-gradient(
-    90deg,
-    var(--color-border) 25%,
-    var(--color-bg-hover) 50%,
-    var(--color-border) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 4px;
-}
-
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  color: var(--color-danger);
-  text-align: center;
 }
 
 .error-state__icon {
   font-size: 2rem;
   margin-bottom: 1rem;
 }
-
 .error-state__message {
-  font-size: 0.875rem;
   margin-bottom: 1rem;
 }
 
@@ -1597,26 +1520,6 @@
 .error-state__retry:hover {
   background-color: var(--color-danger);
   color: var(--color-danger-text);
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-
-.empty-state__icon {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-.empty-state__message {
-  font-size: 0.875rem;
 }
 
 /* ============================================================================
