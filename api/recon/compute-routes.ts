@@ -12,7 +12,8 @@ import {
   slugParam
 } from './route-helpers'
 import { triggerScrape } from './triggers'
-import { computeAndStore, computeAndStoreAll } from './precompute'
+import { computeAndStore, computeAndStoreAll, buildAndWriteAggregates } from './precompute'
+import { getScrapedSlugs } from './kv-reader'
 
 export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
   // POST /:slug/refresh
@@ -96,12 +97,12 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     method: 'post',
     path: '/compute-all',
     tags: ['Recon - Triggers'],
-    summary: 'Pre-compute all repos',
+    summary: 'Pre-compute all repos (synchronous)',
     description:
-      'Accepts the request and runs scoring + dossier compilation for every scraped repo in the background via waitUntil(). Returns 202 immediately.',
+      'Runs scoring + dossier compilation for every scraped repo synchronously. Returns 200 with results when complete.',
     responses: {
-      202: {
-        description: 'Computation accepted and running in background',
+      200: {
+        description: 'Computation complete',
         content: { 'application/json': { schema: AcceptedResponseSchema } }
       },
       500: {
@@ -111,15 +112,18 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     }
   })
 
-  app.openapi(computeAllRoute, c => {
+  app.openapi(computeAllRoute, async c => {
     const kv = requireKV(c.env)
     if (!kv) {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    c.executionCtx.waitUntil(computeAndStoreAll(kv))
+    const result = await computeAndStoreAll(kv)
 
-    return c.json({ success: true as const, message: 'Compute-all started' }, 202)
+    return c.json(
+      { success: true as const, message: `Computed ${result.results.length} repos` },
+      200
+    )
   })
 
   // POST /scrape-complete — webhook for scraper/cron to call after scraping finishes
@@ -129,10 +133,10 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     tags: ['Recon - Triggers'],
     summary: 'Scrape completion webhook',
     description:
-      'Called by the scraper or cron after scrape-all finishes. Triggers compute-all in the background to score issues and build aggregates.',
+      'Called by the scraper or cron after scrape-all finishes. Rebuilds pre-sorted aggregate KV keys in the background. Per-repo compute is already handled by the scraper calling /:slug/compute individually.',
     responses: {
       202: {
-        description: 'Compute-all triggered in background',
+        description: 'Aggregate rebuild triggered in background',
         content: { 'application/json': { schema: AcceptedResponseSchema } }
       },
       500: {
@@ -142,16 +146,17 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     }
   })
 
-  app.openapi(scrapeCompleteRoute, c => {
+  app.openapi(scrapeCompleteRoute, async c => {
     const kv = requireKV(c.env)
     if (!kv) {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    c.executionCtx.waitUntil(computeAndStoreAll(kv))
+    const slugs = await getScrapedSlugs(kv)
+    c.executionCtx.waitUntil(buildAndWriteAggregates(kv, slugs))
 
     return c.json(
-      { success: true as const, message: 'Scrape-complete received, compute-all started' },
+      { success: true as const, message: 'Scrape-complete received, aggregate rebuild started' },
       202
     )
   })
