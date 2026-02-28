@@ -17,10 +17,10 @@ pnpm run format
 
 echo "✅ Linting and formatting complete!"
 
-# Bump version if src/, package.json, or build config changed
+# Bump version if src/, api/, package.json, or build config changed
 echo "📦 Checking if version bump is needed..."
 
-if git diff --cached --name-only | grep -q -E "^(src/|package\.json|vite\.config\.|tsconfig\.)"; then
+if git diff --cached --name-only | grep -q -E "^(src/|api/|package\.json|vite\.config\.|tsconfig\.)"; then
   echo "🔄 Code or build config changes detected, bumping version..."
 
 # Read current version from package.json
