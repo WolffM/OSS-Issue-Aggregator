@@ -383,7 +383,7 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
     tags: ['Recon - Issues'],
     summary: 'Get all scored issues',
     description:
-      'Returns scored issues across all watchlist repos. Supports pagination via sort/dir/offset/limit query params. When limit is omitted, returns all issues (backward compat).',
+      'Returns scored issues across all scraped repos. Supports pagination via sort/dir/offset/limit query params. When limit is omitted, returns all issues (backward compat).',
     responses: {
       200: {
         description: 'Aggregated scored issues',
@@ -491,6 +491,32 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       const oldestScraped = scrapedAts.length > 0 ? scrapedAts.sort()[0] : null
       const oldestComputed = computedAts.length > 0 ? computedAts.sort()[0] : null
 
+      const fallbackMeta = {
+        scraped_at: oldestScraped,
+        computed_at: oldestComputed,
+        served_at: new Date().toISOString()
+      }
+
+      if (isPaginated && limit !== null) {
+        const page = allIssues.slice(offset, offset + limit)
+        const hasMore = offset + limit < allIssues.length
+
+        return c.json(
+          {
+            success: true as const,
+            data: {
+              issues: page,
+              totalCount: allIssues.length,
+              repoCount: slugs.length,
+              hasMore,
+              offset
+            },
+            _meta: fallbackMeta
+          },
+          200
+        )
+      }
+
       return c.json(
         {
           success: true as const,
@@ -499,11 +525,7 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
             totalCount: allIssues.length,
             repoCount: slugs.length
           },
-          _meta: {
-            scraped_at: oldestScraped,
-            computed_at: oldestComputed,
-            served_at: new Date().toISOString()
-          }
+          _meta: fallbackMeta
         },
         200
       )
