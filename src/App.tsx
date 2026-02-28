@@ -117,9 +117,13 @@ export default function App(props: OssAggregatorProps = {}) {
     return [...seen.entries()].map(([slug, name]) => ({ slug, name }))
   }, [allIssues])
 
-  // Initialize selected projects from localStorage or select all
+  // Initialize selected projects from localStorage or select all.
+  // Also auto-select newly discovered projects from infinite scroll
+  // when all previously known projects are already selected.
   useEffect(() => {
-    if (derivedProjects.length > 0 && !hasInitializedDefaults) {
+    if (derivedProjects.length === 0) return
+
+    if (!hasInitializedDefaults) {
       const savedSlugs = loadSavedSelections()
 
       if (savedSlugs && savedSlugs.length > 0) {
@@ -134,8 +138,27 @@ export default function App(props: OssAggregatorProps = {}) {
       // Default: select all projects
       setSelectedProjectSlugs(derivedProjects.map(p => p.slug))
       setHasInitializedDefaults(true)
+      return
     }
-  }, [derivedProjects, hasInitializedDefaults])
+
+    // Auto-select new projects that arrived from infinite scroll
+    const newSlugs = derivedProjects
+      .map(p => p.slug)
+      .filter(slug => !selectedProjectSlugs.includes(slug))
+
+    if (newSlugs.length > 0) {
+      // Only auto-add if every previously known project is selected
+      // (i.e., user hasn't manually deselected anything)
+      const previouslyKnown = derivedProjects
+        .map(p => p.slug)
+        .filter(slug => !newSlugs.includes(slug))
+      const allPreviousSelected = previouslyKnown.every(slug => selectedProjectSlugs.includes(slug))
+
+      if (allPreviousSelected) {
+        setSelectedProjectSlugs(prev => [...prev, ...newSlugs])
+      }
+    }
+  }, [derivedProjects, hasInitializedDefaults, selectedProjectSlugs])
 
   useEffect(() => {
     if (hasInitializedDefaults && selectedProjectSlugs.length >= 0) {

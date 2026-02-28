@@ -1327,6 +1327,8 @@ test.describe('Project Selection Count Display', () => {
     const log = attachLogCollectors(page)
     await page.goto(BASE, { waitUntil: 'networkidle' })
     await page.waitForSelector('.project-selector__name-btn', { timeout: 10000 })
+    // Wait for data to fully settle before interacting
+    await page.waitForTimeout(3000)
 
     const countText = await page.locator('.project-selector__count').innerText()
     console.log('Project selection count:', countText)
@@ -1346,11 +1348,15 @@ test.describe('Project Selection Count Display', () => {
     const afterNone = await page.locator('.project-selector__count').innerText()
     expect(afterNone).toMatch(/^0 of \d+ selected$/)
 
-    // Click "All"
+    // Click "All" — selects all currently known projects
     await page.locator('.project-selector__action').nth(0).click()
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(500)
     const afterAll = await page.locator('.project-selector__count').innerText()
-    expect(afterAll).toBe(countText)
+    console.log('After All:', afterAll)
+    // After "All", selected count should equal total count
+    const afterMatch = afterAll.match(/(\d+) of (\d+) selected/)
+    expect(afterMatch).toBeTruthy()
+    expect(parseInt(afterMatch![1], 10)).toBe(parseInt(afterMatch![2], 10))
 
     expect(log.apiErrors).toEqual([])
   })
