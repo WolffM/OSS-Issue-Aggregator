@@ -154,7 +154,7 @@ function slimIssueForAggregate(issue: ScoredIssue): SlimScoredIssue {
   return slim
 }
 
-function sortComparator(
+export function sortComparator(
   field: AggregateSortField
 ): (a: SlimScoredIssue, b: SlimScoredIssue) => number {
   switch (field) {
@@ -182,25 +182,27 @@ function sortComparator(
  * pre-sorts into 8 KV keys (one per sort field), and writes a version key.
  */
 export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]): Promise<void> {
-  // Collect all scored issues + claims
-  const allIssues: ScoredIssue[] = []
+  // Collect all scored issues + claims (parallel reads for speed)
+  const results = await Promise.all(
+    slugs.map(async slug => {
+      const [scored, claims] = await Promise.all([getScoredIssues(kv, slug), getClaims(kv, slug)])
+      if (!scored) return []
+      return applyClaimOverlay(scored, claims ?? [])
+    })
+  )
 
-  for (const slug of slugs) {
-    const [scored, claims] = await Promise.all([getScoredIssues(kv, slug), getClaims(kv, slug)])
-    if (scored) {
-      const withClaims = applyClaimOverlay(scored, claims ?? [])
-      allIssues.push(...withClaims)
-    }
-  }
+  const allIssues = results.flat()
 
   // Slim all issues
   const slimmed = allIssues.map(slimIssueForAggregate)
 
-  // Write a pre-sorted KV key per sort field (ascending order)
-  for (const field of SORT_FIELDS) {
-    const sorted = [...slimmed].sort(sortComparator(field))
-    await putAggregate(kv, field, sorted)
-  }
+  // Write pre-sorted KV keys in parallel (one per sort field, ascending order)
+  await Promise.all(
+    SORT_FIELDS.map(field => {
+      const sorted = [...slimmed].sort(sortComparator(field))
+      return putAggregate(kv, field, sorted)
+    })
+  )
 
   // Write version metadata
   await putAggregateVersion(kv, {

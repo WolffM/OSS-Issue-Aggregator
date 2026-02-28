@@ -811,6 +811,61 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     expect(body.data.issues[0].id).toBe('issue-1')
   })
 
+  it('fallback path respects sort and dir params', async () => {
+    const issueA = makeScoredIssue({
+      id: 'a',
+      title: 'Alpha',
+      cvs: 60,
+      repoSlug: 'repo-a'
+    })
+    const issueB = makeScoredIssue({
+      id: 'b',
+      title: 'Bravo',
+      cvs: 90,
+      repoSlug: 'repo-a'
+    })
+    const issueC = makeScoredIssue({
+      id: 'c',
+      title: 'Charlie',
+      cvs: 75,
+      repoSlug: 'repo-a'
+    })
+    const kv = createMockKV({
+      'recon:repo-a': makeConsolidatedReconData(),
+      'recon:repo-a:scored-issues': [issueA, issueB, issueC]
+      // No recon:agg:* keys — forces fallback
+    })
+    const app = createTestApp(kv)
+
+    // Sort by title ascending
+    const resAsc = await app.request('/all-scored-issues?sort=title&dir=asc&limit=10')
+    const bodyAsc = await resAsc.json()
+    expect(bodyAsc.data.issues.map((i: { title: string }) => i.title)).toEqual([
+      'Alpha',
+      'Bravo',
+      'Charlie'
+    ])
+
+    // Sort by title descending
+    const resDesc = await app.request('/all-scored-issues?sort=title&dir=desc&limit=10')
+    const bodyDesc = await resDesc.json()
+    expect(bodyDesc.data.issues.map((i: { title: string }) => i.title)).toEqual([
+      'Charlie',
+      'Bravo',
+      'Alpha'
+    ])
+
+    // Sort by CVS ascending
+    const resCvsAsc = await app.request('/all-scored-issues?sort=cvs&dir=asc&limit=10')
+    const bodyCvsAsc = await resCvsAsc.json()
+    expect(bodyCvsAsc.data.issues.map((i: { cvs: number }) => i.cvs)).toEqual([60, 75, 90])
+
+    // Sort by CVS descending
+    const resCvsDesc = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=10')
+    const bodyCvsDesc = await resCvsDesc.json()
+    expect(bodyCvsDesc.data.issues.map((i: { cvs: number }) => i.cvs)).toEqual([90, 75, 60])
+  })
+
   it('includes Cache-Control header when serving from aggregate', async () => {
     const { kv } = setupAggregateKV()
     const app = createTestApp(kv)

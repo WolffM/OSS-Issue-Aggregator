@@ -36,7 +36,12 @@ import {
 } from './kv-reader'
 import { scoreRepoHealth } from './health-scorer'
 import { formatIssueBrief } from './issue-brief'
-import { applyClaimOverlay } from './precompute'
+import {
+  applyClaimOverlay,
+  sortComparator,
+  buildAndWriteAggregates,
+  type AggregateSortField
+} from './precompute'
 
 /**
  * Strip heavy fields from ScoredIssue for the aggregate listing endpoint.
@@ -462,7 +467,9 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       }
 
       // Fallback: N+1 KV reads (pre-aggregate keys not yet built)
+      // Build aggregates in background so the next request gets the fast path
       const slugs = await getScrapedSlugs(kv)
+      c.executionCtx.waitUntil(buildAndWriteAggregates(kv, slugs))
 
       const envelopes = await Promise.all(
         slugs.map(async slug => {
@@ -480,8 +487,10 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       const validEnvelopes = envelopes.filter((e): e is NonNullable<typeof e> => e !== null)
       const allIssues = validEnvelopes.flatMap(e => e.issues.map(slimIssue))
 
-      // Sort by CVS descending (fallback only supports default sort)
-      allIssues.sort((a, b) => b.cvs - a.cvs)
+      // Sort by requested field and direction
+      const cmp = sortComparator(sort as AggregateSortField)
+      allIssues.sort(cmp)
+      if (dir === 'desc') allIssues.reverse()
 
       const scrapedAts = validEnvelopes
         .map(e => e.scraped_at)
