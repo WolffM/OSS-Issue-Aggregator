@@ -50,6 +50,7 @@ export default function App(props: OssAggregatorProps = {}) {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [selectedProjectSlugs, setSelectedProjectSlugs] = useState<string[]>([])
   const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false)
+  const knownSlugsRef = useRef<Set<string>>(new Set())
   const [focusedRepo, setFocusedRepo] = useState<string | null>(null)
 
   // Drawer state
@@ -125,6 +126,10 @@ export default function App(props: OssAggregatorProps = {}) {
 
     if (!hasInitializedDefaults) {
       const savedSlugs = loadSavedSelections()
+      const allSlugs = derivedProjects.map(p => p.slug)
+
+      // Track all initially known slugs
+      for (const slug of allSlugs) knownSlugsRef.current.add(slug)
 
       if (savedSlugs && savedSlugs.length > 0) {
         const validSlugs = savedSlugs.filter(slug => derivedProjects.some(p => p.slug === slug))
@@ -136,28 +141,28 @@ export default function App(props: OssAggregatorProps = {}) {
       }
 
       // Default: select all projects
-      setSelectedProjectSlugs(derivedProjects.map(p => p.slug))
+      setSelectedProjectSlugs(allSlugs)
       setHasInitializedDefaults(true)
       return
     }
 
-    // Auto-select new projects that arrived from infinite scroll
-    const newSlugs = derivedProjects
+    // Find slugs that are genuinely new (not previously seen at all)
+    const trulyNewSlugs = derivedProjects
       .map(p => p.slug)
-      .filter(slug => !selectedProjectSlugs.includes(slug))
+      .filter(slug => !knownSlugsRef.current.has(slug))
 
-    if (newSlugs.length > 0) {
-      // Only auto-add if every previously known project is selected
+    if (trulyNewSlugs.length > 0) {
+      // Track these as known now
+      for (const slug of trulyNewSlugs) knownSlugsRef.current.add(slug)
+
+      // Only auto-add if every previously known project is still selected
       // (i.e., user hasn't manually deselected anything)
-      const previouslyKnown = derivedProjects
-        .map(p => p.slug)
-        .filter(slug => !newSlugs.includes(slug))
-      const allPreviousSelected =
-        previouslyKnown.length > 0 &&
-        previouslyKnown.every(slug => selectedProjectSlugs.includes(slug))
+      const allPreviousSelected = [...knownSlugsRef.current]
+        .filter(slug => !trulyNewSlugs.includes(slug))
+        .every(slug => selectedProjectSlugs.includes(slug))
 
       if (allPreviousSelected) {
-        setSelectedProjectSlugs(prev => [...prev, ...newSlugs])
+        setSelectedProjectSlugs(prev => [...prev, ...trulyNewSlugs])
       }
     }
   }, [derivedProjects, hasInitializedDefaults, selectedProjectSlugs])

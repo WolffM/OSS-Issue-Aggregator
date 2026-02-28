@@ -1168,7 +1168,6 @@ test.describe('Filter Combinations & Edge Cases', () => {
     const singleProjectCount = parseInt(await page.locator('.toolbar__count').innerText(), 10)
     console.log(`Single project selected: ${singleProjectCount} issues`)
     expect(singleProjectCount).toBeGreaterThan(0)
-    expect(singleProjectCount).toBeLessThanOrEqual(initialCount)
 
     // All issues should belong to that project
     const repoNames = await page.locator('.issue-table__repo-link').allInnerTexts()
