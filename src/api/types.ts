@@ -162,9 +162,6 @@ export interface ReconPendingResponse {
   data: { status: 'pending' }
 }
 
-export type WatchlistResponse = ReconSuccessResponse<{ slugs: string[] }>
-export type WatchlistAddResponse = ReconSuccessResponse<{ slug: string; added: boolean }>
-export type WatchlistRemoveResponse = ReconSuccessResponse<{ slug: string; removed: boolean }>
 export type RepoHealthResponse = ReconSuccessResponse<RepoHealth> | ReconPendingResponse
 export type ScoredIssuesResponse = ReconSuccessResponse<{ issues: ScoredIssue[]; slug: string }>
 export type DossierResponse = ReconSuccessResponse<Dossier> | ReconPendingResponse

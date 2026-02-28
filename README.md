@@ -11,7 +11,7 @@ Scores open source issues for contribution viability, analyzes repo health, and 
 - **Recon Pipeline**: Scores issues using CVS (Contribution Viability Score) combining repo health, issue quality, and timing signals
 - **Repo Health Analysis**: Maintainer activity, merge accessibility, contributor availability, kill signal detection
 - **Dossier Compilation**: 6-section markdown contribution guides per repo (overview, rules, success patterns, anti-patterns, issue board, setup)
-- **Dynamic Watchlist**: Projects managed via API — no hardcoded project lists
+- **Dynamic Discovery**: Projects discovered automatically from KV — no hardcoded project lists
 - **Multi-Platform**: GitHub, GitLab, Gitea, Phabricator, Bugzilla, and Trac
 - **Issue Lifecycle**: Classifies issues as fresh, triaged, accepted, stale, or zombie
 - **Sentiment Analysis**: Pattern-matched comment sentiment scoring
@@ -100,14 +100,6 @@ All paths are relative to the base path (e.g., `/oss/api`).
 | DELETE | `/issues/{issueId}/mark` | Unmark an issue                 |
 | GET    | `/issues/marked`         | Get marked issues by status     |
 
-#### Recon Pipeline — Watchlist
-
-| Method | Endpoint                  | Description                      |
-| ------ | ------------------------- | -------------------------------- |
-| GET    | `/recon/watchlist`        | Get all watched repo slugs       |
-| POST   | `/recon/watchlist/add`    | Add a repo to the watchlist      |
-| POST   | `/recon/watchlist/remove` | Remove a repo from the watchlist |
-
 #### Recon Pipeline — Per-Repo Data
 
 | Method | Endpoint                              | Description                              |
@@ -127,7 +119,7 @@ All paths are relative to the base path (e.g., `/oss/api`).
 | POST   | `/recon/{slug}/unclaim` | Remove an issue claim             |
 | POST   | `/recon/{slug}/refresh` | Trigger scraper re-scrape         |
 | POST   | `/recon/{slug}/compute` | Pre-compute scores/health/dossier |
-| POST   | `/recon/compute-all`    | Pre-compute for all watched repos |
+| POST   | `/recon/compute-all`    | Pre-compute for all scraped repos |
 
 ## Data Flow
 
@@ -142,7 +134,6 @@ Cloudflare KV
   │  recon:{slug}:scored-issues → CVS-scored issues
   │  recon:{slug}:dossier      → compiled dossier
   │  recon:{slug}:claims       → claim tracking
-  │  recon:watchlist           → watched repo slugs
   ▼
 hadoku-aggregator API (this repo)
   │  reads scraper data, runs analysis, serves results

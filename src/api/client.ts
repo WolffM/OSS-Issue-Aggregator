@@ -1,7 +1,4 @@
 import type {
-  WatchlistResponse,
-  WatchlistAddResponse,
-  WatchlistRemoveResponse,
   RepoHealthResponse,
   ScoredIssuesResponse,
   DossierResponse,
@@ -57,20 +54,6 @@ class OssIssuesClient {
 
   async health(): Promise<{ status: string }> {
     return this.fetch('/health')
-  }
-
-  // ---- Recon: Watchlist ----
-
-  async getWatchlist(): Promise<WatchlistResponse> {
-    return this.fetch<WatchlistResponse>('/recon/watchlist')
-  }
-
-  async addToWatchlist(slug: string): Promise<WatchlistAddResponse> {
-    return this.post<WatchlistAddResponse>('/recon/watchlist/add', { slug })
-  }
-
-  async removeFromWatchlist(slug: string): Promise<WatchlistRemoveResponse> {
-    return this.post<WatchlistRemoveResponse>('/recon/watchlist/remove', { slug })
   }
 
   // ---- Recon: Per-repo data ----

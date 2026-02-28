@@ -52,14 +52,6 @@ export {
 
 export { addClaim, removeClaim } from './recon/claims'
 
-export {
-  getWatchlist,
-  addToWatchlist,
-  removeFromWatchlist,
-  normalizeSlug,
-  isValidSlug
-} from './recon/watchlist'
-
 export { triggerScrape } from './recon/triggers'
 
 // Pre-computation pipeline

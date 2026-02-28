@@ -7,7 +7,6 @@
 
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { HonoEnv } from './route-helpers'
-import { registerWatchlistRoutes } from './watchlist-routes'
 import { registerIssueRoutes } from './issue-routes'
 import { registerClaimRoutes } from './claim-routes'
 import { registerComputeRoutes } from './compute-routes'
@@ -15,7 +14,6 @@ import { registerComputeRoutes } from './compute-routes'
 export function createReconRoutes() {
   const app = new OpenAPIHono<HonoEnv>()
 
-  registerWatchlistRoutes(app)
   registerIssueRoutes(app)
   registerClaimRoutes(app)
   registerComputeRoutes(app)

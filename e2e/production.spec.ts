@@ -46,15 +46,6 @@ function attachLogCollectors(page: import('@playwright/test').Page): PageLog {
 // ============================================================================
 
 test.describe('API Endpoints', () => {
-  test('GET /recon/watchlist returns at least one repo', async ({ request }) => {
-    const res = await request.get(`${API}/recon/watchlist`)
-    expect(res.status()).toBe(200)
-    const body = await res.json()
-    expect(body.success).toBe(true)
-    expect(body.data.slugs.length).toBeGreaterThan(0)
-    console.log('Watchlist slugs:', body.data.slugs)
-  })
-
   test('GET /recon/all-scored-issues returns scored issues with CVS data', async ({ request }) => {
     const res = await request.get(`${API}/recon/all-scored-issues`)
     expect(res.status()).toBe(200)
@@ -79,9 +70,9 @@ test.describe('API Endpoints', () => {
   })
 
   test('GET /recon/:slug/health returns health scores', async ({ request }) => {
-    // Get a slug from the watchlist first
-    const wlRes = await request.get(`${API}/recon/watchlist`)
-    const slug = (await wlRes.json()).data.slugs[0]
+    // Get a slug from scored issues
+    const siRes = await request.get(`${API}/recon/all-scored-issues?limit=1`)
+    const slug = (await siRes.json()).data.issues[0].repoSlug
 
     const res = await request.get(`${API}/recon/${slug}/health`)
     expect(res.status()).toBe(200)
@@ -102,8 +93,8 @@ test.describe('API Endpoints', () => {
   })
 
   test('GET /recon/:slug/scored-issues returns issues with scores', async ({ request }) => {
-    const wlRes = await request.get(`${API}/recon/watchlist`)
-    const slug = (await wlRes.json()).data.slugs[0]
+    const siRes = await request.get(`${API}/recon/all-scored-issues?limit=1`)
+    const slug = (await siRes.json()).data.issues[0].repoSlug
 
     const res = await request.get(`${API}/recon/${slug}/scored-issues`)
     expect(res.status()).toBe(200)
@@ -115,8 +106,8 @@ test.describe('API Endpoints', () => {
   })
 
   test('GET /recon/:slug/dossier returns all 6 sections', async ({ request }) => {
-    const wlRes = await request.get(`${API}/recon/watchlist`)
-    const slug = (await wlRes.json()).data.slugs[0]
+    const siRes = await request.get(`${API}/recon/all-scored-issues?limit=1`)
+    const slug = (await siRes.json()).data.issues[0].repoSlug
 
     const res = await request.get(`${API}/recon/${slug}/dossier`)
     expect(res.status()).toBe(200)

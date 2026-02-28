@@ -89,7 +89,8 @@ export async function getScrapedSlugs(kv: KVNamespace): Promise<string[]> {
       for (const key of result.keys) {
         // Keys are recon:{slug} or recon:{slug}:{dataType} — extract the slug
         const parts = key.name.split(':')
-        if (parts.length >= 2 && parts[1] !== 'watchlist') {
+        // Skip non-slug keys like recon:agg:*
+        if (parts.length >= 2 && parts[1] !== 'agg') {
           slugs.add(parts[1])
         }
       }

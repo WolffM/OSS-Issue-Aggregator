@@ -17,7 +17,7 @@ hadoku-aggregator is the **intelligence + API layer**. It reads raw scraped data
 - `api/recon/` — Full recon pipeline (see file structure below)
 - `src/` — React frontend (scored issue display, health panels, dossier viewer, CVS badges, lifecycle badges, etc.)
 - KV infrastructure (`CACHE_KV` binding) — scraper writes `recon:{slug}`, aggregator reads + writes computed results
-- Dynamic watchlist via `recon:watchlist` KV key (no hardcoded project list)
+- Dynamic repo discovery via `getScrapedSlugs()` (no hardcoded project list)
 
 ## What to Build
 
@@ -31,13 +31,11 @@ Create a new module alongside existing `api/` code for the recon pipeline. The e
 api/recon/
 ├── index.ts              # Hono route registration for /oss/api/recon/*
 ├── route-helpers.ts      # Shared schemas and HonoEnv type for routes
-├── watchlist-routes.ts   # Watchlist API endpoints
 ├── issue-routes.ts       # Issue/health/dossier/scored-issues API endpoints
 ├── claim-routes.ts       # Claim API endpoints
 ├── compute-routes.ts     # Pre-computation & trigger routes
 ├── kv-reader.ts          # Reads recon:{slug} (consolidated) and recon:{slug}:* keys from KV
 ├── kv-writer.ts          # Writes aggregator-computed data to KV
-├── watchlist.ts          # Watchlist CRUD logic (reads/writes recon:watchlist KV key)
 ├── claims.ts             # Claim tracking logic (reads/writes recon:{slug}:claims KV key)
 ├── health-scorer.ts      # Repo health scoring engine
 ├── issue-scorer.ts       # CVS scoring engine (extends existing scoring.ts)
@@ -104,19 +102,9 @@ api/recon/
    - `removeClaim(kv, slug, issueId)` → removes from array
    - Issue scorer reads claims to set `claimStatus` and `claimAuthor` on `ScoredIssue`
 
-4. **`recon/watchlist.ts`** — Watchlist management
-   - Read/write `recon:watchlist` KV key (array of slug strings)
-   - Add/remove slugs
-   - **Canonical slug format:** Validate and normalize to `{owner}-{repo}` (hyphenated). Reject slugs containing `/` — convert to hyphenated on input.
-
-5. **`recon/index.ts`** + route files — Hono OpenAPI routes
+4. **`recon/index.ts`** + route files — Hono OpenAPI routes
 
    ```typescript
-   // Watchlist (watchlist-routes.ts)
-   GET  /oss/api/recon/watchlist              → { slugs: string[] }
-   POST /oss/api/recon/watchlist/add          → { slug: string } → { success: true }
-   POST /oss/api/recon/watchlist/remove       → { slug: string } → { success: true }
-
    // Per-repo endpoints (issue-routes.ts)
    GET  /oss/api/recon/{slug}/health          → RepoHealth | { status: "pending" }
    GET  /oss/api/recon/{slug}/issues          → ExtendedIssue[]
@@ -125,7 +113,7 @@ api/recon/
    GET  /oss/api/recon/{slug}/issue-brief/{issueId} → SWE agent execution context
 
    // Aggregate (excludes killed repos by default)
-   GET  /oss/api/recon/all-scored-issues      → ScoredIssue[] (across all watchlist repos)
+   GET  /oss/api/recon/all-scored-issues      → ScoredIssue[] (across all scraped repos)
    GET  /oss/api/recon/all-scored-issues?includeKilled=true  → includes killed repos
 
    // Claims (claim-routes.ts — vibedispatch reports claims here)
@@ -135,28 +123,24 @@ api/recon/
    // Triggers & compute (compute-routes.ts)
    POST /oss/api/recon/{slug}/refresh         → { status: "triggered" }
    POST /oss/api/recon/{slug}/compute         → pre-compute scores/health/dossier
-   POST /oss/api/recon/compute-all            → pre-compute for all watched repos
+   POST /oss/api/recon/compute-all            → pre-compute for all scraped repos
    ```
 
    Note: vibedispatch calls these endpoints using `AGGREGATOR_API_URL` (e.g., `https://hadoku.me/oss/api`)
    as the base URL and appends `/recon/...` paths. The `/oss/api` prefix is part of the Hono route
    registration — vibedispatch strips it from the endpoint path definition to avoid doubling.
 
-6. **`recon/triggers.ts`** — Call scraper API to trigger re-scrapes
+5. **`recon/triggers.ts`** — Call scraper API to trigger re-scrapes
    - `POST {SCRAPER_API_URL}/api/v1/oss-recon/scrape` with slug and optional data_types
    - Fire-and-forget (don't wait for scraper to complete)
    - Config: `SCRAPER_API_URL` env var bound to worker
 
-7. **Wire routes into `api/handler.ts`**
+6. **Wire routes into `api/handler.ts`**
    - Import recon routes and mount under `/oss/api/recon/*`
    - Add to OpenAPI spec
 
 ### Validation (M1 complete)
 
-- [x] `GET /oss/api/recon/watchlist` returns slug list from KV
-- [x] `POST /oss/api/recon/watchlist/add` adds a slug to KV
-- [x] `POST /oss/api/recon/watchlist/add` normalizes `owner/repo` to `owner-repo` (hyphenated)
-- [x] `POST /oss/api/recon/watchlist/add` rejects invalid slug formats
 - [x] `GET /oss/api/recon/{slug}/issues` returns ExtendedIssue[] from KV
 - [x] `GET /oss/api/recon/{slug}/scored-issues` returns scored issues with CVS
 - [x] `POST /oss/api/recon/{slug}/refresh` calls scraper API
@@ -189,7 +173,7 @@ api/recon/
    deferred from scraper M3 due to high false positive rates (conventional commits match "fix: X",
    PR templates match "This PR addresses"). The aggregator will handle this in M4 using cross-repo
    signals that aren't available to the per-repo scraper:
-   - Same author opening >5 PRs across different watchlist repos in 24h
+   - Same author opening >5 PRs across different tracked repos in 24h
    - > 50% CI failure rate on external PRs for a given repo (high noise indicator)
    - Unusually high ratio of closed-without-merge PRs from external contributors
      For M2, `availabilityScore` uses only PR count ratios and author uniqueness — no vibe-coder signals.
@@ -298,7 +282,7 @@ api/recon/
 5. **Wire scoring into API endpoints**
    - `GET /oss/api/recon/{slug}/health` → now returns computed `RepoHealth`
    - `GET /oss/api/recon/{slug}/scored-issues` → now returns `ScoredIssue[]` with CVS
-   - `GET /oss/api/recon/all-scored-issues` → aggregated across watchlist, sorted by CVS desc
+   - `GET /oss/api/recon/all-scored-issues` → aggregated across all scraped repos, sorted by CVS desc
    - Scoring runs on-request (CF Worker compute) reading from KV
    - Consider caching scored results in `recon:{slug}:scored-issues` KV key with TTL
 

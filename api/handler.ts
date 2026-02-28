@@ -339,11 +339,10 @@ export function createOSSHandler(basePath = '/oss/api') {
       description: `
 Aggregates and scores open source issues for contribution viability.
 
-All project data is dynamically sourced from the recon pipeline via Cloudflare KV.
-Projects are managed through the watchlist — no hardcoded project lists.
+All project data is dynamically discovered from Cloudflare KV (scraped by hadoku-scraper).
 
 ## Recon Pipeline
-- Add repos to watchlist → scraper populates KV → aggregator scores issues
+- Scraper populates KV → aggregator scores issues
 - GET \`/recon/all-scored-issues\` — all scored issues across all repos
 - GET \`/recon/{slug}/health\` — repo health analysis
 - GET \`/recon/{slug}/dossier\` — contribution intelligence dossier
@@ -364,7 +363,6 @@ Tiers: go (85+), likely (70+), maybe (50+), risky (30+), skip (<30)
     tags: [
       { name: 'Health', description: 'Health check endpoint' },
       { name: 'Marking', description: 'Issue marking (ignored/process)' },
-      { name: 'Recon - Watchlist', description: 'Watchlist management for recon pipeline' },
       { name: 'Recon - Issues', description: 'Per-repo issue and health data from recon pipeline' },
       { name: 'Recon - Claims', description: 'Issue claim tracking' },
       { name: 'Recon - Triggers', description: 'Scraper trigger endpoints' }
