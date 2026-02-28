@@ -572,7 +572,10 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       const versionMeta = await getAggregateVersion(kv)
       if (!versionMeta) {
         return c.json(
-          { success: true as const, data: { version: 0, repoCount: 0, totalCount: 0 } },
+          {
+            success: true as const,
+            data: { version: 0, repoCount: 0, totalCount: 0, projects: [] }
+          },
           200
         )
       }

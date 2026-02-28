@@ -164,7 +164,13 @@ export const AggregateVersionResponseSchema = z
     data: z.object({
       version: z.number(),
       repoCount: z.number(),
-      totalCount: z.number()
+      totalCount: z.number(),
+      projects: z.array(
+        z.object({
+          slug: z.string(),
+          name: z.string()
+        })
+      )
     })
   })
   .openapi('AggregateVersionResponse')

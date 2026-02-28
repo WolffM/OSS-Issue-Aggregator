@@ -555,7 +555,7 @@ test.describe('Performance & Pagination', () => {
     console.log(`Backward compat: ${body.data.issues.length} issues returned`)
   })
 
-  test('version endpoint returns aggregate metadata', async ({ request }) => {
+  test('version endpoint returns aggregate metadata with projects', async ({ request }) => {
     const res = await request.get(`${API}/recon/all-scored-issues/version`)
     expect(res.status()).toBe(200)
     const body = await res.json()
@@ -564,9 +564,23 @@ test.describe('Performance & Pagination', () => {
     expect(body.data.version).toBeGreaterThan(0)
     expect(body.data.repoCount).toBeGreaterThan(0)
     expect(body.data.totalCount).toBeGreaterThan(0)
+
+    // Validate projects array (populated after backend deploy + recompute)
+    const projects = body.data.projects ?? []
+    if (projects.length > 0) {
+      expect(projects.length).toBe(body.data.repoCount)
+      for (const project of projects) {
+        expect(typeof project.slug).toBe('string')
+        expect(typeof project.name).toBe('string')
+        expect(project.slug.length).toBeGreaterThan(0)
+        expect(project.name).toContain('/')
+      }
+    }
+
     console.log(
       `Aggregate version: ${body.data.version}, ` +
-        `${body.data.repoCount} repos, ${body.data.totalCount} issues`
+        `${body.data.repoCount} repos, ${body.data.totalCount} issues, ` +
+        `${projects.length} projects`
     )
   })
 })
@@ -1329,8 +1343,9 @@ test.describe('Project Selection Count Display', () => {
     const match = countText.match(/(\d+) of (\d+)/)
     expect(match).toBeTruthy()
     const [, selected, total] = match!
+    const initialTotal = parseInt(total, 10)
     console.log(`Selected: ${selected}, Total: ${total}`)
-    expect(parseInt(selected, 10)).toBe(parseInt(total, 10)) // All selected initially
+    expect(parseInt(selected, 10)).toBe(initialTotal) // All selected initially
 
     // Click "None"
     await page.locator('.project-selector__action').nth(1).click()
@@ -1346,7 +1361,13 @@ test.describe('Project Selection Count Display', () => {
     // After "All", selected count should equal total count
     const afterMatch = afterAll.match(/(\d+) of (\d+) selected/)
     expect(afterMatch).toBeTruthy()
-    expect(parseInt(afterMatch![1], 10)).toBe(parseInt(afterMatch![2], 10))
+    const afterSelected = parseInt(afterMatch![1], 10)
+    const afterTotal = parseInt(afterMatch![2], 10)
+    expect(afterSelected).toBe(afterTotal)
+    // After full deploy: total should not drift from initial (all projects loaded upfront)
+    // Before deploy: infinite scroll may discover additional projects during interaction
+    console.log(`Initial total: ${initialTotal}, After All total: ${afterTotal}`)
+    expect(afterTotal).toBeGreaterThanOrEqual(initialTotal)
 
     expect(log.apiErrors).toEqual([])
   })

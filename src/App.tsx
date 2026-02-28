@@ -17,6 +17,7 @@ import {
   ErrorState,
   Footer
 } from './components'
+import { ossIssuesClient } from './api/client'
 import type { ScoredIssue } from './api/types'
 import type { OssAggregatorProps } from './entry'
 
@@ -52,6 +53,7 @@ export default function App(props: OssAggregatorProps = {}) {
   const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false)
   const knownSlugsRef = useRef<Set<string>>(new Set())
   const [focusedRepo, setFocusedRepo] = useState<string | null>(null)
+  const [versionProjects, setVersionProjects] = useState<{ slug: string; name: string }[]>([])
 
   // Drawer state
   const [selectedIssue, setSelectedIssue] = useState<ScoredIssue | null>(null)
@@ -107,16 +109,29 @@ export default function App(props: OssAggregatorProps = {}) {
 
   const { claim, unclaim } = useClaim(refetch)
 
-  // Derive project list from scored issues (replaces legacy useProjects)
+  // Fetch full project list from version endpoint on mount
+  useEffect(() => {
+    ossIssuesClient
+      .getAggVersion()
+      .then(res => {
+        if (res.data.projects?.length) setVersionProjects(res.data.projects)
+      })
+      .catch(() => {
+        // Non-critical: fall back to deriving projects from paginated issues
+      })
+  }, [])
+
+  // Merge version projects (complete list) with issue-derived projects (incremental)
   const derivedProjects = useMemo(() => {
     const seen = new Map<string, string>()
+    for (const p of versionProjects) seen.set(p.slug, p.name)
     for (const issue of allIssues) {
       if (!seen.has(issue.repoSlug)) {
         seen.set(issue.repoSlug, issue.project)
       }
     }
     return [...seen.entries()].map(([slug, name]) => ({ slug, name }))
-  }, [allIssues])
+  }, [versionProjects, allIssues])
 
   // Initialize selected projects from localStorage or select all.
   // Also auto-select newly discovered projects from infinite scroll

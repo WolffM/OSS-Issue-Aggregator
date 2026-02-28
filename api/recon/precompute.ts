@@ -204,11 +204,23 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
     })
   )
 
+  // Build unique project list from all issues
+  const projectMap = new Map<string, string>()
+  for (const issue of slimmed) {
+    if (!projectMap.has(issue.repoSlug)) {
+      projectMap.set(issue.repoSlug, issue.project)
+    }
+  }
+  const projects = [...projectMap.entries()]
+    .map(([slug, name]) => ({ slug, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
   // Write version metadata
   await putAggregateVersion(kv, {
     version: Date.now(),
     repoCount: slugs.length,
-    totalCount: slimmed.length
+    totalCount: slimmed.length,
+    projects
   })
 }
 

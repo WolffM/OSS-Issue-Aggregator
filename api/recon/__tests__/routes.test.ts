@@ -715,7 +715,16 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const byCvs = [...issues].sort((a, b) => a.cvs - b.cvs)
     const byTitle = [...issues].sort((a, b) => a.title.localeCompare(b.title))
 
-    const versionMeta = { version: Date.now(), repoCount: 3, totalCount: 5 }
+    const versionMeta = {
+      version: Date.now(),
+      repoCount: 3,
+      totalCount: 5,
+      projects: [
+        { slug: 'r-a', name: 'org/repo-a' },
+        { slug: 'r-b', name: 'org/repo-b' },
+        { slug: 'r-c', name: 'org/repo-c' }
+      ]
+    }
 
     const kv = createMockKV({
       'recon:agg:cvs': byCvs,
@@ -899,9 +908,13 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
 })
 
 describe('GET /all-scored-issues/version', () => {
-  it('returns version metadata when aggregate has been built', async () => {
+  it('returns version metadata with projects when aggregate has been built', async () => {
+    const projects = [
+      { slug: 'fastify-fastify', name: 'fastify/fastify' },
+      { slug: 'vercel-next.js', name: 'vercel/next.js' }
+    ]
     const kv = createMockKV({
-      'recon:agg:v': { version: 1700000000000, repoCount: 10, totalCount: 500 }
+      'recon:agg:v': { version: 1700000000000, repoCount: 10, totalCount: 500, projects }
     })
     const app = createTestApp(kv)
 
@@ -913,9 +926,11 @@ describe('GET /all-scored-issues/version', () => {
     expect(body.data.version).toBe(1700000000000)
     expect(body.data.repoCount).toBe(10)
     expect(body.data.totalCount).toBe(500)
+    expect(body.data.projects).toHaveLength(2)
+    expect(body.data.projects[0]).toEqual({ slug: 'fastify-fastify', name: 'fastify/fastify' })
   })
 
-  it('returns zeros when no aggregate exists', async () => {
+  it('returns zeros and empty projects when no aggregate exists', async () => {
     const kv = createMockKV()
     const app = createTestApp(kv)
 
@@ -926,5 +941,6 @@ describe('GET /all-scored-issues/version', () => {
     expect(body.data.version).toBe(0)
     expect(body.data.repoCount).toBe(0)
     expect(body.data.totalCount).toBe(0)
+    expect(body.data.projects).toEqual([])
   })
 })

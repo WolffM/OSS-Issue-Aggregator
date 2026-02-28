@@ -30,6 +30,7 @@ export interface AggregateVersion {
   version: number
   repoCount: number
   totalCount: number
+  projects: { slug: string; name: string }[]
 }
 
 export async function putRepoHealth(
