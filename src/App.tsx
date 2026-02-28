@@ -152,7 +152,9 @@ export default function App(props: OssAggregatorProps = {}) {
       const previouslyKnown = derivedProjects
         .map(p => p.slug)
         .filter(slug => !newSlugs.includes(slug))
-      const allPreviousSelected = previouslyKnown.every(slug => selectedProjectSlugs.includes(slug))
+      const allPreviousSelected =
+        previouslyKnown.length > 0 &&
+        previouslyKnown.every(slug => selectedProjectSlugs.includes(slug))
 
       if (allPreviousSelected) {
         setSelectedProjectSlugs(prev => [...prev, ...newSlugs])
