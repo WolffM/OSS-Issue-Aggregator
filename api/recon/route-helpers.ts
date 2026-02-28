@@ -53,15 +53,6 @@ export function buildScrapedOnlyMeta(scrapedAt: string | null): ResponseMeta {
   }
 }
 
-/** Build _meta with only served_at (no freshness source). */
-export function buildServedOnlyMeta(): ResponseMeta {
-  return {
-    scraped_at: null,
-    computed_at: null,
-    served_at: new Date().toISOString()
-  }
-}
-
 // ============================================================================
 // Shared Response Schemas
 // ============================================================================
@@ -81,6 +72,13 @@ export const PendingResponseSchema = z
     })
   })
   .openapi('ReconPendingResponse')
+
+export const AcceptedResponseSchema = z
+  .object({
+    success: z.literal(true),
+    message: z.string()
+  })
+  .openapi('ReconAcceptedResponse')
 
 // ============================================================================
 // Shared Request Schemas
@@ -104,47 +102,9 @@ export const slugIssueIdParam = z.object({
   })
 })
 
-export const SlugBodySchema = z
-  .object({
-    slug: z.string().openapi({ example: 'fastify-fastify' })
-  })
-  .openapi('SlugBody')
-
 // ============================================================================
 // Domain-Specific Response Schemas
 // ============================================================================
-
-export const WatchlistResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      slugs: z.array(z.string())
-    }),
-    _meta: ResponseMetaSchema
-  })
-  .openapi('WatchlistResponse')
-
-export const WatchlistAddResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      slug: z.string(),
-      added: z.boolean()
-    }),
-    _meta: ResponseMetaSchema
-  })
-  .openapi('WatchlistAddResponse')
-
-export const WatchlistRemoveResponseSchema = z
-  .object({
-    success: z.literal(true),
-    data: z.object({
-      slug: z.string(),
-      removed: z.boolean()
-    }),
-    _meta: ResponseMetaSchema
-  })
-  .openapi('WatchlistRemoveResponse')
 
 export const IssuesResponseSchema = z
   .object({

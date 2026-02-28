@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createReconRoutes } from '../index'
 import {
   createMockKV,
+  createMockExecutionCtx,
   makeExtendedIssue,
   makeConsolidatedReconData,
   makeRepoMeta,
@@ -20,128 +21,21 @@ import {
 function createTestApp(kv: KVNamespace, scraperApiUrl?: string) {
   const app = createReconRoutes()
 
-  // Wrap with env bindings
+  // Wrap with env bindings and mock ExecutionContext
   return {
     request: (path: string, init?: RequestInit) => {
       const req = new Request(`http://localhost${path}`, init)
-      return app.fetch(req, {
-        CACHE_KV: kv,
-        SCRAPER_API_URL: scraperApiUrl
-      })
+      return app.fetch(
+        req,
+        {
+          CACHE_KV: kv,
+          SCRAPER_API_URL: scraperApiUrl
+        },
+        createMockExecutionCtx()
+      )
     }
   }
 }
-
-describe('GET /watchlist', () => {
-  it('returns empty watchlist', async () => {
-    const app = createTestApp(createMockKV())
-    const res = await app.request('/watchlist')
-
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.success).toBe(true)
-    expect(body.data.slugs).toEqual([])
-  })
-
-  it('returns populated watchlist', async () => {
-    const kv = createMockKV({
-      'recon:watchlist': ['fastify-fastify', 'pytorch-pytorch']
-    })
-    const app = createTestApp(kv)
-    const res = await app.request('/watchlist')
-
-    const body = await res.json()
-    expect(body.data.slugs).toEqual(['fastify-fastify', 'pytorch-pytorch'])
-  })
-})
-
-describe('POST /watchlist/add', () => {
-  it('adds a slug to the watchlist', async () => {
-    const kv = createMockKV()
-    const app = createTestApp(kv)
-
-    const res = await app.request('/watchlist/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: 'fastify-fastify' })
-    })
-
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.data.slug).toBe('fastify-fastify')
-    expect(body.data.added).toBe(true)
-  })
-
-  it('normalizes owner/repo format', async () => {
-    const kv = createMockKV()
-    const app = createTestApp(kv)
-
-    const res = await app.request('/watchlist/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: 'fastify/fastify' })
-    })
-
-    const body = await res.json()
-    expect(body.data.slug).toBe('fastify-fastify')
-  })
-
-  it('returns 400 for invalid slug', async () => {
-    const kv = createMockKV()
-    const app = createTestApp(kv)
-
-    const res = await app.request('/watchlist/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: '' })
-    })
-
-    expect(res.status).toBe(400)
-  })
-
-  it('triggers scraper when SCRAPER_API_URL is configured', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true })
-    vi.stubGlobal('fetch', mockFetch)
-
-    const kv = createMockKV()
-    const app = createTestApp(kv, 'https://scraper.example.com')
-
-    await app.request('/watchlist/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: 'fastify-fastify' })
-    })
-
-    // Wait a tick for the fire-and-forget to execute
-    await new Promise(resolve => setTimeout(resolve, 10))
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://scraper.example.com/api/v1/oss-recon/scrape',
-      expect.objectContaining({ method: 'POST' })
-    )
-
-    vi.restoreAllMocks()
-  })
-})
-
-describe('POST /watchlist/remove', () => {
-  it('removes a slug from the watchlist', async () => {
-    const kv = createMockKV({
-      'recon:watchlist': ['fastify-fastify']
-    })
-    const app = createTestApp(kv)
-
-    const res = await app.request('/watchlist/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: 'fastify-fastify' })
-    })
-
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.data.removed).toBe(true)
-  })
-})
 
 describe('GET /:slug/health', () => {
   it('returns pending when no health data exists', async () => {
@@ -551,47 +445,6 @@ describe('_meta freshness metadata', () => {
     expect(typeof meta.served_at).toBe('string')
     expect(new Date(meta.served_at as string).getTime()).not.toBeNaN()
   }
-
-  describe('watchlist routes', () => {
-    it('GET /watchlist includes _meta with served_at only', async () => {
-      const app = createTestApp(createMockKV())
-      const res = await app.request('/watchlist')
-      const body = await res.json()
-
-      expectMeta(body._meta)
-      expect(body._meta.scraped_at).toBeNull()
-      expect(body._meta.computed_at).toBeNull()
-    })
-
-    it('POST /watchlist/add includes _meta with served_at only', async () => {
-      const app = createTestApp(createMockKV())
-      const res = await app.request('/watchlist/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: 'fastify-fastify' })
-      })
-      const body = await res.json()
-
-      expectMeta(body._meta)
-      expect(body._meta.scraped_at).toBeNull()
-      expect(body._meta.computed_at).toBeNull()
-    })
-
-    it('POST /watchlist/remove includes _meta with served_at only', async () => {
-      const kv = createMockKV({ 'recon:watchlist': ['fastify-fastify'] })
-      const app = createTestApp(kv)
-      const res = await app.request('/watchlist/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: 'fastify-fastify' })
-      })
-      const body = await res.json()
-
-      expectMeta(body._meta)
-      expect(body._meta.scraped_at).toBeNull()
-      expect(body._meta.computed_at).toBeNull()
-    })
-  })
 
   describe('data routes with enveloped KV', () => {
     it('GET /:slug/health includes _meta from envelope', async () => {

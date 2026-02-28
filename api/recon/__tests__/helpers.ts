@@ -58,6 +58,19 @@ export function createMockKV(initial: Record<string, unknown> = {}): KVNamespace
 }
 
 // ============================================================================
+// ExecutionContext Mock
+// ============================================================================
+
+/* eslint-disable @typescript-eslint/no-empty-function */
+export function createMockExecutionCtx() {
+  return {
+    waitUntil: (_promise: Promise<unknown>) => {},
+    passThroughOnException: () => {}
+  }
+}
+/* eslint-enable @typescript-eslint/no-empty-function */
+
+// ============================================================================
 // Fixtures
 // ============================================================================
 

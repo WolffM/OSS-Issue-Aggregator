@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { createReconRoutes } from '../index'
-import { createMockKV } from './helpers'
+import { createMockKV, createMockExecutionCtx } from './helpers'
 import { scoreRepoHealth } from '../health-scorer'
 import { scoreIssues } from '../issue-scorer'
 import { compileDossier } from '../dossier-compiler'
@@ -77,7 +77,7 @@ function createTestApp(kv: KVNamespace) {
   return {
     request: (path: string, init?: RequestInit) => {
       const req = new Request(`http://localhost${path}`, init)
-      return app.fetch(req, { CACHE_KV: kv })
+      return app.fetch(req, { CACHE_KV: kv }, createMockExecutionCtx())
     }
   }
 }
@@ -448,7 +448,6 @@ describe('Production Data: fastify/fastify', () => {
 
     function buildKV() {
       return createMockKV({
-        'recon:watchlist': ['fastify-fastify'],
         'recon:fastify-fastify': consolidatedRecon,
         'recon:fastify-fastify:claims': [],
         'recon:fastify-fastify:health': preHealth,
@@ -503,7 +502,7 @@ describe('Production Data: fastify/fastify', () => {
       expect(body.data.generatedAt).toBeTruthy()
     })
 
-    it('GET /all-scored-issues returns issues from all watchlist repos', async () => {
+    it('GET /all-scored-issues returns issues from all scraped repos', async () => {
       const app = createTestApp(buildKV())
       const res = await app.request('/all-scored-issues')
 

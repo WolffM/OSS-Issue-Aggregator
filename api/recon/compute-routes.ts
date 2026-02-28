@@ -2,13 +2,13 @@
  * Pre-computation & Trigger Routes
  */
 
-import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { type OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import {
   type HonoEnv,
-  getErrorMessage,
   requireKV,
   ErrorResponseSchema,
   RefreshResponseSchema,
+  AcceptedResponseSchema,
   slugParam
 } from './route-helpers'
 import { triggerScrape } from './triggers'
@@ -65,24 +65,12 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     tags: ['Recon - Triggers'],
     summary: 'Pre-compute scored issues, health, and dossier',
     description:
-      'Reads raw scraper data from KV, runs scoring + dossier compilation, and writes results back to KV. Designed to be called from environments without CPU limits (GitHub Actions, scraper post-hook).',
+      'Accepts the request and runs scoring + dossier compilation in the background via waitUntil(). Returns 202 immediately.',
     request: { params: slugParam },
     responses: {
-      200: {
-        description: 'Computation results',
-        content: {
-          'application/json': {
-            schema: z.object({
-              success: z.literal(true),
-              data: z.object({
-                slug: z.string(),
-                healthComputed: z.boolean(),
-                scoredCount: z.number(),
-                dossierGenerated: z.boolean()
-              })
-            })
-          }
-        }
+      202: {
+        description: 'Computation accepted and running in background',
+        content: { 'application/json': { schema: AcceptedResponseSchema } }
       },
       500: {
         description: 'Server error',
@@ -91,19 +79,16 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     }
   })
 
-  app.openapi(computeRoute, async c => {
+  app.openapi(computeRoute, c => {
     const kv = requireKV(c.env)
     if (!kv) {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    try {
-      const { slug } = c.req.valid('param')
-      const result = await computeAndStore(kv, slug)
-      return c.json({ success: true as const, data: result }, 200)
-    } catch (err) {
-      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
-    }
+    const { slug } = c.req.valid('param')
+    c.executionCtx.waitUntil(computeAndStore(kv, slug))
+
+    return c.json({ success: true as const, message: `Compute started for ${slug}` }, 202)
   })
 
   // POST /compute-all
@@ -113,27 +98,11 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     tags: ['Recon - Triggers'],
     summary: 'Pre-compute all repos',
     description:
-      'Runs scoring + dossier compilation for every scraped repo and writes results to KV. Sequential to avoid KV write contention.',
+      'Accepts the request and runs scoring + dossier compilation for every scraped repo in the background via waitUntil(). Returns 202 immediately.',
     responses: {
-      200: {
-        description: 'Computation results per repo',
-        content: {
-          'application/json': {
-            schema: z.object({
-              success: z.literal(true),
-              data: z.object({
-                results: z.array(
-                  z.object({
-                    slug: z.string(),
-                    healthComputed: z.boolean(),
-                    scoredCount: z.number(),
-                    dossierGenerated: z.boolean()
-                  })
-                )
-              })
-            })
-          }
-        }
+      202: {
+        description: 'Computation accepted and running in background',
+        content: { 'application/json': { schema: AcceptedResponseSchema } }
       },
       500: {
         description: 'Server error',
@@ -142,17 +111,48 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     }
   })
 
-  app.openapi(computeAllRoute, async c => {
+  app.openapi(computeAllRoute, c => {
     const kv = requireKV(c.env)
     if (!kv) {
       return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
     }
 
-    try {
-      const result = await computeAndStoreAll(kv)
-      return c.json({ success: true as const, data: result }, 200)
-    } catch (err) {
-      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    c.executionCtx.waitUntil(computeAndStoreAll(kv))
+
+    return c.json({ success: true as const, message: 'Compute-all started' }, 202)
+  })
+
+  // POST /scrape-complete — webhook for scraper/cron to call after scraping finishes
+  const scrapeCompleteRoute = createRoute({
+    method: 'post',
+    path: '/scrape-complete',
+    tags: ['Recon - Triggers'],
+    summary: 'Scrape completion webhook',
+    description:
+      'Called by the scraper or cron after scrape-all finishes. Triggers compute-all in the background to score issues and build aggregates.',
+    responses: {
+      202: {
+        description: 'Compute-all triggered in background',
+        content: { 'application/json': { schema: AcceptedResponseSchema } }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
     }
+  })
+
+  app.openapi(scrapeCompleteRoute, c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+
+    c.executionCtx.waitUntil(computeAndStoreAll(kv))
+
+    return c.json(
+      { success: true as const, message: 'Scrape-complete received, compute-all started' },
+      202
+    )
   })
 }
