@@ -341,7 +341,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     expect(json.data.issue.bodyPreview).toBe('Full body text with all the...')
   })
 
-  it('returns 404 for unknown issue ID', async () => {
+  it('returns 202 pending and enqueues compute for unknown issue ID', async () => {
     const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
     const kv = createMockKV({
       'recon:fastify-fastify': makeConsolidatedReconData(),
@@ -351,7 +351,10 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/issue-brief/nonexistent-id')
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(202)
+
+    const json = await res.json()
+    expect(json.data.status).toBe('pending')
   })
 
   it('returns brief and repoHealth alongside issue', async () => {
