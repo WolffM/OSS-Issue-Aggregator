@@ -3,9 +3,11 @@ Debug KV data issues. Print the KV key patterns and walk through common problems
 ## KV Key Patterns
 
 Scraper-written (one consolidated key per repo):
+
 - `recon:{slug}` → `ConsolidatedReconData` (issues, mergedPrs, rejectedPrs, repoMeta, comments)
 
 Aggregator-written (computed analysis):
+
 - `recon:{slug}:health` → `RepoHealth`
 - `recon:{slug}:scored-issues` → `ScoredIssue[]`
 - `recon:{slug}:dossier` → `Dossier`

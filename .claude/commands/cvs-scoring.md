@@ -29,13 +29,13 @@ Freshness relative to repo's typical response time.
 
 ## Tiers
 
-| Range   | Tier   | Meaning                        |
-|---------|--------|--------------------------------|
-| 85-100  | go     | Strong signal, act immediately |
-| 70-84   | likely | Good candidate, worth pursuing |
-| 50-69   | maybe  | Proceed with caution           |
-| 30-49   | risky  | Significant concerns           |
-| 0-29    | skip   | Don't bother                   |
+| Range  | Tier   | Meaning                        |
+| ------ | ------ | ------------------------------ |
+| 85-100 | go     | Strong signal, act immediately |
+| 70-84  | likely | Good candidate, worth pursuing |
+| 50-69  | maybe  | Proceed with caution           |
+| 30-49  | risky  | Significant concerns           |
+| 0-29   | skip   | Don't bother                   |
 
 ## Kill Signals (repo-level, overrides all issues)
 

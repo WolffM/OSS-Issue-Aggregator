@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/oss-aggregator",
-  "version": "2.2.6",
+  "version": "2.2.7",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "repository": {
@@ -62,6 +62,7 @@
     "@wolffm/themes": "^2.0.4",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.4.0",
     "husky": "^9.1.7",
     "prettier": "^3.8.1",
     "react": "^19.2.4",
