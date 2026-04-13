@@ -10,6 +10,7 @@ import type { HonoEnv } from './route-helpers'
 import { registerIssueRoutes } from './issue-routes'
 import { registerClaimRoutes } from './claim-routes'
 import { registerComputeRoutes } from './compute-routes'
+import { registerCrimsonKittyRoutes } from './crimson-kitty-routes'
 
 export function createReconRoutes() {
   const app = new OpenAPIHono<HonoEnv>()
@@ -17,6 +18,7 @@ export function createReconRoutes() {
   registerIssueRoutes(app)
   registerClaimRoutes(app)
   registerComputeRoutes(app)
+  registerCrimsonKittyRoutes(app)
 
   return app
 }
