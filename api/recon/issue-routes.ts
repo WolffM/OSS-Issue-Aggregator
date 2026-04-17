@@ -40,7 +40,6 @@ import {
   applyClaimOverlay,
   sortComparator,
   buildAndWriteAggregates,
-  computeAndStore,
   type AggregateSortField
 } from './precompute'
 
@@ -317,9 +316,9 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
           }
         }
       },
-      202: {
-        description: 'Issue not yet computed — compute enqueued',
-        content: { 'application/json': { schema: PendingResponseSchema } }
+      404: {
+        description: 'Issue not found in the scored set for this repo',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
       },
       500: {
         description: 'Server error',
@@ -351,12 +350,12 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
 
       const scored = applyClaimOverlay(scoredEnvelope.data, claims ?? [])
 
-      // Find the specific issue
+      // Find the specific issue. The issueId param is already validated against the
+      // {platform}-{owner}-{repo}-{number} pattern, so a miss here means the issue
+      // genuinely is not in the scored set — recompute won't conjure it.
       const issue = scored.find(i => i.id === issueId)
       if (!issue) {
-        // Issue not in current scored set — enqueue a compute pass and signal pending
-        c.executionCtx.waitUntil(computeAndStore(kv, slug))
-        return c.json({ success: true as const, data: { status: 'pending' as const } }, 202)
+        return c.json({ success: false as const, error: `issue not found: ${issueId}` }, 404)
       }
 
       // Ensure body is populated for issue-brief consumers (fallback to bodyPreview)

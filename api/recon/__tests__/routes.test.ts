@@ -341,7 +341,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     expect(json.data.issue.bodyPreview).toBe('Full body text with all the...')
   })
 
-  it('returns 202 pending and enqueues compute for unknown issue ID', async () => {
+  it('returns 404 for a well-formed ID that is not in the scored set', async () => {
     const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
     const kv = createMockKV({
       'recon:fastify-fastify': makeConsolidatedReconData(),
@@ -350,11 +350,26 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     })
     const app = createTestApp(kv)
 
-    const res = await app.request('/fastify-fastify/issue-brief/nonexistent-id')
-    expect(res.status).toBe(202)
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-999')
+    expect(res.status).toBe(404)
 
     const json = await res.json()
-    expect(json.data.status).toBe('pending')
+    expect(json.success).toBe(false)
+    expect(json.error).toContain('github-fastify-fastify-999')
+  })
+
+  it('returns 400 for a malformed issue ID (e.g. bare issue number)', async () => {
+    const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
+      'recon:fastify-fastify:scored-issues': [scored],
+      'recon:fastify-fastify:health': makeRepoHealth()
+    })
+    const app = createTestApp(kv)
+
+    // Bare issue number — the format the crimson-kitty consumer was sending.
+    const res = await app.request('/fastify-fastify/issue-brief/100')
+    expect(res.status).toBe(400)
   })
 
   it('returns brief and repoHealth alongside issue', async () => {

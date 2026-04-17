@@ -91,15 +91,26 @@ export const slugParam = z.object({
   })
 })
 
+// Issue IDs are emitted by the scraper as `{platform}-{owner}-{repo}-{number}`.
+// Enforcing the pattern at the param boundary turns malformed calls into 400s
+// instead of misleading 202/pending responses.
+const ISSUE_ID_PATTERN = /^(github|gitlab|gitea|phabricator|bugzilla|trac)-.+-\d+$/
+
 export const slugIssueIdParam = z.object({
   slug: z.string().openapi({
     param: { name: 'slug', in: 'path' },
     example: 'fastify-fastify'
   }),
-  issueId: z.string().openapi({
-    param: { name: 'issueId', in: 'path' },
-    example: 'github-fastify-fastify-5432'
-  })
+  issueId: z
+    .string()
+    .regex(ISSUE_ID_PATTERN, {
+      message:
+        'issueId must match {platform}-{owner}-{repo}-{number} (e.g. github-fastify-fastify-5432)'
+    })
+    .openapi({
+      param: { name: 'issueId', in: 'path' },
+      example: 'github-fastify-fastify-5432'
+    })
 })
 
 // ============================================================================
