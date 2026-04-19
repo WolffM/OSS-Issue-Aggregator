@@ -923,6 +923,72 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const body = await res.json()
     expect(body.data.issues[0].cvs).toBe(90)
   })
+
+  function setupAggregateKVWithKilled() {
+    // 4 issues: 2 from a live repo r-live, 2 from a killed repo r-dead.
+    const raw = [
+      { id: 'L1', repoSlug: 'r-live', title: 'Live 1', cvs: 80, repoKilled: false },
+      { id: 'L2', repoSlug: 'r-live', title: 'Live 2', cvs: 70, repoKilled: false },
+      { id: 'D1', repoSlug: 'r-dead', title: 'Dead 1', cvs: 0, repoKilled: true },
+      { id: 'D2', repoSlug: 'r-dead', title: 'Dead 2', cvs: 0, repoKilled: true }
+    ].map(o => {
+      const s = makeScoredIssue(o)
+      const {
+        body: _b,
+        reactionGroups: _rg,
+        sentimentSignals: _ss,
+        commentDigest: _cd,
+        likelyFiles: _lf,
+        relatedIssues: _ri,
+        _scoring: _sc,
+        difficultySignals: _ds,
+        bodyPreview: _bp,
+        linkedPrUrls: _lp,
+        assignees: _as,
+        ...slim
+      } = s
+      return slim
+    })
+    const byCvs = [...raw].sort((a, b) => a.cvs - b.cvs)
+    const versionMeta = {
+      version: Date.now(),
+      repoCount: 2,
+      totalCount: 4,
+      projects: [
+        { slug: 'r-live', name: 'org/r-live' },
+        { slug: 'r-dead', name: 'org/r-dead' }
+      ]
+    }
+    return createMockKV({
+      'recon:agg:cvs': byCvs,
+      'recon:agg:v': versionMeta
+    })
+  }
+
+  it('filters out killed repos by default', async () => {
+    const kv = setupAggregateKVWithKilled()
+    const app = createTestApp(kv)
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc')
+    const body = await res.json()
+
+    const slugs = body.data.issues.map((i: { repoSlug: string }) => i.repoSlug)
+    expect(slugs).not.toContain('r-dead')
+    expect(body.data.totalCount).toBe(2)
+    expect(body.data.repoCount).toBe(1)
+  })
+
+  it('includes killed repos when includeKilled=true', async () => {
+    const kv = setupAggregateKVWithKilled()
+    const app = createTestApp(kv)
+    const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&includeKilled=true')
+    const body = await res.json()
+
+    const slugs = new Set(body.data.issues.map((i: { repoSlug: string }) => i.repoSlug))
+    expect(slugs.has('r-dead')).toBe(true)
+    expect(slugs.has('r-live')).toBe(true)
+    expect(body.data.totalCount).toBe(4)
+    expect(body.data.repoCount).toBe(2)
+  })
 })
 
 describe('GET /all-scored-issues/version', () => {

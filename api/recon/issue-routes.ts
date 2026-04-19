@@ -412,6 +412,7 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       const dirParam = url.searchParams.get('dir') ?? 'desc'
       const offsetParam = url.searchParams.get('offset')
       const limitParam = url.searchParams.get('limit')
+      const includeKilled = url.searchParams.get('includeKilled') === 'true'
 
       const sort = VALID_SORT_FIELDS.has(sortParam) ? sortParam : 'cvs'
       const dir = dirParam === 'asc' ? 'asc' : 'desc'
@@ -424,14 +425,18 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
 
       if (aggregateIssues) {
         const versionMeta = await getAggregateVersion(kv)
-        const totalCount = aggregateIssues.length
-        const repoCount = versionMeta?.repoCount ?? 0
 
-        // Apply direction
+        // Apply direction, then killed filter. Count/repoCount reflect the
+        // filtered set so UI paginators don't show phantom pages.
         const ordered = dir === 'desc' ? [...aggregateIssues].reverse() : aggregateIssues
+        const filtered = includeKilled ? ordered : ordered.filter(i => !i.repoKilled)
+        const totalCount = filtered.length
+        const repoCount = includeKilled
+          ? (versionMeta?.repoCount ?? 0)
+          : new Set(filtered.map(i => i.repoSlug)).size
 
         if (isPaginated && limit !== null) {
-          const page = ordered.slice(offset, offset + limit)
+          const page = filtered.slice(offset, offset + limit)
           const hasMore = offset + limit < totalCount
 
           c.header('Cache-Control', 'public, max-age=120, stale-while-revalidate=300')
@@ -454,7 +459,7 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         return c.json(
           {
             success: true as const,
-            data: { issues: ordered, totalCount, repoCount },
+            data: { issues: filtered, totalCount, repoCount },
             _meta: {
               scraped_at: null,
               computed_at: versionMeta ? new Date(versionMeta.version).toISOString() : null,
@@ -484,7 +489,8 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       )
 
       const validEnvelopes = envelopes.filter((e): e is NonNullable<typeof e> => e !== null)
-      const allIssues = validEnvelopes.flatMap(e => e.issues.map(slimIssue))
+      const allIssuesRaw = validEnvelopes.flatMap(e => e.issues.map(slimIssue))
+      const allIssues = includeKilled ? allIssuesRaw : allIssuesRaw.filter(i => !i.repoKilled)
 
       // Sort by requested field and direction
       const cmp = sortComparator(sort as AggregateSortField)
@@ -505,6 +511,8 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         served_at: new Date().toISOString()
       }
 
+      const repoCount = includeKilled ? slugs.length : new Set(allIssues.map(i => i.repoSlug)).size
+
       if (isPaginated && limit !== null) {
         const page = allIssues.slice(offset, offset + limit)
         const hasMore = offset + limit < allIssues.length
@@ -515,7 +523,7 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
             data: {
               issues: page,
               totalCount: allIssues.length,
-              repoCount: slugs.length,
+              repoCount,
               hasMore,
               offset
             },
@@ -531,7 +539,7 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
           data: {
             issues: allIssues,
             totalCount: allIssues.length,
-            repoCount: slugs.length
+            repoCount
           },
           _meta: fallbackMeta
         },
