@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/oss-aggregator",
-  "version": "2.2.10",
+  "version": "2.2.11",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "repository": {

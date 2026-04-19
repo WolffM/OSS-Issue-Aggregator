@@ -106,6 +106,8 @@ describe('GET /:slug/contributing', () => {
 
     const body = await res.json()
     expect(body.data.ai_policy).toBe('banned')
+    expect(body.data.matched_phrase).toBeTruthy()
+    expect(body.data.matched_in).toBe('contributing')
   })
 
   it('detects allowed ai_policy', async () => {
@@ -120,6 +122,56 @@ describe('GET /:slug/contributing', () => {
     const res = await app.request('/fastify-fastify/contributing')
     const body = await res.json()
     expect(body.data.ai_policy).toBe('allowed')
+    expect(body.data.matched_phrase).toMatch(/AI-assisted contributions are welcome/i)
+    expect(body.data.matched_in).toBe('contributing')
+  })
+
+  it('detects disclose_required from must-disclose phrasing', async () => {
+    const contributing = `# Contributing\n\nIf you used AI tools, you must disclose it in the PR description.`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: contributing })
+      })
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/contributing')
+    const body = await res.json()
+    expect(body.data.ai_policy).toBe('disclose_required')
+    expect(body.data.matched_phrase).toMatch(/must disclose/i)
+    expect(body.data.matched_in).toBe('contributing')
+  })
+
+  it('detects disclose_required from AGENTS.md pointer (TypeScript-style)', async () => {
+    const contributing = `# Notes on Contributing\n\n<!-- CODING AGENTS: READ AGENTS.md BEFORE WRITING CODE -->\n\nAll code changes should follow our guidelines.`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: contributing })
+      })
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/contributing')
+    const body = await res.json()
+    expect(body.data.ai_policy).toBe('disclose_required')
+    expect(body.data.matched_phrase).toMatch(/CODING AGENTS/i)
+    expect(body.data.matched_in).toBe('contributing')
+  })
+
+  it('returns null matched_phrase when policy is unknown', async () => {
+    const contributing = `# Contributing\n\nThank you for helping! Please run the tests before submitting a PR.`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: contributing })
+      })
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/contributing')
+    const body = await res.json()
+    expect(body.data.ai_policy).toBe('unknown')
+    expect(body.data.matched_phrase).toBeNull()
+    expect(body.data.matched_in).toBeNull()
   })
 
   it('detects CLA requirement', async () => {
@@ -181,6 +233,8 @@ describe('GET /:slug/contributing', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.ai_policy).toBe('unknown')
+    expect(body.data.matched_phrase).toBeNull()
+    expect(body.data.matched_in).toBeNull()
     expect(body.data.raw_excerpt).toBe('')
   })
 
@@ -537,5 +591,78 @@ describe('GET /:slug/labels', () => {
     expect(body._meta).toMatchObject({
       served_at: expect.any(String)
     })
+  })
+})
+
+// ============================================================================
+// GET /:slug/agents-md
+// ============================================================================
+
+describe('GET /:slug/agents-md', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('returns exists:false when no AGENTS.md found anywhere', async () => {
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData()
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/agents-md')
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.exists).toBe(false)
+    expect(body.data.path).toBeNull()
+    expect(body.data.raw_text).toBeNull()
+  })
+
+  it('returns raw AGENTS.md content from repo root', async () => {
+    const agents = `# Agent Directives\n\nRun \`pnpm test\` before submitting. Never touch files in src/compiler/transformers/.`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData()
+    })
+    mockFetch({
+      '/repos/fastify/fastify/contents/AGENTS.md': {
+        status: 200,
+        body: { ...makeBase64File(agents), path: 'AGENTS.md' }
+      }
+    })
+
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/agents-md')
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.exists).toBe(true)
+    expect(body.data.path).toBe('AGENTS.md')
+    expect(body.data.raw_text).toBe(agents)
+  })
+
+  it('falls through to .github/AGENTS.md when root is missing', async () => {
+    const agents = `## Rules for LLM contributors`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData()
+    })
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : (input as Request).url
+      if (/\/contents\/\.github\/AGENTS\.md$/.test(url)) {
+        return new Response(
+          JSON.stringify({ ...makeBase64File(agents), path: '.github/AGENTS.md' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 })
+    })
+
+    const app = createTestApp(kv, 'test-token')
+    const res = await app.request('/fastify-fastify/agents-md')
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.exists).toBe(true)
+    expect(body.data.path).toBe('.github/AGENTS.md')
+    expect(body.data.raw_text).toBe(agents)
   })
 })

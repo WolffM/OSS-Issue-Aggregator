@@ -428,3 +428,88 @@ thousands of comments, this could approach the 30s limit. Mitigations:
 - `types.ts` `Issue` interface → `ExtendedIssue` extends it in `recon/types.ts`
 - `schemas.ts` Zod patterns → same validation approach for recon types
 - `handler.ts` Hono route pattern → same for recon routes (mounted via `createReconRoutes()`)
+
+---
+
+## Consumer Field Reference
+
+All endpoints return `{ success, data, _meta: { scraped_at, computed_at, served_at } }`.
+`scraped_at` is when the upstream data was pulled, `computed_at` is when our scorers last
+ran, `served_at` is the response-generation timestamp. Use these for freshness checks.
+
+### `GET /recon/{slug}/scored-issues` → `ScoredIssue[]`
+
+Fields a consumer can rely on beyond the basic issue metadata:
+
+| Field                   | Source                                                                                          | Reliability                                       | When empty/absent                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------- |
+| `cvs`                   | Weighted composite (repo 30% + issue 50% + timing 20%, ± reaction/sentiment bonuses)            | Always populated                                  | Never empty; value 0 means skip-tier                     |
+| `cvsTier`               | Bucket of `cvs` (go/likely/maybe/risky/skip)                                                    | Always populated                                  | —                                                        |
+| `lifecycleStage`        | Classified from issue age, last comment, maintainer activity                                    | Always populated                                  | —                                                        |
+| `complexity`            | Mapped from difficulty score (`low`/`medium`/`high`)                                            | Always populated                                  | —                                                        |
+| `sentimentScore`        | Pattern-matched comment sentiment, −1 to 1                                                      | Reliable when comments exist                      | `0` when no comments                                     |
+| `sentimentSignals`      | Regex patterns that triggered the score                                                         | Debug/explainability aid                          | `[]` when no signals                                     |
+| `commentDigest`         | Structured digest of the comment thread (participant count, discussed scope/impl, consensus)    | Populated only when comments are available        | `null` when no comments scraped                          |
+| `contentQualityScore`   | 0–100 quality heuristic (length, code blocks, structure)                                        | Always populated                                  | —                                                        |
+| `competitionLevel`      | `none`/`low`/`medium`/`high` — claims + linked PRs + external-claim comments                    | Always populated                                  | —                                                        |
+| `dataCompleteness`      | `full` if health + comments both available, otherwise `partial`                                 | Always populated                                  | —                                                        |
+| `repoKilled`            | Mirrors `repoHealth.killed` for the repo this issue belongs to                                  | Always populated                                  | —                                                        |
+| `likelyFiles`           | File paths extracted from title + body + comments (backticks, stack traces, "fix X.py" phrases) | Populated only when issue text mentions paths     | `[]` if no paths found — not a bug, just a sparser issue |
+| `relatedIssues`         | Up to 5 issues with ≥0.3 composite similarity (file overlap, text bigrams, labels)              | Populated when any other issue shares ≥30% signal | `[]` when no overlap                                     |
+| `_scoring.signals_used` | Which sub-scores contributed non-zero values to CVS                                             | Explainability aid                                | —                                                        |
+
+**Consumer behavior when empty/unknown:** prefer structured evidence over ignoring —
+`likelyFiles: []` means "no paths mentioned," not "this issue touches nothing." Fall
+back to `relatedIssues[].id` for scoping hints if that's also empty, then to labels.
+
+### `GET /recon/{slug}/health` → `RepoHealth`
+
+| Field              | Meaning                                                                                                                                                                             | Consumer behavior                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `killed`           | Repo cannot accept new contributions                                                                                                                                                | If `true`, do not dispatch. `killReason` explains why                          |
+| `killReason`       | `maintenance_mode` (CONTRIBUTING says "winding down") / `migrated:owner/repo` (upstream redirected to another repo) / `archived` (prose says archived). `null` when `killed: false` | On `migrated:*`, consumers may opt to retarget to the successor repo           |
+| `overallViability` | 0–100 weighted composite of the three sub-scores                                                                                                                                    | `< 25` should trigger a "low viability" UI warning; `0` when killed            |
+| `detectedQuirks[]` | Blocker/important/minor contribution quirks (changesets, CLA, branch-target, conventional commits, RFC, issue linking)                                                              | Quirks with `impact: blocker` must be surfaced to the contributor before PR    |
+| `prPatterns`       | Observed PR characteristics (median files, median additions, merge style, convention, external merge rate, top rejection reasons)                                                   | Use `externalContributorMergeRate` as the primary "should we dispatch?" signal |
+
+### `GET /recon/{slug}/issue-brief/{issueId}` → `{ issue, repoHealth, brief }`
+
+- `issue` — the full `ScoredIssue` for this ID (see above table).
+- `repoHealth` — duplicate of `/recon/{slug}/health` embedded for convenience.
+  **Intentionally redundant**: consumers can call issue-brief alone and still have
+  everything the brief renders against. If you've already fetched issue-brief, the
+  `/health` endpoint call is unnecessary.
+- `brief` — markdown SWE-agent execution context. Identity fields (issue URL, repo
+  slug, upstream-github URLs) are **not** embedded in the markdown — compose them
+  from structured fields (`issue.url`, `issue.repoSlug`) when needed. Upstream
+  CONTRIBUTING.md / PR template content included verbatim as context.
+
+Pending shape: `{ success: true, data: { status: 'pending' } }` when scored results
+haven't been computed yet — consumers should retry or trigger a recompute.
+
+### `GET /recon/{slug}/contributing` → parsed CONTRIBUTING.md
+
+- `ai_policy` — one of `banned`, `disclose_required`, `allowed`, `unknown`.
+  - `disclose_required` covers both explicit disclosure asks and AGENTS.md pointers
+    (`<!-- CODING AGENTS: READ AGENTS.md BEFORE WRITING CODE -->`-style comments).
+  - Consumers should treat `unknown` as "no signal" — not "safe by default."
+- `matched_phrase` / `matched_in` — the verbatim phrase that drove the classification
+  and the source doc (currently always `contributing`). `null` when `ai_policy = unknown`.
+- `dco_required`, `license_check_required` — true if a DCO / CLA signal was found.
+- `raw_excerpt` — first 500 chars for preview; call `/contributing` again (not cached
+  separately) to re-run the parse.
+
+### `GET /recon/{slug}/agents-md` → live-fetched AGENTS.md
+
+- `exists` — whether any of `AGENTS.md`, `.github/AGENTS.md`, `docs/AGENTS.md` was found.
+- `path` — which path matched, or `null` when `exists: false`.
+- `raw_text` — full file content, or `null` when absent.
+
+Always fetches live (not stored in KV). Use this when `ai_policy = disclose_required`
+and the consumer needs the full agent directives, not just the trigger phrase.
+
+### `GET /recon/{slug}/dossier` → pre-compiled markdown sections
+
+`sections.contributionRules` contains the CONTRIBUTING.md text verbatim — useful for
+phrase-scanning consumers. `completeness.score` reports how many of the 6 sections
+have content.

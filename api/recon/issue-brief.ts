@@ -22,7 +22,6 @@ export function formatIssueBrief(
   rejectedPRs: PRSample[]
 ): string {
   const lines: string[] = []
-  const repo = `${meta.owner}/${meta.repo}`
 
   // Determine actual target branch: prefer detected quirk over default
   const branchQuirk = (health.detectedQuirks ?? []).find(q => q.type === 'branch-target')
@@ -31,11 +30,12 @@ export function formatIssueBrief(
   // Language-specific build artifacts
   const artifacts = getLanguageArtifacts(meta.language)
 
-  // Header
+  // Header — identity fields (issue URL, repo slug) are intentionally omitted
+  // from the markdown so consumers can compose them from structured JSON
+  // (issue.url, issue.repoSlug) and control what leaks downstream.
   lines.push(`# Task: ${issue.title}`)
   lines.push('')
-  lines.push(`Issue: ${issue.url}`)
-  lines.push(`Repo: ${repo} | Complexity: ${issue.complexity}`)
+  lines.push(`Complexity: ${issue.complexity}`)
   lines.push('')
 
   // Low viability warning
@@ -249,11 +249,6 @@ export function formatIssueBrief(
     lines.push(`Available resources: ${resources.join(', ')}`)
   }
 
-  if (meta.hasContributing) {
-    lines.push(
-      `[View CONTRIBUTING.md](https://github.com/${meta.owner}/${meta.repo}/blob/${targetBranch}/CONTRIBUTING.md)`
-    )
-  }
   lines.push('')
 
   return lines.join('\n')

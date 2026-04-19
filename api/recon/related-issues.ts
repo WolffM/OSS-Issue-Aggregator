@@ -7,18 +7,19 @@
  * Pure functions — no side effects.
  */
 
-import type { ExtendedIssue, RelatedIssue } from './types'
+import type { ExtendedIssue, IssueComments, RelatedIssue } from './types'
 
 // ============================================================================
 // File Path Extraction
 // ============================================================================
 
 /**
- * Extracts likely file paths from issue title + body text.
- * Looks for common code path patterns in markdown and plain text.
+ * Extracts likely file paths from issue title + body + any additional text
+ * (typically concatenated comment bodies). Looks for common code path patterns
+ * in markdown prose and language-specific stack traces.
  */
-export function extractLikelyFiles(title: string, body: string): string[] {
-  const text = `${title}\n${body}`
+export function extractLikelyFiles(title: string, body: string, additionalText = ''): string[] {
+  const text = additionalText ? `${title}\n${body}\n${additionalText}` : `${title}\n${body}`
   const files = new Set<string>()
 
   // Match file paths in backticks: `src/foo.ts`
@@ -36,6 +37,23 @@ export function extractLikelyFiles(title: string, body: string): string[] {
   // Match standalone filenames with common extensions when mentioned explicitly
   for (const match of text.matchAll(
     /(?:in|file|modify|change|edit|update|fix|patch)\s+`?([a-zA-Z0-9_/-]+\.(?:ts|tsx|js|jsx|py|rs|go|java|rb|php|c|cpp|h|hpp|css|scss|html|yml|yaml|json|toml|cfg|ini))`?/gi
+  )) {
+    if (isLikelyFilePath(match[1])) files.add(match[1])
+  }
+
+  // Stack-trace patterns: Python `File "path/to/file.py"`
+  for (const match of text.matchAll(/File\s+"([^"\n]+\.[a-zA-Z0-9]+)"/g)) {
+    if (isLikelyFilePath(match[1])) files.add(match[1])
+  }
+
+  // Stack-trace patterns: JS/V8 `at fn (src/foo.ts:12:34)` — file:line or file:line:col inside parens
+  for (const match of text.matchAll(/\(([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+):\d+(?::\d+)?\)/g)) {
+    if (isLikelyFilePath(match[1])) files.add(match[1])
+  }
+
+  // Stack-trace patterns: Go/Rust/C-style `path/to/file.ext:line` on its own
+  for (const match of text.matchAll(
+    /(?:^|\s)([a-zA-Z0-9_./-]+\/[a-zA-Z0-9_.-]+\.[a-zA-Z0-9]+):\d+\b/gm
   )) {
     if (isLikelyFilePath(match[1])) files.add(match[1])
   }
@@ -148,12 +166,15 @@ function fileOverlap(a: string[], b: string[]): number {
 }
 
 export function detectRelatedIssues(
-  issues: ExtendedIssue[]
+  issues: ExtendedIssue[],
+  comments: IssueComments = {}
 ): Map<string, { likelyFiles: string[]; relatedIssues: RelatedIssue[] }> {
   // Build fingerprints
   const fingerprints: IssueFingerprint[] = issues.map(issue => {
     const body = issue.body ?? issue.bodyPreview
-    const likelyFiles = extractLikelyFiles(issue.title, body)
+    const thread = comments[issue.id]
+    const commentsText = thread ? thread.comments.map(c => c.body).join('\n') : ''
+    const likelyFiles = extractLikelyFiles(issue.title, body, commentsText)
     const tokens = tokenize(`${issue.title} ${body}`)
     return {
       id: issue.id,

@@ -58,11 +58,19 @@ describe('formatIssueBrief', () => {
 
   // ---- Header ----
 
-  it('includes issue title, URL, repo, and complexity in header', () => {
+  it('includes title and complexity in header', () => {
     const result = brief()
     expect(result).toContain('# Task: Add support for async hooks')
-    expect(result).toContain('Issue: https://github.com/fastify/fastify/issues/100')
-    expect(result).toContain('Repo: fastify/fastify | Complexity: low')
+    expect(result).toContain('Complexity: low')
+  })
+
+  it('omits upstream issue URL and repo slug from the brief text', () => {
+    // Identity fields belong in structured JSON (issue.url, issue.repoSlug),
+    // not embedded in the markdown — keeps consumers from regex-scrubbing.
+    const result = brief()
+    expect(result).not.toContain('https://github.com/fastify/fastify/issues/100')
+    expect(result).not.toMatch(/^Issue:/m)
+    expect(result).not.toMatch(/^Repo: fastify\/fastify/m)
   })
 
   // ---- Critical Rules ----
@@ -402,11 +410,11 @@ describe('formatIssueBrief', () => {
     expect(result).toContain('Code of Conduct')
   })
 
-  it('includes link to CONTRIBUTING.md', () => {
+  it('omits raw GitHub URLs from the brief text', () => {
     const result = brief()
-    expect(result).toContain(
-      '[View CONTRIBUTING.md](https://github.com/fastify/fastify/blob/main/CONTRIBUTING.md)'
-    )
+    // The View CONTRIBUTING.md link embedded an absolute github.com URL —
+    // consumers can build that from meta.owner/meta.repo if they need it.
+    expect(result).not.toContain('https://github.com/fastify/fastify/blob/')
   })
 
   // ---- Selection context NOT included ----

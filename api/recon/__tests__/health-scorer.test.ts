@@ -61,6 +61,64 @@ describe('scoreRepoHealth', () => {
     })
   })
 
+  describe('CONTRIBUTING.md wind-down signals', () => {
+    it('sets killed with maintenance_mode when CONTRIBUTING says "winding down"', () => {
+      const meta = makeRepoMeta({
+        contributingContent: `# Notes on Contributing\n\nDevelopment in this codebase is winding down and PRs will only be merged if they fix critical issues.`
+      })
+      const result = scoreRepoHealth(meta, [], [])
+
+      expect(result.killed).toBe(true)
+      expect(result.killReason).toBe('maintenance_mode')
+      expect(result.overallViability).toBe(0)
+    })
+
+    it('sets killed with maintenance_mode when CONTRIBUTING says "maintenance mode"', () => {
+      const meta = makeRepoMeta({
+        contributingContent: `This project is in maintenance mode. We only accept security fixes.`
+      })
+      const result = scoreRepoHealth(meta, [], [])
+
+      expect(result.killed).toBe(true)
+      expect(result.killReason).toBe('maintenance_mode')
+    })
+
+    it('sets killed with migrated:owner/repo when CONTRIBUTING redirects to another repo', () => {
+      const meta = makeRepoMeta({
+        contributingContent: `All code changes should be submitted to the https://github.com/microsoft/typescript-go repo instead.`
+      })
+      const result = scoreRepoHealth(meta, [], [])
+
+      expect(result.killed).toBe(true)
+      expect(result.killReason).toBe('migrated:microsoft/typescript-go')
+    })
+
+    it('sets killed with archived when prose says repo is archived', () => {
+      const meta = makeRepoMeta({
+        contributingContent: `This repository is archived. Please fork if you want to continue development.`
+      })
+      const result = scoreRepoHealth(meta, [], [])
+
+      expect(result.killed).toBe(true)
+      expect(result.killReason).toBe('archived')
+    })
+
+    it('does not trigger on unrelated CONTRIBUTING prose', () => {
+      const meta = makeRepoMeta({
+        contributingContent: `# Contributing\n\nPlease submit PRs against main. Make sure tests pass.`
+      })
+      const recentDate = new Date(Date.now() - 5 * 86_400_000).toISOString()
+      const pr = makePRSample({
+        authorAssociation: 'CONTRIBUTOR',
+        mergedAt: recentDate
+      })
+      const result = scoreRepoHealth(meta, [pr], [])
+
+      expect(result.killed).toBe(false)
+      expect(result.killReason).toBeNull()
+    })
+  })
+
   describe('healthy repos', () => {
     function makeHealthyPRs() {
       const recent = new Date(Date.now() - 5 * 86_400_000).toISOString()

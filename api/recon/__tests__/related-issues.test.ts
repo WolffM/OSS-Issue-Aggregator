@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { extractLikelyFiles, detectRelatedIssues } from '../related-issues'
-import { makeExtendedIssue } from './helpers'
+import { makeExtendedIssue, makeComment, makeCommentThread } from './helpers'
 
 describe('extractLikelyFiles', () => {
   it('extracts file paths from backtick-quoted code', () => {
@@ -50,6 +50,48 @@ describe('extractLikelyFiles', () => {
   it('returns sorted results', () => {
     const files = extractLikelyFiles('Fix', '`src/z.ts` and `src/a.ts`')
     expect(files).toEqual(['src/a.ts', 'src/z.ts'])
+  })
+
+  it('extracts paths from Python stack traces', () => {
+    const body = `Traceback (most recent call last):
+  File "src/app/runner.py", line 42, in run
+    result = parse(input)
+  File "src/app/parser.py", line 17, in parse
+    raise ValueError`
+    const files = extractLikelyFiles('Crash on parse', body)
+    expect(files).toContain('src/app/runner.py')
+    expect(files).toContain('src/app/parser.py')
+  })
+
+  it('extracts paths from JS/V8 stack traces', () => {
+    const body = `TypeError: Cannot read properties
+    at Parser.parse (src/lib/parser.ts:120:15)
+    at Array.forEach (<anonymous>)
+    at main (src/index.ts:42:3)`
+    const files = extractLikelyFiles('Crash', body)
+    expect(files).toContain('src/lib/parser.ts')
+    expect(files).toContain('src/index.ts')
+  })
+
+  it('extracts paths from Go/Rust-style stack traces', () => {
+    const body = `goroutine 1 [running]:
+main.parse
+	/repo/internal/parser/parser.go:87 +0xad
+main.main
+	/repo/cmd/app/main.go:45 +0x20`
+    const files = extractLikelyFiles('Panic', body)
+    expect(files).toContain('/repo/internal/parser/parser.go')
+    expect(files).toContain('/repo/cmd/app/main.go')
+  })
+
+  it('merges paths from additionalText (e.g. comments)', () => {
+    const files = extractLikelyFiles(
+      'Broken request lifecycle',
+      'The request handler breaks.',
+      'After investigating, the culprit is `src/hooks.ts`. See also lib/handler.ts for context.'
+    )
+    expect(files).toContain('src/hooks.ts')
+    expect(files).toContain('lib/handler.ts')
   })
 })
 
@@ -133,6 +175,27 @@ describe('detectRelatedIssues', () => {
     const result = detectRelatedIssues(issues)
     expect(result.get('issue-1')!.relatedIssues).toHaveLength(0)
     expect(result.get('issue-2')!.relatedIssues).toHaveLength(0)
+  })
+
+  it('pulls likelyFiles from comments when provided', () => {
+    const issues = [
+      makeExtendedIssue({
+        id: 'issue-99',
+        title: 'Intermittent test failure',
+        bodyPreview: 'Happens occasionally on CI — no clear reproduction.'
+      })
+    ]
+    const comments = {
+      'issue-99': makeCommentThread([
+        makeComment({
+          authorAssociation: 'MEMBER',
+          body: 'Looks like the flake is in `tests/integration/api.spec.ts`. Check the retry logic.'
+        })
+      ])
+    }
+
+    const result = detectRelatedIssues(issues, comments)
+    expect(result.get('issue-99')!.likelyFiles).toContain('tests/integration/api.spec.ts')
   })
 
   it('sorts related issues by similarity descending', () => {

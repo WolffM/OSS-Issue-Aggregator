@@ -26,6 +26,48 @@ function zeroPRPatterns(): PRPatterns {
   }
 }
 
+/**
+ * Detect explicit wind-down / migration signals in CONTRIBUTING.md prose.
+ *
+ * Not covered by `isArchived` (GitHub's flag): many repos are "in maintenance
+ * mode" or redirect contributors to a successor repo without archiving, so a
+ * repo-level prose scan is the only way to catch them. Hits here mean the PR
+ * will be closed without review — consumers should refuse to dispatch.
+ */
+function detectContributingKillSignal(
+  contributingContent: string | null
+): { killReason: string } | null {
+  if (!contributingContent) return null
+  const content = contributingContent
+
+  // Migrated repo: explicit redirect to another GitHub repo ("submit to https://github.com/OWNER/REPO")
+  const migratedMatch =
+    /(?:should\s+be\s+submitted\s+to|submit\s+to|use|has\s+moved\s+to|migrated\s+to)\s+(?:the\s+)?(?:repo(?:sitory)?\s+at\s+)?https?:\/\/github\.com\/([\w.-]+)\/([\w.-]+)/i.exec(
+      content
+    )
+  if (migratedMatch) {
+    return { killReason: `migrated:${migratedMatch[1]}/${migratedMatch[2]}` }
+  }
+
+  if (
+    /\bwinding\s+down\b/i.test(content) ||
+    /\bmaintenance\s+mode\b/i.test(content) ||
+    /no\s+longer\s+accepting\s+contributions/i.test(content) ||
+    /not\s+accepting\s+new\s+(?:contributions|prs|pull\s+requests)/i.test(content)
+  ) {
+    return { killReason: 'maintenance_mode' }
+  }
+
+  if (
+    /this\s+(?:repo(?:sitory)?|project)\s+is\s+archived/i.test(content) ||
+    /frozen\s+for\s+[\w.-]+\s+release/i.test(content)
+  ) {
+    return { killReason: 'archived' }
+  }
+
+  return null
+}
+
 // ============================================================================
 // Sub-Scores
 // ============================================================================
@@ -188,6 +230,28 @@ export function scoreRepoHealth(
       overallViability: Math.round(availabilityScore * 0.25),
       killed: false,
       killReason: null,
+      detectedQuirks,
+      prPatterns:
+        mergedPRs.length > 0 ? analyzePRPatterns(mergedPRs, rejectedPRs) : zeroPRPatterns(),
+      analyzedAt: new Date().toISOString()
+    }
+  }
+
+  // Wind-down signals in CONTRIBUTING.md: repo isn't flagged archived on GitHub but
+  // maintainers have explicitly asked for no further contributions or redirected
+  // to another repo. Consumers must not dispatch.
+  const contributingKill = detectContributingKillSignal(meta.contributingContent)
+  if (contributingKill) {
+    return {
+      slug: meta.slug,
+      defaultBranch: meta.defaultBranch,
+      language: meta.language,
+      maintainerHealthScore: 0,
+      mergeAccessibilityScore: 0,
+      availabilityScore: 0,
+      overallViability: 0,
+      killed: true,
+      killReason: contributingKill.killReason,
       detectedQuirks,
       prPatterns:
         mergedPRs.length > 0 ? analyzePRPatterns(mergedPRs, rejectedPRs) : zeroPRPatterns(),

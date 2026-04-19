@@ -40,9 +40,18 @@ import { ResponseMetaSchema } from './types'
 
 const ContributingDataSchema = z
   .object({
-    ai_policy: z.enum(['banned', 'allowed', 'unknown']).openapi({
-      description: 'Whether AI-generated contributions are banned, allowed, or unclear'
+    ai_policy: z.enum(['banned', 'disclose_required', 'allowed', 'unknown']).openapi({
+      description:
+        'AI contribution stance: banned (explicit refusal), disclose_required (must declare / read AGENTS.md / label AI PRs), allowed (explicit welcome), or unknown (no signal found).'
     }),
+    matched_phrase: z
+      .string()
+      .nullable()
+      .openapi({ description: 'Verbatim phrase that triggered the ai_policy classification' }),
+    matched_in: z
+      .enum(['contributing'])
+      .nullable()
+      .openapi({ description: 'Source document where the matched phrase was found' }),
     dco_required: z.boolean().openapi({ description: 'Whether DCO sign-off is required' }),
     license_check_required: z.boolean().openapi({ description: 'Whether a CLA is required' }),
     raw_excerpt: z.string().openapi({ description: 'First ~500 chars of CONTRIBUTING.md' })
@@ -144,57 +153,121 @@ const LabelsResponseSchema = z
   })
   .openapi('LabelsResponse')
 
+const AgentsMdDataSchema = z
+  .object({
+    exists: z.boolean().openapi({ description: 'Whether an AGENTS.md was found' }),
+    path: z.string().nullable().openapi({ example: 'AGENTS.md' }),
+    raw_text: z.string().nullable().openapi({ description: 'Full file content, null if absent' })
+  })
+  .openapi('AgentsMdData')
+
+const AgentsMdResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: AgentsMdDataSchema,
+    _meta: ResponseMetaSchema
+  })
+  .openapi('AgentsMdResponse')
+
 // ============================================================================
 // Parsers
 // ============================================================================
+
+type AiPolicy = 'banned' | 'disclose_required' | 'allowed' | 'unknown'
+
+// Ordered by strength: banned > disclose_required > allowed. First match wins within a bucket;
+// banned-bucket wins over all others so unambiguous refusals are never downgraded.
+const BANNED_PATTERNS: RegExp[] = [
+  /\bno\s+ai\b/i,
+  /\bno\s+llm\b/i,
+  /\bno\s+copilot\b/i,
+  /\bno\s+chatgpt\b/i,
+  /\bno\s+automated\b/i,
+  /\bno\s+auto-?generated\b/i,
+  /ai[\s-]generated\s+(?:code|content|contributions?)\s+(?:is|are)\s+(?:prohibited|not\s+allowed|banned|not\s+permitted|rejected)/i,
+  /(?:will|would|may)\s+close\s+(?:ai|llm|copilot)[\s-]?(?:generated|assisted)?\s*(?:prs|pull\s+requests|contributions)/i,
+  /(?:reject|refuse)s?\s+(?:ai|llm|copilot)[\s-]?(?:generated|assisted)/i,
+  /(?:prohibit(?:ed)?|ban(?:ned)?)\s+(?:the\s+)?use\s+of\s+(?:ai|llm|copilot|chatgpt)/i
+]
+
+const DISCLOSE_REQUIRED_PATTERNS: RegExp[] = [
+  /must\s+(?:disclose|declare|mention|flag|label)/i,
+  /please\s+(?:disclose|declare|mention|flag|label)/i,
+  /disclose\s+(?:the\s+use|that\s+you\s+used|ai\s+use)/i,
+  /mention\s+that\s+you\s+used\s+(?:ai|an?\s+llm|copilot|chatgpt)/i,
+  /(?:flag|label)\s+(?:ai[\s-]?(?:assisted|generated)|llm)\s+(?:prs|pull\s+requests|contributions)/i,
+  // AGENTS.md pointer — TypeScript-style "coding agents must read AGENTS.md first"
+  /<!--\s*coding\s+agents[:\s]/i,
+  /read\s+agents\.md\s+before\s+writing\s+code/i,
+  /(?:see|refer\s+to)\s+agents\.md/i
+]
+
+const ALLOWED_PATTERNS: RegExp[] = [
+  /ai[\s-]assisted\s+(?:contributions?\s+are\s+welcome|is\s+welcome|are\s+encouraged|are\s+allowed)/i,
+  /(?:llm|ai)[\s-]assisted\s+(?:allowed|encouraged|welcome)/i,
+  /you\s+may\s+use\s+(?:copilot|chatgpt|ai|an?\s+llm)/i,
+  /we\s+(?:accept|welcome)\s+(?:ai|llm|copilot)[\s-]?(?:assisted|generated)/i
+]
+
+function firstMatch(patterns: RegExp[], content: string): string | null {
+  for (const re of patterns) {
+    const m = re.exec(content)
+    if (m) return m[0]
+  }
+  return null
+}
 
 /**
  * Parse CONTRIBUTING.md content to detect AI policy, DCO, and CLA requirements.
  */
 function parseContributing(content: string): {
-  ai_policy: 'banned' | 'allowed' | 'unknown'
+  ai_policy: AiPolicy
   dco_required: boolean
   license_check_required: boolean
+  matched_phrase: string | null
+  matched_in: 'contributing' | null
 } {
-  // AI policy — banned: look for AI-related terms near negative phrasing
-  const aiTerms =
-    /no\s+ai|no\s+llm|no\s+copilot|ai[\s-]generated\s+content|ai-generated|machine[\s-]generated|no\s+chatgpt|no\s+automated/i
-  const negativePhrasing =
-    /not\s+allowed|prohibited|banned|do\s+not|we\s+don'?t\s+accept|rejected|not\s+permitted|will\s+not\s+be\s+accepted/i
+  let ai_policy: AiPolicy = 'unknown'
+  let matched_phrase: string | null = null
 
-  let ai_policy: 'banned' | 'allowed' | 'unknown' = 'unknown'
+  const bannedMatch = firstMatch(BANNED_PATTERNS, content)
+  if (bannedMatch) {
+    ai_policy = 'banned'
+    matched_phrase = bannedMatch
+  }
 
-  if (aiTerms.test(content)) {
-    // Check within a 200-char window for co-occurrence with negative phrasing
-    const matches = content.matchAll(
+  if (ai_policy === 'unknown') {
+    // Semantic check: AI term within 200 chars of negative phrasing — catches
+    // hand-written refusals that don't hit the explicit BANNED_PATTERNS.
+    const aiTerm =
       /no\s+ai|no\s+llm|no\s+copilot|ai[\s-]generated\s+content|ai-generated|machine[\s-]generated|no\s+chatgpt|no\s+automated/gi
-    )
-    for (const match of matches) {
-      const start = Math.max(0, match.index - 200)
-      const end = Math.min(content.length, match.index + 200)
-      const window = content.slice(start, end)
-      if (negativePhrasing.test(window)) {
+    const negative =
+      /not\s+allowed|prohibited|banned|do\s+not|we\s+don'?t\s+accept|rejected|not\s+permitted|will\s+not\s+be\s+accepted/i
+    for (const m of content.matchAll(aiTerm)) {
+      const start = Math.max(0, m.index - 200)
+      const end = Math.min(content.length, m.index + 200)
+      if (negative.test(content.slice(start, end))) {
         ai_policy = 'banned'
+        matched_phrase = m[0]
         break
       }
     }
-    // Simpler patterns that are unambiguous
-    if (
-      ai_policy === 'unknown' &&
-      /no\s+ai\b|no\s+llm\b|no\s+copilot\b|no\s+chatgpt\b/i.test(content)
-    ) {
-      ai_policy = 'banned'
+  }
+
+  if (ai_policy === 'unknown') {
+    const discloseMatch = firstMatch(DISCLOSE_REQUIRED_PATTERNS, content)
+    if (discloseMatch) {
+      ai_policy = 'disclose_required'
+      matched_phrase = discloseMatch
     }
   }
 
-  // AI allowed — explicit positive phrasing
-  if (
-    ai_policy === 'unknown' &&
-    /ai[\s-]assisted\s+(contributions?\s+are\s+welcome|is\s+welcome|are\s+encouraged)/i.test(
-      content
-    )
-  ) {
-    ai_policy = 'allowed'
+  if (ai_policy === 'unknown') {
+    const allowedMatch = firstMatch(ALLOWED_PATTERNS, content)
+    if (allowedMatch) {
+      ai_policy = 'allowed'
+      matched_phrase = allowedMatch
+    }
   }
 
   // DCO
@@ -207,7 +280,13 @@ function parseContributing(content: string): {
   const license_check_required =
     /contributor\s+license\s+agreement|cla[\s-]?bot|cla[\s-]?assistant/i.test(content)
 
-  return { ai_policy, dco_required, license_check_required }
+  return {
+    ai_policy,
+    dco_required,
+    license_check_required,
+    matched_phrase,
+    matched_in: matched_phrase ? 'contributing' : null
+  }
 }
 
 /**
@@ -448,6 +527,8 @@ export function registerCrimsonKittyRoutes(app: OpenAPIHono<HonoEnv>) {
             success: true as const,
             data: {
               ai_policy: 'unknown' as const,
+              matched_phrase: null,
+              matched_in: null,
               dco_required: false,
               license_check_required: false,
               raw_excerpt: ''
@@ -782,6 +863,79 @@ export function registerCrimsonKittyRoutes(app: OpenAPIHono<HonoEnv>) {
               description: l.description
             }))
           },
+          _meta: buildLiveMeta(scrapedAt)
+        },
+        200
+      )
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
+  })
+
+  // -----------------------------------------------------------------------
+  // GET /:slug/agents-md
+  // -----------------------------------------------------------------------
+  const agentsMdRoute = createRoute({
+    method: 'get',
+    path: '/{slug}/agents-md',
+    tags: ['Recon - Crimson Kitty'],
+    summary: 'Get AGENTS.md content for coding-agent directives',
+    description:
+      'Returns raw AGENTS.md content from repo root, .github/, or docs/. ' +
+      'Always fetches live from GitHub (not stored in KV). ' +
+      'Used by coding-agent consumers that need directives like "run X before submitting" or "never touch Y/".',
+    request: { params: slugParam },
+    responses: {
+      200: {
+        description: 'AGENTS.md content or absence signal',
+        content: { 'application/json': { schema: AgentsMdResponseSchema } }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
+    }
+  })
+
+  app.openapi(agentsMdRoute, async c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+
+    try {
+      const { slug } = c.req.valid('param')
+      const resolved = await resolveOwnerRepo(kv, slug)
+      if (!resolved) {
+        return c.json(
+          { success: false as const, error: `Cannot resolve owner/repo for slug: ${slug}` },
+          500
+        )
+      }
+      const { owner, repo, scrapedAt } = resolved
+
+      const fetched = await fetchFirstExisting(
+        owner,
+        repo,
+        ['AGENTS.md', '.github/AGENTS.md', 'docs/AGENTS.md'],
+        c.env.GITHUB_TOKEN
+      )
+
+      if (!fetched) {
+        return c.json(
+          {
+            success: true as const,
+            data: { exists: false, path: null, raw_text: null },
+            _meta: buildLiveMeta(scrapedAt)
+          },
+          200
+        )
+      }
+
+      return c.json(
+        {
+          success: true as const,
+          data: { exists: true, path: fetched.path, raw_text: fetched.content },
           _meta: buildLiveMeta(scrapedAt)
         },
         200

@@ -274,8 +274,10 @@ export function scoreIssues(
   const dataBase: DataCompleteness = health ? 'full' : 'partial'
   const scored_at = new Date().toISOString()
 
-  // Detect related issues and likely files across all issues
-  const relatedMap = detectRelatedIssues(issues)
+  // Detect related issues and likely files across all issues. Comments are
+  // threaded through so maintainer-suggested paths and stack traces in replies
+  // contribute to the likelyFiles set.
+  const relatedMap = detectRelatedIssues(issues, comments)
 
   const scored = issues.map(issue => {
     const thread = comments[issue.id]
