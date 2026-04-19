@@ -6,7 +6,13 @@
  */
 
 import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { type ScoredIssue, RepoHealthSchema, ResponseMetaSchema } from './types'
+import {
+  type ExtendedIssue,
+  type RepoHealth,
+  type ScoredIssue,
+  RepoHealthSchema,
+  ResponseMetaSchema
+} from './types'
 import {
   type HonoEnv,
   getErrorMessage,
@@ -49,6 +55,45 @@ import {
  * limits. The removed fields are not consumed by the UI listing and can still
  * be fetched per-repo via the /:slug/scored-issues endpoint.
  */
+/**
+ * Build a ScoredIssue-shaped record for an issue that exists in raw scraper
+ * data but is absent from :scored-issues. Scoring fields are set to neutral
+ * placeholders; `dataCompleteness: 'raw'` signals to consumers that the
+ * numeric signals (cvs, sentiment, complexity, …) should be disregarded.
+ */
+function buildRawScoredIssue(
+  raw: ExtendedIssue,
+  health: RepoHealth,
+  scored_at: string
+): ScoredIssue {
+  return {
+    ...raw,
+    body: raw.body ?? raw.bodyPreview,
+    cvs: 0,
+    cvsTier: 'skip',
+    lifecycleStage: 'fresh',
+    claimStatus: 'unclaimed',
+    claimAuthor: null,
+    complexity: 'medium',
+    sentimentScore: 0,
+    sentimentSignals: [],
+    commentDigest: null,
+    contentQualityScore: 0,
+    competitionLevel: 'none',
+    repoSlug: health.slug,
+    dataCompleteness: 'raw',
+    repoKilled: health.killed === true,
+    likelyFiles: [],
+    relatedIssues: [],
+    _scoring: {
+      scored_at,
+      data_completeness: 'raw',
+      signals_used: [],
+      signals_available: []
+    }
+  }
+}
+
 function slimIssue(issue: ScoredIssue) {
   const {
     body: _body,
@@ -349,13 +394,33 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       }
 
       const scored = applyClaimOverlay(scoredEnvelope.data, claims ?? [])
+      const merged = consolidated?.mergedPrs ?? []
+      const rejected = consolidated?.rejectedPrs ?? []
 
-      // Find the specific issue. The issueId param is already validated against the
-      // {platform}-{owner}-{repo}-{number} pattern, so a miss here means the issue
-      // genuinely is not in the scored set — recompute won't conjure it.
-      const issue = scored.find(i => i.id === issueId)
+      // Find the specific issue in the scored set first.
+      let issue = scored.find(i => i.id === issueId)
+
+      // Fallback: brief composition is not logically tied to the scored window.
+      // If the scraper has raw data for this issue, serve a brief composed from
+      // raw + repo-level health/meta, marked dataCompleteness: 'raw' so
+      // consumers can distinguish it from a fully-scored issue.
       if (!issue) {
-        return c.json({ success: false as const, error: `issue not found: ${issueId}` }, 404)
+        const raw = consolidated?.issues?.find(i => i.id === issueId)
+        if (!raw) {
+          return c.json({ success: false as const, error: `issue not found: ${issueId}` }, 404)
+        }
+        const rawScoredAt = consolidated?.scrapedAt ?? new Date().toISOString()
+        const rawBase = buildRawScoredIssue(raw, healthEnvelope.data, rawScoredAt)
+        issue = applyClaimOverlay([rawBase], claims ?? [])[0]
+        const brief = formatIssueBrief(issue, healthEnvelope.data, meta, merged, rejected)
+        return c.json(
+          {
+            success: true as const,
+            data: { issue, repoHealth: healthEnvelope.data, brief },
+            _meta: buildScrapedOnlyMeta(consolidated?.scrapedAt ?? null)
+          },
+          200
+        )
       }
 
       // Ensure body is populated for issue-brief consumers (fallback to bodyPreview)
@@ -363,8 +428,6 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         issue.body = issue.bodyPreview
       }
 
-      const merged = consolidated?.mergedPrs ?? []
-      const rejected = consolidated?.rejectedPrs ?? []
       const brief = formatIssueBrief(issue, healthEnvelope.data, meta, merged, rejected)
 
       return c.json(

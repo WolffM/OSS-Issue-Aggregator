@@ -45,7 +45,7 @@ export const CompetitionLevelSchema = z
 
 export type CompetitionLevel = z.infer<typeof CompetitionLevelSchema>
 
-export const DataCompletenessSchema = z.enum(['full', 'partial']).openapi('DataCompleteness')
+export const DataCompletenessSchema = z.enum(['full', 'partial', 'raw']).openapi('DataCompleteness')
 
 export type DataCompleteness = z.infer<typeof DataCompletenessSchema>
 

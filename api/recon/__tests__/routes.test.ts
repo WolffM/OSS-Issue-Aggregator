@@ -341,7 +341,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     expect(json.data.issue.bodyPreview).toBe('Full body text with all the...')
   })
 
-  it('returns 404 for a well-formed ID that is not in the scored set', async () => {
+  it('returns 404 when the ID is in neither scored-issues nor raw consolidated data', async () => {
     const scored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
     const kv = createMockKV({
       'recon:fastify-fastify': makeConsolidatedReconData(),
@@ -356,6 +356,70 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const json = await res.json()
     expect(json.success).toBe(false)
     expect(json.error).toContain('github-fastify-fastify-999')
+  })
+
+  it('falls back to raw consolidated data when issue is absent from scored-issues', async () => {
+    const agedOut = makeExtendedIssue({
+      id: 'github-fastify-fastify-777',
+      title: 'Aged-out bug report',
+      bodyPreview: 'Original report body...',
+      labels: ['bug']
+    })
+    const inScored = makeScoredIssue({ id: 'github-fastify-fastify-100' })
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        issues: [makeExtendedIssue({ id: 'github-fastify-fastify-100' }), agedOut]
+      }),
+      'recon:fastify-fastify:scored-issues': [inScored],
+      'recon:fastify-fastify:health': makeRepoHealth()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-777')
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.success).toBe(true)
+    expect(json.data.issue.id).toBe('github-fastify-fastify-777')
+    expect(json.data.issue.title).toBe('Aged-out bug report')
+    expect(json.data.issue.dataCompleteness).toBe('raw')
+    expect(json.data.issue._scoring.data_completeness).toBe('raw')
+    expect(json.data.issue._scoring.signals_used).toEqual([])
+    expect(json.data.issue.cvs).toBe(0)
+    // Brief still includes repo-level rules even without scoring
+    expect(json.data.brief).toContain('# Task: Aged-out bug report')
+    expect(json.data.brief).toContain('## CRITICAL RULES')
+    expect(json.data.brief).toContain('## Contribution Rules')
+    expect(json.data.repoHealth).toBeDefined()
+    // _meta for raw fallback: scraped_at present, computed_at null
+    expect(json._meta.scraped_at).toBeTruthy()
+    expect(json._meta.computed_at).toBeNull()
+  })
+
+  it('applies claim overlay to raw-fallback issue', async () => {
+    const agedOut = makeExtendedIssue({ id: 'github-fastify-fastify-777' })
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({ issues: [agedOut] }),
+      'recon:fastify-fastify:scored-issues': [],
+      'recon:fastify-fastify:health': makeRepoHealth(),
+      'recon:fastify-fastify:claims': [
+        {
+          issueId: 'github-fastify-fastify-777',
+          claimedBy: 'claimer',
+          claimedAt: new Date().toISOString(),
+          forkIssueUrl: null
+        }
+      ]
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-777')
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.issue.claimStatus).toBe('claimed')
+    expect(json.data.issue.claimAuthor).toBe('claimer')
+    expect(json.data.issue.dataCompleteness).toBe('raw')
   })
 
   it('returns 400 for a malformed issue ID (e.g. bare issue number)', async () => {

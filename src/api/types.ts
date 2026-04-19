@@ -25,7 +25,7 @@ export type LifecycleStage = 'fresh' | 'triaged' | 'accepted' | 'stale' | 'zombi
 export type ClaimStatus = 'unclaimed' | 'claimed' | 'stale-claim'
 export type Complexity = 'low' | 'medium' | 'high'
 export type CompetitionLevel = 'none' | 'low' | 'medium' | 'high'
-export type DataCompleteness = 'full' | 'partial'
+export type DataCompleteness = 'full' | 'partial' | 'raw'
 
 // ============================================================================
 // Recon Data Types
