@@ -241,6 +241,15 @@ export const IssueBriefResponseSchema = z
   })
   .openapi('IssueBriefResponse')
 
+export const ComposeBriefRequestSchema = z
+  .object({
+    issue: ExtendedIssueSchema.openapi({
+      description:
+        'Caller-supplied raw issue snapshot. Use this to compose a brief for issues absent from the current scored window (e.g., aged-out snapshots held by a consumer). Scoring fields are not required; any that are supplied are ignored.'
+    })
+  })
+  .openapi('ComposeBriefRequest')
+
 export const DossierResponseSchema = z
   .object({
     success: z.literal(true),

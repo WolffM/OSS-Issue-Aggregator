@@ -24,6 +24,7 @@ import {
   AllScoredIssuesResponseSchema,
   AggregateVersionResponseSchema,
   IssueBriefResponseSchema,
+  ComposeBriefRequestSchema,
   DossierResponseSchema,
   slugParam,
   slugIssueIdParam,
@@ -435,6 +436,77 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
           success: true as const,
           data: { issue, repoHealth: healthEnvelope.data, brief },
           _meta: buildMeta(scoredEnvelope)
+        },
+        200
+      )
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
+  })
+
+  // POST /:slug/compose-brief
+  const composeBriefRoute = createRoute({
+    method: 'post',
+    path: '/{slug}/compose-brief',
+    tags: ['Recon - Issues'],
+    summary: 'Compose an issue brief from a caller-supplied issue snapshot',
+    description:
+      'Composes a brief from an externally-supplied raw issue plus live repo health/meta. Intended for consumers that snapshot an issue at selection time and need to generate the brief later, after the issue has aged out of the current scored window and the consolidated scraper blob.',
+    request: {
+      params: slugParam,
+      body: {
+        content: { 'application/json': { schema: ComposeBriefRequestSchema } }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Composed brief with live repo health/meta',
+        content: {
+          'application/json': {
+            schema: z.union([IssueBriefResponseSchema, PendingResponseSchema])
+          }
+        }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
+    }
+  })
+
+  app.openapi(composeBriefRoute, async c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+
+    try {
+      const { slug } = c.req.valid('param')
+      const { issue: rawIssue } = c.req.valid('json')
+
+      const [healthEnvelope, consolidated, claims] = await Promise.all([
+        getRepoHealthEnveloped(kv, slug),
+        getConsolidatedRecon(kv, slug),
+        getClaims(kv, slug)
+      ])
+
+      const meta = consolidated?.repoMeta ?? null
+      if (!healthEnvelope || !meta) {
+        return c.json({ success: true as const, data: { status: 'pending' as const } }, 200)
+      }
+
+      const merged = consolidated?.mergedPrs ?? []
+      const rejected = consolidated?.rejectedPrs ?? []
+      const scoredAt = new Date().toISOString()
+      const rawBase = buildRawScoredIssue(rawIssue, healthEnvelope.data, scoredAt)
+      const [issue] = applyClaimOverlay([rawBase], claims ?? [])
+      const brief = formatIssueBrief(issue, healthEnvelope.data, meta, merged, rejected)
+
+      return c.json(
+        {
+          success: true as const,
+          data: { issue, repoHealth: healthEnvelope.data, brief },
+          _meta: buildScrapedOnlyMeta(consolidated?.scrapedAt ?? null)
         },
         200
       )

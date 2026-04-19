@@ -396,6 +396,93 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     expect(json._meta.computed_at).toBeNull()
   })
 
+  it('POST /:slug/compose-brief composes a brief from a caller-supplied raw issue', async () => {
+    // Simulates vibedispatch: they snapshotted an issue at shortlist time.
+    // Later, the scraper has re-scraped and this issue is no longer in
+    // scored-issues OR consolidated.issues. They POST the snapshot; the
+    // aggregator composes a brief using live repo-level health/meta.
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        issues: [] // snapshot issue is gone from raw data
+      }),
+      'recon:fastify-fastify:scored-issues': [],
+      'recon:fastify-fastify:health': makeRepoHealth()
+    })
+    const app = createTestApp(kv)
+
+    const snapshot = makeExtendedIssue({
+      id: 'github-fastify-fastify-7777',
+      title: 'Snapshot-supplied bug',
+      bodyPreview: 'Body captured at shortlist time',
+      labels: ['bug']
+    })
+
+    const res = await app.request('/fastify-fastify/compose-brief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ issue: snapshot })
+    })
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.success).toBe(true)
+    expect(json.data.issue.id).toBe('github-fastify-fastify-7777')
+    expect(json.data.issue.title).toBe('Snapshot-supplied bug')
+    expect(json.data.issue.dataCompleteness).toBe('raw')
+    expect(json.data.brief).toContain('# Task: Snapshot-supplied bug')
+    expect(json.data.brief).toContain('## CRITICAL RULES')
+    expect(json.data.brief).toContain('## Contribution Rules')
+    expect(json.data.repoHealth.slug).toBe('fastify-fastify')
+    expect(json._meta.computed_at).toBeNull()
+  })
+
+  it('POST /:slug/compose-brief returns pending when health or meta is missing', async () => {
+    const kv = createMockKV({
+      // only raw recon exists, no health
+      'recon:fastify-fastify': makeConsolidatedReconData()
+    })
+    const app = createTestApp(kv)
+    const snapshot = makeExtendedIssue({ id: 'github-fastify-fastify-7777' })
+
+    const res = await app.request('/fastify-fastify/compose-brief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ issue: snapshot })
+    })
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.status).toBe('pending')
+  })
+
+  it('POST /:slug/compose-brief applies claim overlay to snapshot issue', async () => {
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({ issues: [] }),
+      'recon:fastify-fastify:health': makeRepoHealth(),
+      'recon:fastify-fastify:claims': [
+        {
+          issueId: 'github-fastify-fastify-7777',
+          claimedBy: 'claimer',
+          claimedAt: new Date().toISOString(),
+          forkIssueUrl: null
+        }
+      ]
+    })
+    const app = createTestApp(kv)
+    const snapshot = makeExtendedIssue({ id: 'github-fastify-fastify-7777' })
+
+    const res = await app.request('/fastify-fastify/compose-brief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ issue: snapshot })
+    })
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.issue.claimStatus).toBe('claimed')
+    expect(json.data.issue.claimAuthor).toBe('claimer')
+  })
+
   it('applies claim overlay to raw-fallback issue', async () => {
     const agedOut = makeExtendedIssue({ id: 'github-fastify-fastify-777' })
     const kv = createMockKV({
