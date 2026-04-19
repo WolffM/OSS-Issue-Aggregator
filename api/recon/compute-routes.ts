@@ -42,11 +42,13 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     }
 
     const { slug } = c.req.valid('param')
+    const force = new URL(c.req.url).searchParams.get('force') === 'true'
     const result = await triggerScrape(
       c.env.SCRAPER_API_URL,
       slug,
       undefined,
-      c.env.SCRAPER_API_KEY
+      c.env.SCRAPER_API_KEY,
+      force
     )
 
     if (!result.triggered) {

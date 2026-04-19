@@ -11,10 +11,12 @@ export async function triggerScrape(
   scraperApiUrl: string,
   slug: string,
   dataTypes: string[] = DEFAULT_DATA_TYPES,
-  apiKey?: string
+  apiKey?: string,
+  force = false
 ): Promise<{ triggered: boolean; error?: string }> {
   try {
     const body: Record<string, unknown> = { slug, data_types: dataTypes }
+    if (force) body.force = true
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (apiKey) {

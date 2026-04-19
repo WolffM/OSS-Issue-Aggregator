@@ -63,4 +63,30 @@ describe('triggerScrape', () => {
     expect(result.triggered).toBe(false)
     expect(result.error).toBe('Connection refused')
   })
+
+  it('passes force=true through to the scraper body when requested', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', mockFetch)
+
+    await triggerScrape(
+      'https://scraper.example.com',
+      'fastify-fastify',
+      undefined,
+      undefined,
+      true
+    )
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(body.force).toBe(true)
+  })
+
+  it('omits force from body when not requested (scraper default = false)', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', mockFetch)
+
+    await triggerScrape('https://scraper.example.com', 'fastify-fastify')
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(body.force).toBeUndefined()
+  })
 })
