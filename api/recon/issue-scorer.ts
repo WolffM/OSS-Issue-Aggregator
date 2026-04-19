@@ -271,6 +271,7 @@ export function scoreIssues(
 ): ScoredIssue[] {
   const repoScore = health ? health.overallViability : 50
   const repoSlug = health?.slug ?? ''
+  const repoKilled = health?.killed === true
   const dataBase: DataCompleteness = health ? 'full' : 'partial'
   const scored_at = new Date().toISOString()
 
@@ -340,7 +341,9 @@ export function scoreIssues(
       rawCvs = Math.min(rawCvs, 35)
     }
 
-    const cvs = clamp(Math.round(rawCvs), 0, 100)
+    // Killed repos: force cvs:0 / tier:skip across all issues regardless of
+    // per-issue signals. A dispatched PR would be closed without review.
+    const cvs = repoKilled ? 0 : clamp(Math.round(rawCvs), 0, 100)
 
     // Claim & competition
     const claimResult = resolveClaimStatus(issue, claims)
@@ -385,7 +388,7 @@ export function scoreIssues(
       competitionLevel,
       repoSlug,
       dataCompleteness,
-      repoKilled: false,
+      repoKilled,
       likelyFiles: related?.likelyFiles ?? [],
       relatedIssues: related?.relatedIssues ?? [],
       _scoring

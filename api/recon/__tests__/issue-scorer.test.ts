@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { scoreIssues } from '../issue-scorer'
+import { scoreRepoHealth } from '../health-scorer'
 import type { RepoHealth, IssueComments } from '../types'
-import { makeExtendedIssue, makeClaimRecord, makeComment, makeCommentThread } from './helpers'
+import {
+  makeExtendedIssue,
+  makeClaimRecord,
+  makeComment,
+  makeCommentThread,
+  makeRepoMeta
+} from './helpers'
 
 function makeHealth(overrides: Partial<RepoHealth> = {}): RepoHealth {
   return {
@@ -50,6 +57,30 @@ describe('scoreIssues', () => {
       expect(scored[0].cvs).toBeGreaterThan(0)
       expect(scored[0].repoKilled).toBe(false)
       expect(scored[0].contentQualityScore).toBeGreaterThan(0)
+    })
+
+    it('propagates health.killed → repoKilled:true, cvs:0, tier:skip', () => {
+      // Match the wind-down kill path in health-scorer: non-archived repo,
+      // CONTRIBUTING says "winding down" → killed:true regardless of PR activity.
+      const killedMeta = makeRepoMeta({
+        contributingContent: 'This repo is winding down; submit elsewhere.'
+      })
+      const killedHealth = scoreRepoHealth(killedMeta, [], [])
+      expect(killedHealth.killed).toBe(true)
+
+      const recent = new Date(Date.now() - 2 * 86_400_000).toISOString()
+      const issues = [
+        makeExtendedIssue({
+          createdAt: recent,
+          updatedAt: recent,
+          bodyPreview: 'A clear bug report with steps to reproduce.'
+        })
+      ]
+
+      const scored = scoreIssues(issues, {}, killedHealth, [])
+      expect(scored[0].repoKilled).toBe(true)
+      expect(scored[0].cvs).toBe(0)
+      expect(scored[0].cvsTier).toBe('skip')
     })
   })
 
