@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/oss-aggregator",
-  "version": "2.2.16",
+  "version": "2.2.17",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "repository": {
@@ -35,6 +35,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "vitest run --config vitest.config.api.ts",
     "test:watch": "vitest --config vitest.config.api.ts",
+    "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },
   "dependencies": {

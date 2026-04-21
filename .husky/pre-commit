@@ -4,6 +4,13 @@ echo "🔍 Running pre-commit checks..."
 # Capture originally staged files BEFORE any modifications
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 
+# TS gate — prevents commits that break tsc (resilience plan track 1)
+echo "🔎 Running typecheck..."
+if ! pnpm run typecheck; then
+  echo "❌ TypeScript errors — fix before committing (or `--no-verify` to bypass)."
+  exit 1
+fi
+
 # Auto-fix linting and formatting issues
 echo "📋 Running ESLint auto-fix..."
 if ! pnpm run lint:fix; then
