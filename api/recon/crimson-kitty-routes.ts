@@ -400,11 +400,28 @@ export function parseContributionConventions(input: {
     (policyText && SIGNOFF_RE.test(policyText)) ||
     (prTemplate !== null && SIGNOFF_RE.test(prTemplate))
 
-  // Org-level fallback: Apache Foundation projects all require DCO sign-off
-  // even when their CONTRIBUTING file lives outside our default fetch paths.
-  // Keep this list short — only orgs with an unambiguous org-wide policy.
+  // Org-level fallback: orgs with an unambiguous org-wide DCO policy whose
+  // per-repo CONTRIBUTING files are often redirect stubs (k/k → kubernetes/community)
+  // or live in non-default paths (.rst, contributing-docs/) we don't always
+  // catch with textual extraction. Stance: "rather false-positive than
+  // false-negative" — DCO bot will still gate-check; missing the signal
+  // here would silently auto-close PRs from agents that didn't sign off.
   if (!signoff_required && owner) {
-    const DCO_REQUIRED_ORGS = new Set(['apache'])
+    const DCO_REQUIRED_ORGS = new Set([
+      'apache',
+      'kubernetes',
+      'kubernetes-sigs',
+      'helm',
+      'istio',
+      'containerd',
+      'etcd-io',
+      'cilium',
+      'linkerd',
+      'flatcar',
+      'argoproj',
+      'knative',
+      'jetstack'
+    ])
     if (DCO_REQUIRED_ORGS.has(owner.toLowerCase())) {
       signoff_required = true
     }

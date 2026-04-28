@@ -961,4 +961,26 @@ describe('GET /:slug/contribution-conventions', () => {
     const body = await res.json()
     expect(body.data.signoff_required).toBe(true)
   })
+
+  it('falls back to CNCF org-level DCO for redirect-stub repos (kubernetes/kubernetes)', async () => {
+    // k/k's CONTRIBUTING.md is a redirect stub to kubernetes/community —
+    // textual extraction on the repo's own files finds nothing.
+    const stub = `# Contributing\n\nSee https://git.k8s.io/community/CONTRIBUTING.md for the full guide.`
+    const kv = createMockKV({
+      'recon:kubernetes-kubernetes': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({
+          owner: 'kubernetes',
+          repo: 'kubernetes',
+          slug: 'kubernetes-kubernetes',
+          contributingContent: stub,
+          prTemplateContent: null
+        })
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/kubernetes-kubernetes/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.signoff_required).toBe(true)
+  })
 })
