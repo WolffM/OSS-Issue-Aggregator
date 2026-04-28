@@ -705,6 +705,7 @@ describe('GET /:slug/contribution-conventions', () => {
         repoMeta: makeRepoMeta({ contributingContent: contributing })
       })
     })
+    mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
     const body = await res.json()
@@ -720,6 +721,7 @@ describe('GET /:slug/contribution-conventions', () => {
         repoMeta: makeRepoMeta({ contributingContent: contributing })
       })
     })
+    mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
     const body = await res.json()
@@ -828,6 +830,7 @@ describe('GET /:slug/contribution-conventions', () => {
         repoMeta: makeRepoMeta({ contributingContent: contributing })
       })
     })
+    mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
     const body = await res.json()
@@ -861,5 +864,101 @@ describe('GET /:slug/contribution-conventions', () => {
     const body = await res.json()
     expect(body.data.commit_style).toBe('conventional')
     expect(body.data.evidence.source).toBe('contributing')
+  })
+
+  it('detects signoff_required from PR template alone (argoproj-style checklist)', async () => {
+    const prTemplate = `<!-- Note on DCO: If the DCO action fails, your commits are not signed off. -->\n\nChecklist:\n\n* [ ] I have signed off all my commits as required by [DCO](https://example.com/dco)\n* [ ] I've included "Closes [ISSUE #]" or "Fixes [ISSUE #]" in the description.`
+    const kv = createMockKV({
+      'recon:argoproj-argo-cd': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({
+          owner: 'argoproj',
+          repo: 'argo-cd',
+          slug: 'argoproj-argo-cd',
+          contributingContent: null,
+          prTemplateContent: prTemplate
+        })
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/argoproj-argo-cd/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.signoff_required).toBe(true)
+    // Both Closes and Fixes appear; tie-break is fine — just assert it's one of them.
+    expect(['Closes', 'Fixes']).toContain(body.data.references.close_keyword)
+  })
+
+  it('detects close keywords with placeholder syntax ("Closes #ISSUE", "closes: #ISSUE")', async () => {
+    const prTemplate = `In case of an existing issue, reference it using one of the following:\n\n* closes: #ISSUE\n* related: #ISSUE\n\nOr use Closes [ISSUE #] for the close-issue keyword.`
+    const kv = createMockKV({
+      'recon:apache-airflow': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({
+          owner: 'apache',
+          repo: 'airflow',
+          slug: 'apache-airflow',
+          contributingContent: null,
+          prTemplateContent: prTemplate
+        })
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/apache-airflow/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.references.close_keyword).toBe('Closes')
+    expect(body.data.references.syntax).toBe('Closes #N')
+  })
+
+  it('detects DCO from a live-fetched DCO.md when CONTRIBUTING is silent', async () => {
+    const dco = `# Developer Certificate of Origin\n\nAll commits must be signed off using \`git commit -s\`.`
+    const kv = createMockKV({
+      'recon:foo-bar': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({
+          owner: 'foo',
+          repo: 'bar',
+          slug: 'foo-bar',
+          contributingContent: '# Contributing\n\nThanks for helping out!',
+          prTemplateContent: null
+        })
+      })
+    })
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : (input as Request).url
+      if (/\/contents\/DCO\.md$/.test(url)) {
+        return new Response(JSON.stringify({ ...makeBase64File(dco), path: 'DCO.md' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+      return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 })
+    })
+    const app = createTestApp(kv, 'test-token')
+    const res = await app.request('/foo-bar/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.signoff_required).toBe(true)
+  })
+
+  it('falls back to apache org-level DCO requirement when no textual signal is available', async () => {
+    const kv = createMockKV({
+      'recon:apache-airflow': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({
+          owner: 'apache',
+          repo: 'airflow',
+          slug: 'apache-airflow',
+          contributingContent: null,
+          prTemplateContent: '## Description\n\nNo DCO mention here.'
+        })
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/apache-airflow/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.signoff_required).toBe(true)
   })
 })

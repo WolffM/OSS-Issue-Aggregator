@@ -366,24 +366,49 @@ const CONVENTIONAL_PATTERN_STR =
 const JIRA_PREFIX_RE = /^[A-Z][A-Z0-9]+-\d+:?\s/
 const JIRA_PATTERN_STR = '^[A-Z][A-Z0-9]+-\\d+:?\\s.+$'
 
+// Match DCO / Signed-off-by signals from any contribution-policy doc. Includes
+// "signed off" (verb form found in PR-template checklists) and "git commit -s",
+// not just the literal trailer text.
+const SIGNOFF_RE =
+  /(?:signed?-?off-?by|developer\s+certificate\s+of\s+origin|\bdco\b|git\s+commit\s+(?:-s|--signoff)|\bsigned\s+off\b)/i
+
 /**
- * Parse contribution conventions from CONTRIBUTING.md, PR template, and recent
- * merged PR titles. Always returns a complete bundle — falls through to a
- * "freeform / Fixes #N" default when no signal fires.
+ * Parse contribution conventions from CONTRIBUTING.md, PR template, recent
+ * merged PR titles, and any extra DCO-related doc the route resolved
+ * (CONTRIBUTING.rst, DCO.md, DCO.rst, …). Always returns a complete bundle —
+ * falls through to a "freeform / Fixes #N" default when no signal fires.
  */
 export function parseContributionConventions(input: {
   contributing: string | null
   prTemplate: string | null
   mergedPrs: PRSample[]
+  /** Additional contribution-policy text — e.g. CONTRIBUTING.rst, DCO.md.
+   *  Concatenated with `contributing` for signoff/conventional-commits detection. */
+  extraPolicyDocs?: string[]
+  /** Owner slug — enables an org-level allowlist fallback for DCO when no
+   *  textual signal fires (e.g. apache/* always requires DCO sign-off). */
+  owner?: string
 }): ContributionConventions {
-  const { contributing, prTemplate, mergedPrs } = input
+  const { contributing, prTemplate, mergedPrs, extraPolicyDocs = [], owner } = input
+
+  const policyText = [contributing, ...extraPolicyDocs].filter(Boolean).join('\n\n')
 
   // ---- signoff_required ----
-  const signoff_required = contributing
-    ? /(?:sign-?off-?by|developer\s+certificate\s+of\s+origin|\bdco\b|git\s+commit\s+-s)/i.test(
-        contributing
-      )
-    : false
+  // Check every available document. PR template often carries the most
+  // explicit DCO signal (argoproj-style "[ ] I have signed off all my commits").
+  let signoff_required =
+    (policyText && SIGNOFF_RE.test(policyText)) ||
+    (prTemplate !== null && SIGNOFF_RE.test(prTemplate))
+
+  // Org-level fallback: Apache Foundation projects all require DCO sign-off
+  // even when their CONTRIBUTING file lives outside our default fetch paths.
+  // Keep this list short — only orgs with an unambiguous org-wide policy.
+  if (!signoff_required && owner) {
+    const DCO_REQUIRED_ORGS = new Set(['apache'])
+    if (DCO_REQUIRED_ORGS.has(owner.toLowerCase())) {
+      signoff_required = true
+    }
+  }
 
   // ---- commit_style + title_prefix_pattern ----
   let commit_style: CommitStyle = 'freeform'
@@ -452,12 +477,16 @@ export function parseContributionConventions(input: {
   }
 
   // ---- references.close_keyword / syntax / in_body ----
-  // Most-frequent keyword across PR template + CONTRIBUTING.md wins; default to "Fixes".
+  // Most-frequent keyword across all available docs wins; default to "Fixes".
+  // The regex accepts the keyword followed within 30 chars by `#`, which
+  // catches real-world template variants:
+  //   Closes #123, Fixes #issue_number, Closes [ISSUE #], "* closes: #ISSUE".
   let close_keyword: CloseKeyword = 'Fixes'
   const counts: Record<string, number> = {}
-  for (const text of [prTemplate, contributing]) {
+  const KEYWORD_CONTEXT_RE = /\b(Fixes|Closes|Resolves)\b(?=[\s\S]{0,30}#)/gi
+  for (const text of [prTemplate, contributing, ...extraPolicyDocs]) {
     if (!text) continue
-    for (const m of text.matchAll(/\b(Fixes|Closes|Resolves)\b\s+#\d+/gi)) {
+    for (const m of text.matchAll(KEYWORD_CONTEXT_RE)) {
       const kw = (m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()) as CloseKeyword
       counts[kw] = (counts[kw] ?? 0) + 1
     }
@@ -466,17 +495,15 @@ export function parseContributionConventions(input: {
   if (sorted.length > 0) close_keyword = sorted[0][0] as CloseKeyword
   const syntax = `${close_keyword} #N`
 
-  // in_body: false if CONTRIBUTING.md explicitly says don't put close keyword in body
+  // in_body: false if any contribution-policy doc says don't put close keyword in body
   let in_body = true
-  if (contributing) {
+  if (policyText) {
     if (
-      /do\s+not\b[^.]{0,80}\b(?:fixes|closes|resolves)\b[^.]{0,80}\bbody\b/i.test(contributing) ||
+      /do\s+not\b[^.]{0,80}\b(?:fixes|closes|resolves)\b[^.]{0,80}\bbody\b/i.test(policyText) ||
       /\b(?:fixes|closes|resolves)\b[^.]{0,40}\bnot\b[^.]{0,40}\bin\s+the\s+pr\s+body\b/i.test(
-        contributing
+        policyText
       ) ||
-      /use\s+(?:the\s+)?commit\s+message\b[^.]{0,80}\b(?:fixes|closes|resolves)\b/i.test(
-        contributing
-      )
+      /use\s+(?:the\s+)?commit\s+message\b[^.]{0,80}\b(?:fixes|closes|resolves)\b/i.test(policyText)
     ) {
       in_body = false
     }
@@ -1235,8 +1262,36 @@ export function registerCrimsonKittyRoutes(app: OpenAPIHono<HonoEnv>) {
         prTemplate = fetched?.content ?? null
       }
 
+      // Extra policy docs the standard fetch paths miss: Apache projects use
+      // CONTRIBUTING.rst; many CNCF projects publish a top-level DCO.md/.rst
+      // that's the strongest signoff signal when CONTRIBUTING is silent.
+      // Fetched in parallel; fetchFirstExisting returns null cleanly per repo.
+      const extraPolicyFetches = await Promise.all([
+        fetchFirstExisting(
+          owner,
+          repo,
+          ['CONTRIBUTING.rst', '.github/CONTRIBUTING.rst', 'docs/CONTRIBUTING.rst'],
+          c.env.GITHUB_TOKEN
+        ),
+        fetchFirstExisting(
+          owner,
+          repo,
+          ['DCO.md', 'DCO.rst', 'DCO.txt', 'DCO', '.github/DCO.md', '.github/DCO'],
+          c.env.GITHUB_TOKEN
+        )
+      ])
+      const extraPolicyDocs = extraPolicyFetches
+        .map(f => f?.content)
+        .filter((s): s is string => typeof s === 'string')
+
       const mergedPrs = consolidated?.mergedPrs ?? []
-      const data = parseContributionConventions({ contributing, prTemplate, mergedPrs })
+      const data = parseContributionConventions({
+        contributing,
+        prTemplate,
+        mergedPrs,
+        extraPolicyDocs,
+        owner
+      })
 
       return c.json({ success: true as const, data, _meta: buildLiveMeta(scrapedAt) }, 200)
     } catch (err) {
