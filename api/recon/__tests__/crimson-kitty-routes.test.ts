@@ -11,6 +11,7 @@ import {
   createMockKV,
   createMockExecutionCtx,
   makeConsolidatedReconData,
+  makePRSample,
   makeRepoMeta
 } from './helpers'
 
@@ -664,5 +665,201 @@ describe('GET /:slug/agents-md', () => {
     expect(body.data.exists).toBe(true)
     expect(body.data.path).toBe('.github/AGENTS.md')
     expect(body.data.raw_text).toBe(agents)
+  })
+})
+
+// ============================================================================
+// GET /:slug/contribution-conventions
+// ============================================================================
+
+describe('GET /:slug/contribution-conventions', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('returns the freeform default when no signals fire and KV is empty', async () => {
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: null, prTemplateContent: null }),
+        mergedPrs: []
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data).toMatchObject({
+      commit_style: 'freeform',
+      title_prefix_pattern: null,
+      signoff_required: false,
+      body_structure: [],
+      references: { close_keyword: 'Fixes', syntax: 'Fixes #N', in_body: true },
+      evidence: { source: 'default', raw_excerpt: '' }
+    })
+  })
+
+  it('detects DCO signoff requirement from CONTRIBUTING.md', async () => {
+    const contributing = `# Contributing\n\nAll commits must be signed off using the Developer Certificate of Origin. Run \`git commit -s\` to add the Signed-off-by line.`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: contributing })
+      })
+    })
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.signoff_required).toBe(true)
+    expect(body.data.evidence.source).toBe('contributing')
+    expect(body.data.evidence.raw_excerpt).toContain('Developer Certificate of Origin')
+  })
+
+  it('detects conventional commits when CONTRIBUTING.md states the convention', async () => {
+    const contributing = `# Contributing\n\nWe use Conventional Commits for all PR titles. See https://www.conventionalcommits.org`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: contributing })
+      })
+    })
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.commit_style).toBe('conventional')
+    expect(body.data.title_prefix_pattern).toMatch(/feat|fix/)
+    expect(body.data.evidence.source).toBe('contributing')
+  })
+
+  it('detects conventional commits from merged-PR title sample (≥80% match)', async () => {
+    const titles = [
+      'feat(server): add HTTP/2 support',
+      'fix(types): correct generic inference',
+      'docs: update README',
+      'chore(deps): bump zod to 3.22',
+      'refactor(router): simplify dispatch',
+      'feat: support async hooks',
+      'fix(plugin): handle null context',
+      'test: cover plugin lifecycle',
+      'docs(readme): typo',
+      'unrelated freeform title'
+    ]
+    const mergedPrs = titles.map((title, i) =>
+      makePRSample({ number: 1000 + i, title, mergedAt: `2024-02-${10 + i}T10:00:00Z` })
+    )
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: null, prTemplateContent: null }),
+        mergedPrs
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.commit_style).toBe('conventional')
+    expect(body.data.evidence.source).toBe('merged-commits')
+    expect(body.data.evidence.raw_excerpt).toMatch(
+      /^(?:fix|feat|docs|chore|build|ci|perf|refactor|revert|style|test)(?:\([^)]+\))?:\s/m
+    )
+  })
+
+  it('detects JIRA-style prefix-required style from merged-PR sample', async () => {
+    const titles = [
+      'PROJ-101: fix login race',
+      'PROJ-102: add metrics dashboard',
+      'PROJ-103: refactor auth middleware',
+      'PROJ-104: bump deps',
+      'PROJ-105: handle null user',
+      'PROJ-106: tests for auth',
+      'PROJ-107: docs update',
+      'random freeform title'
+    ]
+    const mergedPrs = titles.map((title, i) =>
+      makePRSample({ number: 2000 + i, title, mergedAt: `2024-03-${10 + i}T10:00:00Z` })
+    )
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: null, prTemplateContent: null }),
+        mergedPrs
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.commit_style).toBe('prefix-required')
+    expect(body.data.title_prefix_pattern).toMatch(/A-Z/)
+    expect(body.data.evidence.source).toBe('merged-commits')
+  })
+
+  it('extracts body_structure from PR template ## headings', async () => {
+    const prTemplate = `## Summary\n\nDescribe what changed.\n\n## Why\n\nMotivation.\n\n## Test plan*\n\n- [ ] Manual\n- [ ] Automated`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: null, prTemplateContent: prTemplate })
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.body_structure).toEqual(['Summary', 'Why', 'Test plan'])
+    expect(body.data.evidence.source).toBe('pr-template')
+  })
+
+  it('picks the most-frequent close keyword from PR template', async () => {
+    const prTemplate = `## Summary\n\nCloses #123\nCloses #456\n## Notes\n\nFixes #789 if applicable.`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: null, prTemplateContent: prTemplate })
+      })
+    })
+    mockFetch({})
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.references.close_keyword).toBe('Closes')
+    expect(body.data.references.syntax).toBe('Closes #N')
+    expect(body.data.references.in_body).toBe(true)
+  })
+
+  it('sets references.in_body=false when CONTRIBUTING.md forbids close keyword in body', async () => {
+    const contributing = `# Contributing\n\nDo not put Fixes or Closes in the PR body — use the commit message instead.`
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: contributing })
+      })
+    })
+    const app = createTestApp(kv)
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.references.in_body).toBe(false)
+  })
+
+  it('falls back to live GitHub fetch when KV has no contributing/pr-template content', async () => {
+    const contributing = '# Contributing\n\nWe use Conventional Commits.'
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ contributingContent: null, prTemplateContent: null })
+      })
+    })
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : (input as Request).url
+      if (/\/contents\/CONTRIBUTING\.md$/.test(url)) {
+        return new Response(
+          JSON.stringify({ ...makeBase64File(contributing), path: 'CONTRIBUTING.md' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 })
+    })
+    const app = createTestApp(kv, 'test-token')
+    const res = await app.request('/fastify-fastify/contribution-conventions')
+    const body = await res.json()
+    expect(body.data.commit_style).toBe('conventional')
+    expect(body.data.evidence.source).toBe('contributing')
   })
 })

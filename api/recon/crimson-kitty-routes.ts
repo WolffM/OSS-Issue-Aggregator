@@ -32,7 +32,7 @@ import {
   fetchDirListing,
   slugToOwnerRepo
 } from './github-fetcher'
-import { ResponseMetaSchema } from './types'
+import { ResponseMetaSchema, type PRSample } from './types'
 
 // ============================================================================
 // Schemas
@@ -169,6 +169,56 @@ const AgentsMdResponseSchema = z
   })
   .openapi('AgentsMdResponse')
 
+const ContributionConventionsDataSchema = z
+  .object({
+    commit_style: z.enum(['conventional', 'freeform', 'prefix-required']).openapi({
+      description:
+        'conventional = Conventional Commits (feat/fix/docs:); prefix-required = some other enforced prefix; freeform = no enforced commit-title pattern.'
+    }),
+    title_prefix_pattern: z.string().nullable().openapi({
+      description:
+        'Regex (anchored) the commit title or PR title must satisfy when commit_style != "freeform". Null otherwise.'
+    }),
+    signoff_required: z.boolean().openapi({
+      description: 'True when DCO / Signed-off-by / "git commit -s" is required.'
+    }),
+    body_structure: z.array(z.string()).openapi({
+      description:
+        'Required PR body section headings, in order, derived from PR template. Empty when none enforced.'
+    }),
+    references: z.object({
+      close_keyword: z
+        .enum(['Fixes', 'Closes', 'Resolves'])
+        .nullable()
+        .openapi({ description: 'Preferred close-issue keyword for the PR' }),
+      syntax: z
+        .string()
+        .nullable()
+        .openapi({ example: 'Fixes #N', description: 'Concrete syntax example for consumers' }),
+      in_body: z.boolean().openapi({
+        description:
+          'True when the close keyword is allowed (or expected) in the PR body. False when CONTRIBUTING.md says use commit messages instead.'
+      })
+    }),
+    evidence: z.object({
+      source: z.enum(['contributing', 'pr-template', 'merged-commits', 'default']).openapi({
+        description: 'Strongest signal driving this classification'
+      }),
+      raw_excerpt: z.string().openapi({
+        description: 'First 500 chars of the source content (or sample of merged-commit titles).'
+      })
+    })
+  })
+  .openapi('ContributionConventionsData')
+
+const ContributionConventionsResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: ContributionConventionsDataSchema,
+    _meta: ResponseMetaSchema
+  })
+  .openapi('ContributionConventionsResponse')
+
 // ============================================================================
 // Parsers
 // ============================================================================
@@ -286,6 +336,172 @@ function parseContributing(content: string): {
     license_check_required,
     matched_phrase,
     matched_in: matched_phrase ? 'contributing' : null
+  }
+}
+
+type CommitStyle = 'conventional' | 'freeform' | 'prefix-required'
+type CloseKeyword = 'Fixes' | 'Closes' | 'Resolves'
+type ConventionsSource = 'contributing' | 'pr-template' | 'merged-commits' | 'default'
+
+interface ContributionConventions {
+  commit_style: CommitStyle
+  title_prefix_pattern: string | null
+  signoff_required: boolean
+  body_structure: string[]
+  references: {
+    close_keyword: CloseKeyword | null
+    syntax: string | null
+    in_body: boolean
+  }
+  evidence: {
+    source: ConventionsSource
+    raw_excerpt: string
+  }
+}
+
+const CONVENTIONAL_PREFIX_RE =
+  /^(?:fix|feat|docs|chore|build|ci|perf|refactor|revert|style|test|wip)(?:\([^)]+\))?!?:\s/i
+const CONVENTIONAL_PATTERN_STR =
+  '^(fix|feat|docs|chore|build|ci|perf|refactor|revert|style|test)(\\(.+\\))?: .+$'
+const JIRA_PREFIX_RE = /^[A-Z][A-Z0-9]+-\d+:?\s/
+const JIRA_PATTERN_STR = '^[A-Z][A-Z0-9]+-\\d+:?\\s.+$'
+
+/**
+ * Parse contribution conventions from CONTRIBUTING.md, PR template, and recent
+ * merged PR titles. Always returns a complete bundle — falls through to a
+ * "freeform / Fixes #N" default when no signal fires.
+ */
+export function parseContributionConventions(input: {
+  contributing: string | null
+  prTemplate: string | null
+  mergedPrs: PRSample[]
+}): ContributionConventions {
+  const { contributing, prTemplate, mergedPrs } = input
+
+  // ---- signoff_required ----
+  const signoff_required = contributing
+    ? /(?:sign-?off-?by|developer\s+certificate\s+of\s+origin|\bdco\b|git\s+commit\s+-s)/i.test(
+        contributing
+      )
+    : false
+
+  // ---- commit_style + title_prefix_pattern ----
+  let commit_style: CommitStyle = 'freeform'
+  let title_prefix_pattern: string | null = null
+  let source: ConventionsSource = 'default'
+  let raw_excerpt = ''
+
+  if (
+    contributing &&
+    /(?:conventional\s+commits|commit\s+message\s+convention)/i.test(contributing)
+  ) {
+    commit_style = 'conventional'
+    title_prefix_pattern = CONVENTIONAL_PATTERN_STR
+    source = 'contributing'
+    raw_excerpt = contributing.slice(0, 500)
+  }
+
+  // Fall back to merged-commit sampling. Need a meaningful sample size
+  // (≥5 merged PRs) before claiming a pattern is enforced.
+  if (commit_style === 'freeform' && mergedPrs.length >= 5) {
+    const recent = [...mergedPrs]
+      .filter(pr => pr.mergedAt)
+      .sort((a, b) => (b.mergedAt ?? '').localeCompare(a.mergedAt ?? ''))
+      .slice(0, 50)
+
+    if (recent.length >= 5) {
+      const conventionalCount = recent.filter(pr => CONVENTIONAL_PREFIX_RE.test(pr.title)).length
+      const jiraCount = recent.filter(pr => JIRA_PREFIX_RE.test(pr.title)).length
+      const threshold = recent.length * 0.8
+
+      if (conventionalCount >= threshold) {
+        commit_style = 'conventional'
+        title_prefix_pattern = CONVENTIONAL_PATTERN_STR
+        source = 'merged-commits'
+        raw_excerpt = recent
+          .slice(0, 5)
+          .map(pr => pr.title)
+          .join('\n')
+      } else if (jiraCount >= threshold) {
+        commit_style = 'prefix-required'
+        title_prefix_pattern = JIRA_PATTERN_STR
+        source = 'merged-commits'
+        raw_excerpt = recent
+          .slice(0, 5)
+          .map(pr => pr.title)
+          .join('\n')
+      }
+    }
+  }
+
+  // ---- body_structure ----
+  const body_structure: string[] = []
+  if (prTemplate) {
+    const sections = parsePrTemplateSections(prTemplate)
+    for (const sec of sections) {
+      const cleaned = sec.heading
+        .replace(/\*+\s*$/, '')
+        .replace(/\s*\(required\)\s*$/i, '')
+        .trim()
+      if (cleaned) body_structure.push(cleaned)
+    }
+    if (source === 'default' && body_structure.length > 0) {
+      source = 'pr-template'
+      raw_excerpt = prTemplate.slice(0, 500)
+    }
+  }
+
+  // ---- references.close_keyword / syntax / in_body ----
+  // Most-frequent keyword across PR template + CONTRIBUTING.md wins; default to "Fixes".
+  let close_keyword: CloseKeyword = 'Fixes'
+  const counts: Record<string, number> = {}
+  for (const text of [prTemplate, contributing]) {
+    if (!text) continue
+    for (const m of text.matchAll(/\b(Fixes|Closes|Resolves)\b\s+#\d+/gi)) {
+      const kw = (m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()) as CloseKeyword
+      counts[kw] = (counts[kw] ?? 0) + 1
+    }
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
+  if (sorted.length > 0) close_keyword = sorted[0][0] as CloseKeyword
+  const syntax = `${close_keyword} #N`
+
+  // in_body: false if CONTRIBUTING.md explicitly says don't put close keyword in body
+  let in_body = true
+  if (contributing) {
+    if (
+      /do\s+not\b[^.]{0,80}\b(?:fixes|closes|resolves)\b[^.]{0,80}\bbody\b/i.test(contributing) ||
+      /\b(?:fixes|closes|resolves)\b[^.]{0,40}\bnot\b[^.]{0,40}\bin\s+the\s+pr\s+body\b/i.test(
+        contributing
+      ) ||
+      /use\s+(?:the\s+)?commit\s+message\b[^.]{0,80}\b(?:fixes|closes|resolves)\b/i.test(
+        contributing
+      )
+    ) {
+      in_body = false
+    }
+  }
+
+  // If we never picked a real source, prefer contributing (raw excerpt) over
+  // PR template, over an empty default. This keeps evidence informative even
+  // when the only enforcement signals are signoff/close-keyword mentions.
+  if (source === 'default') {
+    if (contributing) {
+      source = 'contributing'
+      raw_excerpt = contributing.slice(0, 500)
+    } else if (prTemplate) {
+      source = 'pr-template'
+      raw_excerpt = prTemplate.slice(0, 500)
+    }
+  }
+
+  return {
+    commit_style,
+    title_prefix_pattern,
+    signoff_required,
+    body_structure,
+    references: { close_keyword, syntax, in_body },
+    evidence: { source, raw_excerpt }
   }
 }
 
@@ -940,6 +1156,89 @@ export function registerCrimsonKittyRoutes(app: OpenAPIHono<HonoEnv>) {
         },
         200
       )
+    } catch (err) {
+      return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
+    }
+  })
+
+  // -----------------------------------------------------------------------
+  // GET /:slug/contribution-conventions
+  // -----------------------------------------------------------------------
+  const conventionsRoute = createRoute({
+    method: 'get',
+    path: '/{slug}/contribution-conventions',
+    tags: ['Recon - Crimson Kitty'],
+    summary: 'Get contribution conventions (commit style, signoff, body structure, close keyword)',
+    description:
+      'Returns the bundle of contribution conventions a downstream consumer needs to format a compliant PR. ' +
+      'Derived from CONTRIBUTING.md (signoff, conventional-commits hint, close-keyword rules), ' +
+      'PR template (body sections), and merged-commit titles (prefix detection). ' +
+      'Always returns a complete bundle — falls through to a freeform / Fixes #N default when no signal fires.',
+    request: { params: slugParam },
+    responses: {
+      200: {
+        description: 'Contribution conventions bundle',
+        content: { 'application/json': { schema: ContributionConventionsResponseSchema } }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
+    }
+  })
+
+  app.openapi(conventionsRoute, async c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+
+    try {
+      const { slug } = c.req.valid('param')
+      const resolved = await resolveOwnerRepo(kv, slug)
+      if (!resolved) {
+        return c.json(
+          { success: false as const, error: `Cannot resolve owner/repo for slug: ${slug}` },
+          500
+        )
+      }
+      const { owner, repo, scrapedAt } = resolved
+
+      const consolidated = await getConsolidatedRecon(kv, slug)
+      let contributing: string | null = consolidated?.repoMeta?.contributingContent ?? null
+      let prTemplate: string | null = consolidated?.repoMeta?.prTemplateContent ?? null
+
+      // Live fallback when KV doesn't have the documents — same paths as the
+      // existing /contributing and /pr-template endpoints, so this stays
+      // consistent with what those return.
+      if (!contributing) {
+        const fetched = await fetchFirstExisting(
+          owner,
+          repo,
+          ['.github/CONTRIBUTING.md', 'CONTRIBUTING.md', 'docs/CONTRIBUTING.md'],
+          c.env.GITHUB_TOKEN
+        )
+        contributing = fetched?.content ?? null
+      }
+      if (!prTemplate) {
+        const fetched = await fetchFirstExisting(
+          owner,
+          repo,
+          [
+            '.github/PULL_REQUEST_TEMPLATE.md',
+            'PULL_REQUEST_TEMPLATE.md',
+            'docs/PULL_REQUEST_TEMPLATE.md',
+            '.github/pull_request_template.md'
+          ],
+          c.env.GITHUB_TOKEN
+        )
+        prTemplate = fetched?.content ?? null
+      }
+
+      const mergedPrs = consolidated?.mergedPrs ?? []
+      const data = parseContributionConventions({ contributing, prTemplate, mergedPrs })
+
+      return c.json({ success: true as const, data, _meta: buildLiveMeta(scrapedAt) }, 200)
     } catch (err) {
       return c.json({ success: false as const, error: getErrorMessage(err) }, 500)
     }
