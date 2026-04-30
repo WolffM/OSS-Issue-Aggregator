@@ -1,0 +1,6 @@
+{
+  "//": "Maps env var name (left, what the code reads) to vault key (right, what's stored). Loaded by ../hadoku_site/scripts/secrets/dev-vault.mjs at pnpm dev time.",
+  "HADOKU_SITE_TOKEN": "AGGREGATOR_HADOKU_SITE_TOKEN",
+  "SCRAPER_API_KEY": "AGGREGATOR_SCRAPER_API_KEY",
+  "SCRAPER_API_URL": "AGGREGATOR_SCRAPER_API_URL"
+}

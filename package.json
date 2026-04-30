@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/oss-aggregator",
-  "version": "2.2.20",
+  "version": "2.3.0",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "repository": {
@@ -25,7 +25,7 @@
     }
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "node ../hadoku_site/scripts/secrets/dev-vault.mjs -- vite",
     "build": "pnpm build:ui && pnpm build:api",
     "build:ui": "vite build && tsc -p tsconfig.build.json",
     "build:api": "tsup",
