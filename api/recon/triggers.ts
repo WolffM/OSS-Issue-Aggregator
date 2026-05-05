@@ -11,16 +11,19 @@ export async function triggerScrape(
   scraperApiUrl: string,
   slug: string,
   dataTypes: string[] = DEFAULT_DATA_TYPES,
-  apiKey?: string,
+  userKey?: string,
   force = false
 ): Promise<{ triggered: boolean; error?: string }> {
   try {
     const body: Record<string, unknown> = { slug, data_types: dataTypes }
     if (force) body.force = true
 
+    // Scraper backend (post-2026-05-05) only accepts X-User-Key. Bearer auth
+    // was dropped in PR1. The userKey here is a service-tier UUID from vault
+    // OSS_SCRAPER_KEY (pushed as SCRAPER_USER_KEY into the worker binding).
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (apiKey) {
-      headers.Authorization = `Bearer ${apiKey}`
+    if (userKey) {
+      headers['X-User-Key'] = userKey
     }
 
     const res = await fetch(`${scraperApiUrl}/api/v1/oss-recon/scrape`, {

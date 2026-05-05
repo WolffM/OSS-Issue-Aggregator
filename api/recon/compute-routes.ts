@@ -47,7 +47,7 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
       c.env.SCRAPER_API_URL,
       slug,
       undefined,
-      c.env.SCRAPER_API_KEY,
+      c.env.SCRAPER_USER_KEY,
       force
     )
 
