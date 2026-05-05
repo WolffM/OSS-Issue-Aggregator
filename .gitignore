@@ -38,3 +38,6 @@ e2e/screenshots/
 # Temporary
 .tmp/
 .cache/
+
+# per-repo vault key (Phase 2 of per-key ACL plan; never commit)
+.devvault.local.json
