@@ -24,14 +24,15 @@ describe('triggerScrape', () => {
     expect(body.data_types).toEqual(['issues', 'prs', 'meta', 'comments'])
   })
 
-  it('sends Authorization header when apiKey is provided', async () => {
+  it('sends X-User-Key header when userKey is provided', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true })
     vi.stubGlobal('fetch', mockFetch)
 
     await triggerScrape('https://scraper.example.com', 'fastify-fastify', undefined, 'test-key-123')
 
     const [, options] = mockFetch.mock.calls[0]
-    expect(options.headers['Authorization']).toBe('Bearer test-key-123')
+    expect(options.headers['X-User-Key']).toBe('test-key-123')
+    expect(options.headers['Authorization']).toBeUndefined()
   })
 
   it('includes data_types when provided', async () => {

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { computeAndStore, computeAndStoreAll, applyClaimOverlay } from '../precompute'
+import {
+  computeAndStore,
+  computeAndStoreAll,
+  applyClaimOverlay,
+  buildAndWriteAggregates
+} from '../precompute'
 import {
   createMockKV,
   makeConsolidatedReconData,
@@ -198,5 +203,45 @@ describe('computeAndStoreAll', () => {
     const kv = createMockKV({})
     const result = await computeAndStoreAll(kv)
     expect(result.results).toHaveLength(0)
+  })
+})
+
+// ============================================================================
+// buildAndWriteAggregates
+// ============================================================================
+
+describe('buildAndWriteAggregates', () => {
+  it('self-heals when scored-issues is missing for a freshly scraped slug', async () => {
+    // Simulate the race: scraper wrote consolidated `recon:{slug}` but the
+    // fire-and-forget /:slug/compute hasn't written scored-issues yet when
+    // scrape-complete fires. buildAndWriteAggregates should compute inline
+    // rather than silently dropping the slug.
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        issues: [makeExtendedIssue({ id: 'github-fastify-fastify-1' })]
+      }),
+      'recon:ollama-ollama': makeConsolidatedReconData({
+        repoMeta: makeRepoMeta({ owner: 'ollama', repo: 'ollama', slug: 'ollama-ollama' }),
+        issues: [makeExtendedIssue({ id: 'github-ollama-ollama-1' })]
+      })
+    })
+
+    await buildAndWriteAggregates(kv, ['fastify-fastify', 'ollama-ollama'])
+
+    // scored-issues now exists for both (inline-computed for ollama)
+    const ollamaScored = (await kv.get('recon:ollama-ollama:scored-issues', 'json')) as Record<
+      string,
+      unknown
+    >
+    expect(ollamaScored).toBeTruthy()
+    expect(Array.isArray(ollamaScored.data)).toBe(true)
+    expect((ollamaScored.data as unknown[]).length).toBe(1)
+
+    // Aggregate includes ollama
+    const agg = (await kv.get('recon:agg:cvs', 'json')) as Array<{ repoSlug: string }>
+    expect(agg).toBeTruthy()
+    const slugsInAgg = new Set(agg.map(i => i.repoSlug))
+    expect(slugsInAgg.has('ollama-ollama')).toBe(true)
+    expect(slugsInAgg.has('fastify-fastify')).toBe(true)
   })
 })

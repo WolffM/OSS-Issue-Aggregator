@@ -182,10 +182,21 @@ export function sortComparator(
  * pre-sorts into 8 KV keys (one per sort field), and writes a version key.
  */
 export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]): Promise<void> {
-  // Collect all scored issues + claims (parallel reads for speed)
+  // Collect all scored issues + claims (parallel reads for speed).
+  // If scored-issues is missing for a slug, the scraper's fire-and-forget
+  // /{slug}/compute may not have written it yet — compute inline so the new
+  // slug isn't silently dropped from the aggregate.
   const results = await Promise.all(
     slugs.map(async slug => {
-      const [scored, claims] = await Promise.all([getScoredIssues(kv, slug), getClaims(kv, slug)])
+      const [initialScored, claims] = await Promise.all([
+        getScoredIssues(kv, slug),
+        getClaims(kv, slug)
+      ])
+      let scored = initialScored
+      if (!scored) {
+        await computeAndStore(kv, slug)
+        scored = await getScoredIssues(kv, slug)
+      }
       if (!scored) return []
       return applyClaimOverlay(scored, claims ?? [])
     })
