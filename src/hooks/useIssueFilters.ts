@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { loadAggregatorPrefs, saveAggregatorPrefs } from '../prefs/aggregatorPrefs'
 import type {
   ScoredIssue,
   CVSTier,
@@ -41,8 +42,6 @@ interface UseIssueFiltersResult {
   applyFiltersAndSort: (issues: ScoredIssue[]) => ScoredIssue[]
 }
 
-const STORAGE_KEY = 'oss-aggregator-filters'
-
 const DEFAULT_FILTERS: IssueFilters = {
   tiers: [],
   lifecycleStages: [],
@@ -53,47 +52,36 @@ const DEFAULT_FILTERS: IssueFilters = {
   includeKilled: false
 }
 
-interface PersistedState {
-  viewMode: 'table' | 'cards'
-  sortField: SortField
-  sortDirection: 'asc' | 'desc'
-  filters: IssueFilters
-}
-
-function loadPersistedState(): PersistedState | null {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      return JSON.parse(saved) as PersistedState
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return null
-}
-
-function savePersistedState(state: PersistedState): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    // Ignore storage errors
-  }
-}
-
 export function useIssueFilters(): UseIssueFiltersResult {
-  const persisted = useMemo(() => loadPersistedState(), [])
-
-  const [filters, setFilters] = useState<IssueFilters>(persisted?.filters ?? DEFAULT_FILTERS)
-  const [sortField, setSortField] = useState<SortField>(persisted?.sortField ?? 'cvs')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
-    persisted?.sortDirection ?? 'desc'
-  )
+  const [filters, setFilters] = useState<IssueFilters>(DEFAULT_FILTERS)
+  const [sortField, setSortField] = useState<SortField>('cvs')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>(persisted?.viewMode ?? 'table')
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
 
-  // Persist state changes
+  // Hydrate from the unified prefs store (async). Until this resolves we hold
+  // the defaults above and suppress saving so we don't overwrite stored prefs
+  // with defaults on first render.
+  const hydratedRef = useRef(false)
   useEffect(() => {
-    savePersistedState({ viewMode, sortField, sortDirection, filters })
+    let cancelled = false
+    void loadAggregatorPrefs().then(prefs => {
+      if (cancelled) return
+      if (prefs.filters) setFilters({ ...DEFAULT_FILTERS, ...(prefs.filters as IssueFilters) })
+      if (prefs.sortField) setSortField(prefs.sortField as SortField)
+      if (prefs.sortDirection) setSortDirection(prefs.sortDirection)
+      if (prefs.viewMode) setViewMode(prefs.viewMode)
+      hydratedRef.current = true
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Persist state changes (device scope). Skipped until hydration completes.
+  useEffect(() => {
+    if (!hydratedRef.current) return
+    saveAggregatorPrefs({ viewMode, sortField, sortDirection, filters })
   }, [viewMode, sortField, sortDirection, filters])
 
   const setSort = useCallback(

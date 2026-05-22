@@ -18,39 +18,20 @@ import {
   Footer
 } from './components'
 import { ossIssuesClient } from './api/client'
+import { loadAggregatorPrefs, saveAggregatorPrefs } from './prefs/aggregatorPrefs'
 import type { ScoredIssue } from './api/types'
 import type { OssAggregatorProps } from './entry'
-
-const STORAGE_KEY = 'oss-aggregator-selected-projects'
-
-function loadSavedSelections(): string[] | null {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      const parsed: unknown = JSON.parse(saved)
-      if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-        return parsed
-      }
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return null
-}
-
-function saveSelections(slugs: string[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs))
-  } catch {
-    // Ignore storage errors
-  }
-}
 
 export default function App(props: OssAggregatorProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [selectedProjectSlugs, setSelectedProjectSlugs] = useState<string[]>([])
   const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false)
+  // Selected-projects persisted in the unified prefs store (async). We gate the
+  // default-selection logic on this load so a fresh device pulls the saved
+  // selection instead of briefly flashing "all selected".
+  const [savedSelections, setSavedSelections] = useState<string[] | null>(null)
+  const [savedSelectionsLoaded, setSavedSelectionsLoaded] = useState(false)
   const knownSlugsRef = useRef<Set<string>>(new Set())
   const [focusedRepo, setFocusedRepo] = useState<string | null>(null)
   const [versionProjects, setVersionProjects] = useState<{ slug: string; name: string }[]>([])
@@ -109,6 +90,20 @@ export default function App(props: OssAggregatorProps = {}) {
 
   const { claim, unclaim } = useClaim(refetch)
 
+  // Load the persisted selected-projects from the unified prefs store (async;
+  // also runs the one-shot legacy-localStorage migration).
+  useEffect(() => {
+    let cancelled = false
+    void loadAggregatorPrefs().then(prefs => {
+      if (cancelled) return
+      setSavedSelections(prefs.selectedProjects ?? null)
+      setSavedSelectionsLoaded(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // Fetch full project list from version endpoint on mount
   useEffect(() => {
     ossIssuesClient
@@ -133,14 +128,17 @@ export default function App(props: OssAggregatorProps = {}) {
     return [...seen.entries()].map(([slug, name]) => ({ slug, name }))
   }, [versionProjects, allIssues])
 
-  // Initialize selected projects from localStorage or select all.
+  // Initialize selected projects from the prefs store or select all.
   // Also auto-select newly discovered projects from infinite scroll
   // when all previously known projects are already selected.
   useEffect(() => {
     if (derivedProjects.length === 0) return
+    // Wait for the persisted selection to load before deciding defaults, so we
+    // don't flash "all selected" then snap to the saved subset.
+    if (!savedSelectionsLoaded) return
 
     if (!hasInitializedDefaults) {
-      const savedSlugs = loadSavedSelections()
+      const savedSlugs = savedSelections
       const allSlugs = derivedProjects.map(p => p.slug)
 
       // Track all initially known slugs
@@ -180,11 +178,17 @@ export default function App(props: OssAggregatorProps = {}) {
         setSelectedProjectSlugs(prev => [...prev, ...trulyNewSlugs])
       }
     }
-  }, [derivedProjects, hasInitializedDefaults, selectedProjectSlugs])
+  }, [
+    derivedProjects,
+    hasInitializedDefaults,
+    selectedProjectSlugs,
+    savedSelectionsLoaded,
+    savedSelections
+  ])
 
   useEffect(() => {
     if (hasInitializedDefaults && selectedProjectSlugs.length >= 0) {
-      saveSelections(selectedProjectSlugs)
+      saveAggregatorPrefs({ selectedProjects: selectedProjectSlugs })
     }
   }, [selectedProjectSlugs, hasInitializedDefaults])
 
