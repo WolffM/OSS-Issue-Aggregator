@@ -49,6 +49,7 @@ import {
   buildAndWriteAggregates,
   type AggregateSortField
 } from './precompute'
+import { computeDispatchReadiness } from './dispatch-readiness'
 
 /**
  * Strip heavy fields from ScoredIssue for the aggregate listing endpoint.
@@ -414,10 +415,17 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         const rawBase = buildRawScoredIssue(raw, healthEnvelope.data, rawScoredAt)
         issue = applyClaimOverlay([rawBase], claims ?? [])[0]
         const brief = formatIssueBrief(issue, healthEnvelope.data, meta, merged, rejected)
+        const readiness = computeDispatchReadiness(issue)
         return c.json(
           {
             success: true as const,
-            data: { issue, repoHealth: healthEnvelope.data, brief },
+            data: {
+              issue,
+              repoHealth: healthEnvelope.data,
+              brief,
+              dispatchReadinessScore: readiness.score,
+              dispatchReadinessFlags: readiness.flags
+            },
             _meta: buildScrapedOnlyMeta(consolidated?.scrapedAt ?? null)
           },
           200
@@ -430,11 +438,18 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       }
 
       const brief = formatIssueBrief(issue, healthEnvelope.data, meta, merged, rejected)
+      const readiness = computeDispatchReadiness(issue)
 
       return c.json(
         {
           success: true as const,
-          data: { issue, repoHealth: healthEnvelope.data, brief },
+          data: {
+            issue,
+            repoHealth: healthEnvelope.data,
+            brief,
+            dispatchReadinessScore: readiness.score,
+            dispatchReadinessFlags: readiness.flags
+          },
           _meta: buildMeta(scoredEnvelope)
         },
         200
@@ -501,11 +516,18 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       const rawBase = buildRawScoredIssue(rawIssue, healthEnvelope.data, scoredAt)
       const [issue] = applyClaimOverlay([rawBase], claims ?? [])
       const brief = formatIssueBrief(issue, healthEnvelope.data, meta, merged, rejected)
+      const readiness = computeDispatchReadiness(issue)
 
       return c.json(
         {
           success: true as const,
-          data: { issue, repoHealth: healthEnvelope.data, brief },
+          data: {
+            issue,
+            repoHealth: healthEnvelope.data,
+            brief,
+            dispatchReadinessScore: readiness.score,
+            dispatchReadinessFlags: readiness.flags
+          },
           _meta: buildScrapedOnlyMeta(consolidated?.scrapedAt ?? null)
         },
         200

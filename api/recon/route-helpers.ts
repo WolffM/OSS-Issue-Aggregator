@@ -235,7 +235,17 @@ export const IssueBriefResponseSchema = z
     data: z.object({
       issue: ScoredIssueSchema,
       repoHealth: RepoHealthSchema,
-      brief: z.string().openapi({ description: 'Markdown-formatted SWE agent execution context' })
+      brief: z.string().openapi({ description: 'Markdown-formatted SWE agent execution context' }),
+      dispatchReadinessScore: z.number().openapi({
+        example: 1.0,
+        description:
+          'Penalty-only dispatch readiness score in [0, 1]. Computed on read from Tier-3 issue signals; consumers should treat it as a hint, not a verdict. See docs/dispatch-readiness-overhaul.md.'
+      }),
+      dispatchReadinessFlags: z.array(z.string()).openapi({
+        example: [],
+        description:
+          'List of triggered penalty rule names (e.g. "epic_shape", "active_linked_pr"). Surfaces to operators in the inbox.'
+      })
     }),
     _meta: ResponseMetaSchema
   })

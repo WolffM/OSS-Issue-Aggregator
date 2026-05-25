@@ -69,6 +69,53 @@ export const ReactionGroupSchema = z
   })
   .openapi('ReactionGroup')
 
+// Tier-3 enrichment fields (per docs/dispatch-readiness-overhaul.md Phase 1/2).
+// These are written by the scraper post-Phase-1; readers must default to safe
+// empty values when absent so the aggregator runs cleanly in stub mode.
+export interface SubIssueSummary {
+  count: number
+  open: number
+  closed: number
+}
+
+export const SubIssueSummarySchema = z
+  .object({
+    count: z.number().openapi({ example: 0 }),
+    open: z.number().openapi({ example: 0 }),
+    closed: z.number().openapi({ example: 0 })
+  })
+  .openapi('SubIssueSummary')
+
+export interface TimelineEvent {
+  event: string
+  actor: string
+  at: string
+  detail: string
+}
+
+export const TimelineEventSchema = z
+  .object({
+    event: z.string().openapi({ example: 'renamed' }),
+    actor: z.string().openapi({ example: 'maintainer1' }),
+    at: z.string().openapi({ example: '2026-04-15T10:00:00Z' }),
+    detail: z.string().openapi({ example: 'Title changed from X to Y' })
+  })
+  .openapi('TimelineEvent')
+
+export interface CommenterMix {
+  count: number
+  distinct: number
+  maintainers: number
+}
+
+export const CommenterMixSchema = z
+  .object({
+    count: z.number().openapi({ example: 0 }),
+    distinct: z.number().openapi({ example: 0 }),
+    maintainers: z.number().openapi({ example: 0 })
+  })
+  .openapi('CommenterMix')
+
 export interface ExtendedIssue extends Issue {
   authorAssociation: string
   body?: string
@@ -82,6 +129,9 @@ export interface ExtendedIssue extends Issue {
   lastCommentAt: string | null
   lastCommentAuthor: string | null
   lastCommentAuthorAssociation: string | null
+  subIssues?: SubIssueSummary
+  recentTimelineEvents?: TimelineEvent[]
+  commenterMix?: CommenterMix
 }
 
 export const ExtendedIssueSchema = IssueSchema.extend({
@@ -99,7 +149,16 @@ export const ExtendedIssueSchema = IssueSchema.extend({
   linkedPrUrls: z.array(z.string()).openapi({ example: [] }),
   lastCommentAt: z.string().nullable().openapi({ example: null }),
   lastCommentAuthor: z.string().nullable().openapi({ example: null }),
-  lastCommentAuthorAssociation: z.string().nullable().openapi({ example: null })
+  lastCommentAuthorAssociation: z.string().nullable().openapi({ example: null }),
+  subIssues: SubIssueSummarySchema.optional().openapi({
+    description: 'Sub-issue panel summary (Tier-3 scraper enrichment). Absent → treat as zero.'
+  }),
+  recentTimelineEvents: z.array(TimelineEventSchema).optional().openapi({
+    description: 'Recent issue timeline events (Tier-3 scraper enrichment). Absent → empty.'
+  }),
+  commenterMix: CommenterMixSchema.optional().openapi({
+    description: 'Commenter participation summary (Tier-3 scraper enrichment). Absent → all zeros.'
+  })
 }).openapi('ExtendedIssue')
 
 // ============================================================================

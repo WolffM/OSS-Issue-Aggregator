@@ -540,6 +540,89 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     expect(json.data.repoHealth).toBeDefined()
     expect(json.data.repoHealth.slug).toBe('fastify-fastify')
   })
+
+  it('includes dispatch readiness score + flags (stub mode → score 1.0)', async () => {
+    // Override updatedAt + commentCount so the default 2024 timestamp from the
+    // shared fixture doesn't trip the stale_discussion penalty.
+    const scored = makeScoredIssue({
+      id: 'github-fastify-fastify-100',
+      labels: [],
+      linkedPrUrls: [],
+      commentCount: 0,
+      updatedAt: new Date().toISOString()
+    })
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
+      'recon:fastify-fastify:scored-issues': [scored],
+      'recon:fastify-fastify:health': makeRepoHealth()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.dispatchReadinessScore).toBe(1.0)
+    expect(json.data.dispatchReadinessFlags).toEqual([])
+  })
+
+  it('includes triggered readiness flags when Tier-3 signals fire', async () => {
+    const scored = makeScoredIssue({
+      id: 'github-fastify-fastify-100',
+      labels: ['epic'],
+      linkedPrUrls: ['https://github.com/fastify/fastify/pull/9999'],
+      subIssues: { count: 6, open: 4, closed: 2 },
+      commentCount: 0,
+      updatedAt: new Date().toISOString()
+    })
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
+      'recon:fastify-fastify:scored-issues': [scored],
+      'recon:fastify-fastify:health': makeRepoHealth()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.dispatchReadinessFlags).toEqual(
+      expect.arrayContaining(['epic_shape', 'active_linked_pr'])
+    )
+    // 0.30 (epic_shape) + 0.30 (active_linked_pr) = 0.60 penalty → score 0.40
+    expect(json.data.dispatchReadinessScore).toBeCloseTo(0.4, 5)
+  })
+
+  it('preserves Tier-3 ExtendedIssue fields through the brief response', async () => {
+    const scored = makeScoredIssue({
+      id: 'github-fastify-fastify-100',
+      subIssues: { count: 2, open: 1, closed: 1 },
+      commenterMix: { count: 4, distinct: 3, maintainers: 1 },
+      recentTimelineEvents: [
+        {
+          event: 'labeled',
+          actor: 'maintainer1',
+          at: '2026-05-01T00:00:00Z',
+          detail: 'Added label: bug'
+        }
+      ]
+    })
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
+      'recon:fastify-fastify:scored-issues': [scored],
+      'recon:fastify-fastify:health': makeRepoHealth()
+    })
+    const app = createTestApp(kv)
+
+    const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
+    expect(res.status).toBe(200)
+
+    const json = await res.json()
+    expect(json.data.issue.subIssues).toEqual({ count: 2, open: 1, closed: 1 })
+    expect(json.data.issue.commenterMix).toEqual({ count: 4, distinct: 3, maintainers: 1 })
+    expect(json.data.issue.recentTimelineEvents).toHaveLength(1)
+    expect(json.data.issue.recentTimelineEvents[0].event).toBe('labeled')
+  })
 })
 
 describe('POST /:slug/claim', () => {
