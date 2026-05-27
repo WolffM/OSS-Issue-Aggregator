@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/oss-aggregator",
-  "version": "2.3.5",
+  "version": "2.3.6",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "repository": {
@@ -31,6 +31,7 @@
     "build:api": "tsup",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "lint:css": "stylelint \"src/**/*.css\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "vitest run --config vitest.config.api.ts",
@@ -69,6 +70,8 @@
     "prettier": "^3.8.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "stylelint": "^17.12.0",
+    "stylelint-value-no-unknown-custom-properties": "^6.1.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
