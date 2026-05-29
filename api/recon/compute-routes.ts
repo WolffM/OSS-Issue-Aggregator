@@ -2,7 +2,7 @@
  * Pre-computation & Trigger Routes
  */
 
-import { type OpenAPIHono, createRoute } from '@hono/zod-openapi'
+import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import {
   type HonoEnv,
   requireKV,
@@ -155,11 +155,56 @@ export function registerComputeRoutes(app: OpenAPIHono<HonoEnv>) {
     }
 
     const slugs = await getScrapedSlugs(kv)
-    c.executionCtx.waitUntil(buildAndWriteAggregates(kv, slugs))
+    // Wrap in a catch so a thrown rebuild surfaces in logs instead of
+    // vanishing inside waitUntil (the 2026-05-28 silent-drop bug).
+    c.executionCtx.waitUntil(
+      buildAndWriteAggregates(kv, slugs).catch(err => {
+        console.error(
+          `scrape-complete: buildAndWriteAggregates threw: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        )
+      })
+    )
 
     return c.json(
-      { success: true as const, message: 'Scrape-complete received, aggregate rebuild started' },
+      {
+        success: true as const,
+        message: `Scrape-complete received, aggregate rebuild started for ${slugs.length} slugs`
+      },
       202
     )
+  })
+
+  // GET /agg/build-status — read the last aggregate-rebuild outcome.
+  // Observability for the otherwise log-less waitUntil rebuild: shows how
+  // many slugs were processed, total issues, and any zero-issue / errored
+  // slugs so operators can see WHY a repo didn't make it into the aggregate.
+  const buildStatusRoute = createRoute({
+    method: 'get',
+    path: '/agg/build-status',
+    tags: ['Recon - Triggers'],
+    summary: 'Last aggregate-rebuild status',
+    description:
+      'Returns the diagnostics written by the most recent buildAndWriteAggregates run (recon:agg:last-build).',
+    responses: {
+      200: {
+        description: 'Build status',
+        content: { 'application/json': { schema: z.object({}).passthrough() } }
+      },
+      500: {
+        description: 'Server error',
+        content: { 'application/json': { schema: ErrorResponseSchema } }
+      }
+    }
+  })
+
+  app.openapi(buildStatusRoute, async c => {
+    const kv = requireKV(c.env)
+    if (!kv) {
+      return c.json({ success: false as const, error: 'KV storage not configured' }, 500)
+    }
+    const raw = await kv.get('recon:agg:last-build', 'json')
+    return c.json(raw ?? { success: false as const, error: 'no build status recorded yet' }, 200)
   })
 }

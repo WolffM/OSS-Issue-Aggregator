@@ -181,30 +181,75 @@ export function sortComparator(
  * Collects all scored issues across repos, slims them, applies claims,
  * pre-sorts into 8 KV keys (one per sort field), and writes a version key.
  */
+// Process slugs in chunks rather than one 206-wide Promise.all. Each slug
+// can trigger an inline computeAndStore (a consolidated-recon read + scoring
+// + 3 KV writes), so a fully-parallel fan-out over 200+ repos can blow the
+// Cloudflare Worker subrequest / CPU limits mid-rebuild — and because the
+// whole thing ran inside waitUntil() with no error logging, a thrown limit
+// looked identical to "the new repos silently didn't make it in" (the
+// 2026-05-28 missing-12-repos incident). Chunking bounds concurrency;
+// per-slug try/catch keeps one bad repo from killing the whole aggregate;
+// the recon:agg:last-build status key makes the outcome observable without
+// Cloudflare log access.
+const AGGREGATE_CHUNK_SIZE = 20
+
+interface SlugBuildOutcome {
+  slug: string
+  issueCount: number
+  computedInline: boolean
+  error?: string
+}
+
 export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]): Promise<void> {
-  // Collect all scored issues + claims (parallel reads for speed).
-  // If scored-issues is missing for a slug, the scraper's fire-and-forget
-  // /{slug}/compute may not have written it yet — compute inline so the new
-  // slug isn't silently dropped from the aggregate.
-  const results = await Promise.all(
-    slugs.map(async slug => {
-      const [initialScored, claims] = await Promise.all([
-        getScoredIssues(kv, slug),
-        getClaims(kv, slug)
-      ])
-      let scored = initialScored
-      if (!scored) {
-        await computeAndStore(kv, slug)
-        scored = await getScoredIssues(kv, slug)
-      }
-      if (!scored) return []
-      return applyClaimOverlay(scored, claims ?? [])
-    })
-  )
+  const startedAt = Date.now()
+  const outcomes: SlugBuildOutcome[] = []
+  const collected: ScoredIssue[][] = []
 
-  const allIssues = results.flat()
+  for (let i = 0; i < slugs.length; i += AGGREGATE_CHUNK_SIZE) {
+    const chunk = slugs.slice(i, i + AGGREGATE_CHUNK_SIZE)
+    const chunkResults = await Promise.all(
+      chunk.map(async (slug): Promise<ScoredIssue[]> => {
+        try {
+          const [initialScored, claims] = await Promise.all([
+            getScoredIssues(kv, slug),
+            getClaims(kv, slug)
+          ])
+          let scored = initialScored
+          let computedInline = false
+          // If scored-issues is missing, the scraper's fire-and-forget
+          // /{slug}/compute may not have written it yet — compute inline so
+          // a freshly-added slug isn't silently dropped from the aggregate.
+          if (!scored) {
+            await computeAndStore(kv, slug)
+            scored = await getScoredIssues(kv, slug)
+            computedInline = true
+          }
+          if (!scored) {
+            outcomes.push({
+              slug,
+              issueCount: 0,
+              computedInline,
+              error: 'no scored issues after compute'
+            })
+            return []
+          }
+          const overlaid = applyClaimOverlay(scored, claims ?? [])
+          outcomes.push({ slug, issueCount: overlaid.length, computedInline })
+          return overlaid
+        } catch (err) {
+          // One repo's failure must not abort the whole rebuild — record it
+          // and continue so the other 205 repos still aggregate.
+          const msg = err instanceof Error ? err.message : String(err)
+          outcomes.push({ slug, issueCount: 0, computedInline: false, error: msg })
+          console.error(`buildAndWriteAggregates: slug=${slug} failed: ${msg}`)
+          return []
+        }
+      })
+    )
+    collected.push(...chunkResults)
+  }
 
-  // Slim all issues
+  const allIssues = collected.flat()
   const slimmed = allIssues.map(slimIssueForAggregate)
 
   // Write pre-sorted KV keys in parallel (one per sort field, ascending order)
@@ -233,6 +278,26 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
     totalCount: slimmed.length,
     projects
   })
+
+  // Observability: persist a build status so operators can see what the
+  // (otherwise log-less, waitUntil-backgrounded) rebuild actually did.
+  // Read via GET /recon/agg/build-status.
+  const zeroIssueSlugs = outcomes.filter(o => o.issueCount === 0 && !o.error).map(o => o.slug)
+  const erroredSlugs = outcomes.filter(o => o.error).map(o => ({ slug: o.slug, error: o.error }))
+  const status = {
+    builtAt: new Date().toISOString(),
+    durationMs: Date.now() - startedAt,
+    requestedSlugs: slugs.length,
+    processedSlugs: outcomes.length,
+    totalIssues: slimmed.length,
+    zeroIssueSlugs,
+    erroredSlugs
+  }
+  await kv.put('recon:agg:last-build', JSON.stringify(status))
+  console.log(
+    `buildAndWriteAggregates done: requested=${slugs.length} processed=${outcomes.length} ` +
+      `issues=${slimmed.length} zeroIssue=${zeroIssueSlugs.length} errored=${erroredSlugs.length}`
+  )
 }
 
 /**
