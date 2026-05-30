@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { logger } from '@wolffm/task-ui-components'
+import { logger } from '@wolffm/logger/client'
 import { ossIssuesClient } from '../api/client'
 
 interface UseClaimResult {

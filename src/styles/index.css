@@ -1519,7 +1519,7 @@
 
 .error-state__retry:hover {
   background-color: var(--color-danger);
-  color: var(--color-danger-text);
+  color: var(--color-on-danger);
 }
 
 /* ============================================================================
