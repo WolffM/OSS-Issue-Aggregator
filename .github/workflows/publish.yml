@@ -19,13 +19,13 @@ jobs:
           fetch-depth: 2
           token: ${{ secrets.HADOKU_SITE_TOKEN }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
-          version: 9
+          version: 11.5.0
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: https://npm.pkg.github.com
           scope: '@wolffm'
           cache: pnpm
@@ -117,7 +117,7 @@ jobs:
         if: steps.package_changed.outputs.changed == 'true'
         run: pnpm publish --no-git-checks
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.HADOKU_SITE_TOKEN }}
 
       - name: Push version bump back to repo
         if: steps.version_bump.outputs.bumped == 'true'
@@ -145,7 +145,7 @@ jobs:
             {
               "event_type": "packages_updated",
               "client_payload": {
-                "packages": ["@wolffm/oss-aggregator"],
+                "packages": ["@wolffm/hadoku-aggregator"],
                 "sha": "${{ github.sha }}",
                 "ref": "${{ github.ref }}"
               }
