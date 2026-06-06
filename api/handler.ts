@@ -24,7 +24,7 @@ interface HonoEnv {
  *
  * @example
  * ```typescript
- * import { createOSSHandler } from '@wolffm/oss-aggregator/api';
+ * import { createOSSHandler } from '@wolffm/hadoku-aggregator/api';
  *
  * export default {
  *   fetch(request: Request, env: Env) {

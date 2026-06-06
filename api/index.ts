@@ -1,8 +1,8 @@
 /**
- * @wolffm/oss-aggregator API Module
+ * @wolffm/hadoku-aggregator API Module
  *
  * This module provides the API logic for the OSS Issues Aggregator.
- * Import from '@wolffm/oss-aggregator/api' to use these exports.
+ * Import from '@wolffm/hadoku-aggregator/api' to use these exports.
  */
 
 // Handler factory (main export for Cloudflare Workers)

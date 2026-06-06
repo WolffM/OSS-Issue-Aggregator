@@ -1,7 +1,7 @@
 # hadoku-aggregator
 
 Dual-output npm package: React UI components + Hono API handler for OSS issue intelligence.
-Published as `@wolffm/oss-aggregator` to GitHub Packages.
+Published as `@wolffm/hadoku-aggregator` to GitHub Packages.
 
 ## Quick Reference
 
@@ -41,7 +41,7 @@ Publish workflow double-checks registry and bumps if needed. Never manually edit
 
 ## Cross-Repo Contracts
 
-- Publishes: `@wolffm/oss-aggregator` package (UI + API exports)
+- Publishes: `@wolffm/hadoku-aggregator` package (UI + API exports)
 - Dispatches: `packages_updated` event to `WolffM/hadoku_site` on publish
 - Consumes: `@wolffm/task-ui-components`, `@wolffm/themes` (peer deps)
 - Reads KV keys written by hadoku-scrape (`recon:{slug}` consolidated format)

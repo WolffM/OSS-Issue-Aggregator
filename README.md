@@ -25,11 +25,11 @@ This package provides both UI components and API logic:
 
 ```typescript
 // UI components (React)
-import { OSSAggregator } from '@wolffm/oss-aggregator'
-import '@wolffm/oss-aggregator/style.css'
+import { OSSAggregator } from '@wolffm/hadoku-aggregator'
+import '@wolffm/hadoku-aggregator/style.css'
 
 // API handler (Cloudflare Workers)
-import { createOSSHandler, type OSSEnv } from '@wolffm/oss-aggregator/api'
+import { createOSSHandler, type OSSEnv } from '@wolffm/hadoku-aggregator/api'
 ```
 
 ## Development
@@ -68,7 +68,7 @@ dist/
 ### For Cloudflare Workers
 
 ```typescript
-import { createOSSHandler, type OSSEnv } from '@wolffm/oss-aggregator/api'
+import { createOSSHandler, type OSSEnv } from '@wolffm/hadoku-aggregator/api'
 
 // Create handler with base path
 const app = createOSSHandler('/oss/api')
