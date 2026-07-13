@@ -28,4 +28,10 @@ export interface OSSEnv {
    * oss-issues-api`.
    */
   SCRAPER_USER_KEY?: string
+  /**
+   * Shared secret proving a request arrived via edge-router. createEdgeAuth
+   * trusts the edge-stamped X-Hadoku-Tier only when X-Edge-Auth matches this;
+   * a direct *.workers.dev hit has no valid secret and degrades to `public`.
+   */
+  EDGE_AUTH_SECRET?: string
 }
