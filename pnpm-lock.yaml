@@ -17,6 +17,9 @@ importers:
       '@wolffm/prefs-client':
         specifier: ^1.0.3
         version: 1.0.3(react@19.2.4)(zod@4.3.6)
+      '@wolffm/worker-utils':
+        specifier: ^1.2.12
+        version: 1.2.12(zod@4.3.6)
       hono:
         specifier: ^4.11.4
         version: 4.11.7
@@ -779,6 +782,10 @@ packages:
   '@vitest/utils@4.0.18':
     resolution: {integrity: sha512-msMRKLMVLWygpK3u2Hybgi4MNjcYJvwTb0Ru09+fOyCXIgT5raYP041DRRdiJiI3k/2U6SEbAETB3YtBrUkCFA==}
 
+  '@wolffm/logger@1.2.0':
+    resolution: {integrity: sha512-9pqcvJDxovJM4Oa8HGOJjAsQhLWvKRggCYA/GxLLx4ecL5LfNQ7e0rloGj+7vmPVi99LSKM62bdFLCkqriQ8ow==, tarball: https://npm.pkg.github.com/download/@wolffm/logger/1.2.0/f5273f73dcd94c4a33615068e0710f988a9ad793}
+    engines: {node: '>=18'}
+
   '@wolffm/logger@1.2.2':
     resolution: {integrity: sha512-J03bC4YwzQhasl69s8QZTEgDK6Ac8sqczmWG1g4hiw1d0bwebzT6hhN25WnnObf0qcBYasO4hoUesbtzdIMTCQ==, tarball: https://npm.pkg.github.com/download/@wolffm/logger/1.2.2/4a825558de7e025630477699ba2bd74f7b44b651}
     engines: {node: '>=18'}
@@ -800,6 +807,9 @@ packages:
     peerDependencies:
       '@wolffm/task-ui-components': '*'
       react: ^18.0.0 || ^19.0.0
+
+  '@wolffm/worker-utils@1.2.12':
+    resolution: {integrity: sha512-IKe8vsKwAteIhJA+4fjSoBouzLObtWPYCWe5/1iirObx5m22dOoEXS+OJPXer7f2u/BgSrDDhMhnvVpbyikJEg==, tarball: https://npm.pkg.github.com/download/@wolffm/worker-utils/1.2.12/750d1c9e1f18849583ae7b86fde5b11f53d3e5e2}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2491,6 +2501,8 @@ snapshots:
       '@vitest/pretty-format': 4.0.18
       tinyrainbow: 3.0.3
 
+  '@wolffm/logger@1.2.0': {}
+
   '@wolffm/logger@1.2.2': {}
 
   '@wolffm/prefs-client@1.0.3(react@19.2.4)(zod@4.3.6)':
@@ -2506,6 +2518,14 @@ snapshots:
     dependencies:
       '@wolffm/task-ui-components': 2.0.1(react@19.2.4)
       react: 19.2.4
+
+  '@wolffm/worker-utils@1.2.12(zod@4.3.6)':
+    dependencies:
+      '@hono/zod-openapi': 1.2.0(hono@4.11.7)(zod@4.3.6)
+      '@wolffm/logger': 1.2.0
+      hono: 4.11.7
+    transitivePeerDependencies:
+      - zod
 
   acorn-jsx@5.3.2(acorn@8.15.0):
     dependencies:
