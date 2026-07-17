@@ -18,8 +18,8 @@ importers:
         specifier: ^1.0.5
         version: 1.0.5(react@19.2.4)(zod@4.3.6)
       '@wolffm/worker-utils':
-        specifier: ^1.2.12
-        version: 1.2.12(zod@4.3.6)
+        specifier: ^1.2.13
+        version: 1.2.13(zod@4.3.6)
       hono:
         specifier: ^4.11.4
         version: 4.11.7
@@ -808,8 +808,8 @@ packages:
       '@wolffm/task-ui-components': '*'
       react: ^18.0.0 || ^19.0.0
 
-  '@wolffm/worker-utils@1.2.12':
-    resolution: {integrity: sha512-IKe8vsKwAteIhJA+4fjSoBouzLObtWPYCWe5/1iirObx5m22dOoEXS+OJPXer7f2u/BgSrDDhMhnvVpbyikJEg==, tarball: https://npm.pkg.github.com/download/@wolffm/worker-utils/1.2.12/750d1c9e1f18849583ae7b86fde5b11f53d3e5e2}
+  '@wolffm/worker-utils@1.2.13':
+    resolution: {integrity: sha512-l2qv4HABMBOyUBsENAgMeglui1HaLfAfqZHa3MRDbwWxJT80RUaQbJBnSxVSwSWXOBboB1rab9IepUtP4z8ZhQ==, tarball: https://npm.pkg.github.com/download/@wolffm/worker-utils/1.2.13/ea01997335bafa9c157c7c9957069b434b311bd2}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2519,7 +2519,7 @@ snapshots:
       '@wolffm/task-ui-components': 2.0.1(react@19.2.4)
       react: 19.2.4
 
-  '@wolffm/worker-utils@1.2.12(zod@4.3.6)':
+  '@wolffm/worker-utils@1.2.13(zod@4.3.6)':
     dependencies:
       '@hono/zod-openapi': 1.2.0(hono@4.11.7)(zod@4.3.6)
       '@wolffm/logger': 1.2.0

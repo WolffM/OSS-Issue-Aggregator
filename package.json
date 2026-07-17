@@ -44,7 +44,7 @@
     "@hono/zod-openapi": "^1.1.5",
     "@wolffm/logger": "^1.2.2",
     "@wolffm/prefs-client": "^1.0.5",
-    "@wolffm/worker-utils": "^1.2.12",
+    "@wolffm/worker-utils": "^1.2.13",
     "hono": "^4.11.4",
     "marked": "^17.0.3",
     "zod": "^4.1.13"
