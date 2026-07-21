@@ -18,6 +18,17 @@ Published as `@wolffm/hadoku-aggregator` to GitHub Packages.
 - `api/recon/` — Scoring engine, KV reader/writer, dossier compiler (18 modules)
 - Vite builds `src/` → `dist/index.js`; tsup builds `api/` → `dist/api/index.js`
 
+## Colors
+
+All colors come from `@wolffm/themes`. Read `node_modules/@wolffm/themes/THEME_USAGE_GUIDE.md` before writing styles. This repo styles with plain CSS `var(--color-*)` in `src/styles/index.css` (no Tailwind color classes) and imports the tokens via `import '@wolffm/themes/style.css'` in `src/entry.tsx`.
+
+- **A token names a semantic role, not a hue.** Light/dark is automatic — never branch on theme mode or `[data-theme]`.
+- `<f>` ∈ `primary | success | warning | danger | neutral`. Every family has exactly six tokens: `--color-<f>`, `-dark`, `-bg`, `-hover`, `--color-on-<f>`, `--color-on-<f>-bg`. If a name isn't in that shape, it doesn't exist (v3 removed `-light`/`-lighter`/`-darker`/`--color-muted-bg`).
+- **Filled button** → `background: var(--color-<f>)` + `color: var(--color-on-<f>)`. **Tint badge** → `background: var(--color-<f>-bg)` + `color: var(--color-on-<f>-bg)` (NOT `var(--color-<f>)` as text — that fails AA in most themes). **Body text** → `var(--color-text)`. **Card** → `var(--color-bg-card)`. **Border** → `var(--color-border)`.
+- **Never** `var(--color-x, #hex)` fallbacks (they hide broken tokens) or hex / `white` / `var(--color-bg)` literals as text on a filled family background.
+- `entry.tsx` must import `style.css` **unlayered** — a `layer(...)` import makes every color resolve to nothing.
+- Verify with `pnpm run lint:css` (runs `check-usage` from the package over `./src`).
+
 ## Data Flow
 
 ```
