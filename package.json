@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/hadoku-aggregator",
-  "version": "2.3.10",
+  "version": "2.3.12",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "packageManager": "pnpm@11.5.0",
@@ -32,7 +32,7 @@
     "build:api": "tsup",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "lint:css": "stylelint \"src/**/*.css\"",
+    "lint:css": "stylelint \"src/**/*.css\" && node node_modules/@wolffm/themes/scripts/check-usage.mjs ./src",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "vitest run --config vitest.config.api.ts",
