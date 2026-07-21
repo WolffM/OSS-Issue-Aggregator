@@ -38,7 +38,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.HADOKU_SITE_TOKEN }}
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm --config.store-dir=${{ runner.tool_cache }}/pnpm-store install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.HADOKU_SITE_TOKEN }}
 
@@ -105,7 +105,7 @@ jobs:
             echo "bumped=true" >> $GITHUB_OUTPUT
 
             # Update lock file
-            pnpm install --lockfile-only
+            pnpm --config.store-dir=${{ runner.tool_cache }}/pnpm-store install --lockfile-only
           else
             echo "✓ Version $current_version is not published yet"
             echo "bumped=false" >> $GITHUB_OUTPUT
