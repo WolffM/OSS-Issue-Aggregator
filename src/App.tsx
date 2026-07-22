@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
-import { ConnectedThemePicker, LoadingSkeleton } from '@wolffm/task-ui-components'
+import { AppHeader, ConnectedThemePicker, LoadingSkeleton } from '@wolffm/task-ui-components'
 import { THEME_ICON_MAP } from '@wolffm/themes'
 import { useTheme } from './hooks/useTheme'
 import { useAllScoredIssues } from './hooks/useAllScoredIssues'
@@ -269,21 +269,9 @@ export default function App(props: OssAggregatorProps = {}) {
       data-dark-theme={isDarkTheme ? 'true' : 'false'}
     >
       <div className="oss-aggregator">
-        <header className="oss-aggregator__header">
-          <h1 className="oss-aggregator__title">OSS Recon Dashboard</h1>
-
-          <div className="oss-aggregator__controls">
-            <button
-              className={`refresh-button ${issuesLoading ? 'refresh-button--loading' : ''}`}
-              onClick={() => {
-                void refetch()
-              }}
-              disabled={issuesLoading}
-            >
-              <span className="refresh-button__icon">↻</span>
-              <span>Refresh</span>
-            </button>
-
+        <AppHeader
+          title="OSS Recon Dashboard"
+          themePicker={
             <ConnectedThemePicker
               themeFamilies={THEME_FAMILIES}
               currentTheme={theme}
@@ -293,8 +281,21 @@ export default function App(props: OssAggregatorProps = {}) {
                 return Icon ? <Icon /> : null
               }}
             />
-          </div>
-        </header>
+          }
+        />
+
+        <div className="oss-aggregator__actions">
+          <button
+            className={`refresh-button ${issuesLoading ? 'refresh-button--loading' : ''}`}
+            onClick={() => {
+              void refetch()
+            }}
+            disabled={issuesLoading}
+          >
+            <span className="refresh-button__icon">↻</span>
+            <span>Refresh</span>
+          </button>
+        </div>
 
         <div className="oss-aggregator__body">
           <aside className="oss-aggregator__sidebar">
