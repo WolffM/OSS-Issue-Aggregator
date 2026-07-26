@@ -7,7 +7,7 @@
  * This validates that real-world data produces sensible scores.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { createReconRoutes } from '../index'
 import { createMockKV, createMockExecutionCtx } from './helpers'
 import { scoreRepoHealth } from '../health-scorer'
@@ -132,6 +132,24 @@ describe('Production Data: fastify/fastify', () => {
   // --------------------------------------------------------------------------
   describe('health scoring', () => {
     let health: RepoHealth
+
+    // The fixtures are a STATIC snapshot (scraped 2026-02-21), but the health
+    // scorer measures recency against the wall clock — `daysSince(lastPushedAt)
+    // < 7` and a 90-day recent-merge window both feed overallViability. Left on
+    // the real clock the score decays every day the fixture ages, so an absolute
+    // assertion like "viability > 30" is a time bomb: it passed for months, then
+    // started failing at 28 once the snapshot drifted past the 90-day window.
+    //
+    // Pin the clock to the snapshot date so these assertions test the SCORER
+    // against known data instead of testing how old the fixture is.
+    beforeAll(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-02-22T00:00:00Z'))
+    })
+
+    afterAll(() => {
+      vi.useRealTimers()
+    })
 
     it('scores repo health without errors', () => {
       health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)

@@ -7,7 +7,7 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
-import { createEdgeAuth, requireUserType } from '@wolffm/worker-utils'
+import { createEdgeAuth, requireMinTier } from '@wolffm/worker-utils'
 import type { OSSEnv } from './types'
 import { createReconRoutes } from './recon'
 import { HealthResponseSchema } from './schemas'
@@ -48,11 +48,12 @@ export function createOSSHandler(basePath = '/oss/api') {
 
   // Reads are public (this is a public-facing OSS-triage surface). Writes —
   // recompute, scrape-complete webhook, claim/unclaim — are not: gate every
-  // mutating method to friend/admin, plus `service` so the scraper's own
-  // scrape-complete + compute calls (X-User-Key = its service key) still pass.
+  // mutating method at friend and up. Tiers rank (public < friend < service <
+  // admin), so the scraper's own scrape-complete + compute calls (X-User-Key =
+  // its service key) pass by outranking friend, without being listed.
   // Origin bypass and forged tiers land as `public` here and get 403'd. GET /
   // HEAD stay public and OPTIONS is left to the CORS middleware above.
-  app.on(['POST', 'PUT', 'PATCH', 'DELETE'], '*', requireUserType(['admin', 'friend', 'service']))
+  app.on(['POST', 'PUT', 'PATCH', 'DELETE'], '*', requireMinTier('friend'))
 
   // Health check
   const healthRoute = createRoute({
