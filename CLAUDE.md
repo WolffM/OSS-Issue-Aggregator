@@ -69,7 +69,7 @@ Publish workflow double-checks registry and bumps if needed. Never manually edit
 ## Environment (Cloudflare Worker)
 
 - `CACHE_KV`: KV namespace binding (required)
-- `SCRAPER_API_URL` + `SCRAPER_API_KEY`: for triggering scraper (required)
+- `SCRAPER_API_URL` + `SCRAPER_USER_KEY`: for triggering scraper (required)
 - `GITHUB_TOKEN`, `PHABRICATOR_TOKEN`: legacy marking (optional)
 
 ## Auth & secrets (hadoku ecosystem)

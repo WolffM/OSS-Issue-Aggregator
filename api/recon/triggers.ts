@@ -19,8 +19,9 @@ export async function triggerScrape(
     if (force) body.force = true
 
     // Scraper backend (post-2026-05-05) only accepts X-User-Key. Bearer auth
-    // was dropped in PR1. The userKey here is a service-tier UUID from vault
-    // OSS_SCRAPER_KEY (pushed as SCRAPER_USER_KEY into the worker binding).
+    // was dropped in PR1. The userKey here is this app's own service-tier UUID
+    // (AGGREGATOR_SERVICE_KEY, bound into the worker as SCRAPER_USER_KEY) —
+    // inter-app calls authorise by tier, not by a per-pair credential.
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (userKey) {
       headers['X-User-Key'] = userKey
