@@ -149,7 +149,7 @@
 .project-selector__action:hover:not(:disabled) {
   background-color: var(--color-bg-hover);
   border-color: var(--color-primary);
-  color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .project-selector__list {
@@ -208,7 +208,7 @@
 }
 
 .project-selector__name-btn:hover {
-  color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .project-selector__count {
@@ -349,11 +349,11 @@
 }
 
 .issue-table__header-cell--sortable:hover {
-  color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .issue-table__header-cell--sorted {
-  color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .issue-table__row {
@@ -404,9 +404,9 @@
   border: none;
   padding: 0;
   font-size: 0.8125rem;
-  color: var(--color-primary);
+  color: var(--color-text);
   cursor: pointer;
-  text-decoration: none;
+  text-decoration: underline;
 }
 
 .issue-table__repo-link:hover {
@@ -499,7 +499,8 @@
   border: none;
   padding: 0;
   font-size: 0.75rem;
-  color: var(--color-primary);
+  color: var(--color-text);
+  text-decoration: underline;
   cursor: pointer;
   margin-bottom: 0.75rem;
 }
@@ -647,7 +648,7 @@
 }
 
 .claim-badge__author {
-  color: var(--color-primary);
+  color: var(--color-text);
   font-weight: 500;
 }
 
@@ -723,13 +724,13 @@
 }
 
 .complexity-text--low {
-  color: var(--color-success);
+  color: var(--color-text);
 }
 .complexity-text--medium {
-  color: var(--color-warning);
+  color: var(--color-text);
 }
 .complexity-text--high {
-  color: var(--color-danger);
+  color: var(--color-text);
 }
 
 /* ============================================================================
@@ -837,7 +838,7 @@
   font-size: 0.875rem;
 }
 .dossier__error {
-  color: var(--color-danger);
+  color: var(--color-text);
 }
 
 .dossier__tabs {
@@ -871,7 +872,7 @@
 }
 
 .dossier__tab--active {
-  color: var(--color-primary);
+  color: var(--color-text);
   border-bottom-color: var(--color-primary);
 }
 
@@ -942,7 +943,8 @@
   margin-bottom: 0.25rem;
 }
 .dossier__content a {
-  color: var(--color-primary);
+  color: var(--color-text);
+  text-decoration: underline;
 }
 
 .dossier__actions {
@@ -958,7 +960,7 @@
 
 .dossier__feedback {
   font-size: 0.75rem;
-  color: var(--color-success);
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
@@ -1020,7 +1022,7 @@
 
 .issue-detail__title {
   display: block;
-  color: var(--color-primary);
+  color: var(--color-text);
   text-decoration: none;
   font-size: 1rem;
   font-weight: 600;
@@ -1155,11 +1157,11 @@
 }
 .issue-detail__action-btn--claim {
   border-color: var(--color-success);
-  color: var(--color-success);
+  color: var(--color-text);
 }
 .issue-detail__action-btn--unclaim {
   border-color: var(--color-warning);
-  color: var(--color-warning);
+  color: var(--color-text);
 }
 
 .issue-detail__killed-warning {
@@ -1216,13 +1218,13 @@
 }
 
 .repo-health__score--viable .repo-health__score-number {
-  color: var(--color-success);
+  color: var(--color-text);
 }
 .repo-health__score--caution .repo-health__score-number {
-  color: var(--color-warning);
+  color: var(--color-text);
 }
 .repo-health__score--killed .repo-health__score-number {
-  color: var(--color-danger);
+  color: var(--color-text);
 }
 
 .repo-health__killed-warning {
@@ -1340,7 +1342,7 @@
   border: 1px solid var(--color-primary);
   border-radius: 6px;
   background-color: transparent;
-  color: var(--color-primary);
+  color: var(--color-text);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -1406,16 +1408,16 @@
 }
 .platform-icon--gitlab,
 .platform-icon--trac {
-  color: var(--color-warning);
+  color: var(--color-text);
 }
 .platform-icon--gitea {
-  color: var(--color-success);
+  color: var(--color-text);
 }
 .platform-icon--phabricator {
   color: var(--color-text-muted);
 }
 .platform-icon--bugzilla {
-  color: var(--color-danger);
+  color: var(--color-text);
 }
 
 /* ============================================================================
@@ -1463,7 +1465,7 @@
   color: var(--color-text-secondary);
 }
 .error-state {
-  color: var(--color-danger);
+  color: var(--color-text);
 }
 .empty-state {
   color: var(--color-text-secondary);
@@ -1499,7 +1501,7 @@
   border: 1px solid var(--color-danger);
   border-radius: 6px;
   background-color: transparent;
-  color: var(--color-danger);
+  color: var(--color-text);
   cursor: pointer;
   transition: all 0.2s ease;
 }
