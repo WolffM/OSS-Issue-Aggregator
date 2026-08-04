@@ -130,7 +130,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json pnpm-lock.yaml
-          git commit -m "chore: sync version to $(node -p "require('./package.json').version") [skip ci]"
+          # --no-verify: this is a bot commit of a version number the job has
+          # already decided, and the pre-commit hook is wrong for it twice over.
+          # It runs `pnpm run typecheck`, whose dep-status check reinstalls
+          # node_modules — and this is the one npm-touching step with no
+          # NODE_AUTH_TOKEN, so fetching a cross-repo @wolffm/* tarball 401s.
+          # It also re-bumps the version, because it bumps whenever
+          # package.json is staged, which is exactly what this commit stages.
+          git commit --no-verify -m "chore: sync version to $(node -p "require('./package.json').version") [skip ci]"
           git push
 
       # Notify parent app to update dependencies
