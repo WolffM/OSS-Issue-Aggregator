@@ -43,7 +43,7 @@ function asTier(tier: string) {
 
 describe('tier hierarchy at the write gate', () => {
   it('admits every tier at or above friend', async () => {
-    for (const tier of ['friend', 'service', 'admin']) {
+    for (const tier of ['friend', 'service', 'wife', 'admin']) {
       const res = await request(asTier(tier))
       expect(res.status, `${tier} must reach a friend-gated route`).not.toBe(403)
     }
