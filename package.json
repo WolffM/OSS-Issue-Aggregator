@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/hadoku-aggregator",
-  "version": "2.3.18",
+  "version": "3.0.0",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "packageManager": "pnpm@11.5.0",
@@ -51,8 +51,8 @@
   },
   "peerDependencies": {
     "@wolffm/logger": ">=1.0.0",
-    "@wolffm/task-ui-components": ">=1.0.0",
-    "@wolffm/themes": ">=1.0.0",
+    "@wolffm/task-ui-components": "^3.0.0",
+    "@wolffm/themes": "^4.0.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -66,8 +66,8 @@
     "@typescript-eslint/parser": "^8.54.0",
     "@vitejs/plugin-react": "^5.1.2",
     "@wolffm/logger": "^1.1.0",
-    "@wolffm/task-ui-components": "^2.2.4",
-    "@wolffm/themes": "^3.0.14",
+    "@wolffm/task-ui-components": "^3.0.0",
+    "@wolffm/themes": "^4.0.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.4.0",

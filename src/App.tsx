@@ -1,7 +1,6 @@
-import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
-import { AppHeader, ConnectedThemePicker, LoadingSkeleton } from '@wolffm/task-ui-components'
-import { THEME_ICON_MAP } from '@wolffm/themes'
-import { useTheme } from './hooks/useTheme'
+import { useRef, useState, useMemo, useEffect, useCallback, type RefObject } from 'react'
+import { AppHeader, LoadingSkeleton, useHadokuTheme } from '@wolffm/task-ui-components'
+import { HadokuThemeRoot } from '@wolffm/themes'
 import { useAllScoredIssues } from './hooks/useAllScoredIssues'
 import { useRepoHealth } from './hooks/useRepoHealth'
 import { useIssueFilters } from './hooks/useIssueFilters'
@@ -22,8 +21,23 @@ import { loadAggregatorPrefs, saveAggregatorPrefs } from './prefs/aggregatorPref
 import type { ScoredIssue } from './api/types'
 import type { OssAggregatorProps } from './entry'
 
+/**
+ * Provider boundary. Theme state belongs to the platform (@wolffm/themes),
+ * not to this app — the local hooks/useTheme.ts, prefs/themePrefs.ts and
+ * app/themeConfig.tsx copies are gone. AppHeader renders the shared picker
+ * from this context, so nothing below passes one.
+ */
 export default function App(props: OssAggregatorProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null)
+  return (
+    <HadokuThemeRoot theme={props.theme} containerRef={containerRef}>
+      <AppInner {...props} containerRef={containerRef} />
+    </HadokuThemeRoot>
+  )
+}
+
+function AppInner(props: OssAggregatorProps & { containerRef: RefObject<HTMLDivElement | null> }) {
+  const { containerRef } = props
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [selectedProjectSlugs, setSelectedProjectSlugs] = useState<string[]>([])
   const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false)
@@ -49,12 +63,9 @@ export default function App(props: OssAggregatorProps = {}) {
     return false
   })
 
-  const { theme, setTheme, isDarkTheme, isThemeReady, isInitialThemeLoad, THEME_FAMILIES } =
-    useTheme({
-      propsTheme: props.theme,
-      experimentalThemes: false,
-      containerRef
-    })
+  // Theme comes from <HadokuThemeRoot> above — one implementation for
+  // every app, instead of this repo's former hooks/useTheme.ts copy.
+  const { theme, isDarkTheme, isThemeReady, isInitialThemeLoad } = useHadokuTheme()
 
   // Data hooks
   const {
@@ -269,20 +280,7 @@ export default function App(props: OssAggregatorProps = {}) {
       data-dark-theme={isDarkTheme ? 'true' : 'false'}
     >
       <div className="oss-aggregator">
-        <AppHeader
-          title="OSS Recon Dashboard"
-          themePicker={
-            <ConnectedThemePicker
-              themeFamilies={THEME_FAMILIES}
-              currentTheme={theme}
-              onThemeChange={setTheme}
-              getThemeIcon={(themeName: string) => {
-                const Icon = THEME_ICON_MAP[themeName as keyof typeof THEME_ICON_MAP]
-                return Icon ? <Icon /> : null
-              }}
-            />
-          }
-        />
+        <AppHeader title="OSS Recon Dashboard" />
 
         <div className="oss-aggregator__actions">
           <button
