@@ -1,7 +1,6 @@
 import { useRef, useState, useMemo, useEffect, useCallback, type RefObject } from 'react'
 import { AppHeader, LoadingSkeleton } from '@wolffm/task-ui-components'
-import { useHadokuTheme } from '@wolffm/themes'
-import { HadokuThemeRoot } from '@wolffm/themes'
+import { useHadokuTheme, HadokuThemeRoot } from '@wolffm/themes'
 import { useAllScoredIssues } from './hooks/useAllScoredIssues'
 import { useRepoHealth } from './hooks/useRepoHealth'
 import { useIssueFilters } from './hooks/useIssueFilters'
