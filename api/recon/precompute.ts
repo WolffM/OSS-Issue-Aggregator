@@ -249,16 +249,37 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
     collected.push(...chunkResults)
   }
 
-  const allIssues = collected.flat()
-  const slimmed = allIssues.map(slimIssueForAggregate)
+  const slimmed = collected.flat().map(slimIssueForAggregate)
 
-  // Write pre-sorted KV keys in parallel (one per sort field, ascending order)
-  await Promise.all(
-    SORT_FIELDS.map(field => {
-      const sorted = [...slimmed].sort(sortComparator(field))
-      return putAggregate(kv, field, sorted)
-    })
-  )
+  // Release the FULL issue objects before serialising anything. `collected`
+  // holds every un-slimmed ScoredIssue for all ~14k issues across ~172 repos
+  // (one repo alone is ~500KB), and nothing below reads it — but it stays
+  // reachable through the entire write phase otherwise, which is exactly when
+  // peak memory matters. The intermediate flat() array is dropped by the same
+  // change, since it is no longer bound to a name.
+  collected.length = 0
+
+  // Write pre-sorted KV keys SEQUENTIALLY, one sort field at a time.
+  //
+  // This was `Promise.all` over SORT_FIELDS, and that is what has been killing
+  // the rebuild since 2026-05-25. Each putAggregate JSON.stringifies the whole
+  // slim set — currently ~19.5MB — and Promise.all starts all 8 before any
+  // resolves, so eight 19.5MB strings are alive at once: ~156MB against a
+  // 128MB isolate limit, before counting anything else.
+  //
+  // Exceeding memory TERMINATES the isolate rather than throwing, so the
+  // caller's .catch() never fired, nothing reached the logs, and neither
+  // `recon:agg:v` nor `recon:agg:last-build` (both written below) was ever
+  // reached. The aggregate simply froze at its last successful build while
+  // every scrape kept reporting success. Nothing failed loudly for 72 days.
+  //
+  // Sequential keeps exactly one serialised copy alive, so peak drops from
+  // ~156MB to ~19.5MB for this phase. It is slower by design; this runs in
+  // waitUntil after a scrape, where wall-clock is not the constraint.
+  for (const field of SORT_FIELDS) {
+    const sorted = [...slimmed].sort(sortComparator(field))
+    await putAggregate(kv, field, sorted)
+  }
 
   // Build unique project list from all issues
   const projectMap = new Map<string, string>()
