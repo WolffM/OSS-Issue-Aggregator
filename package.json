@@ -67,7 +67,7 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@wolffm/logger": "^1.1.0",
     "@wolffm/task-ui-components": "^2.2.4",
-    "@wolffm/themes": "^3.0.13",
+    "@wolffm/themes": "^3.0.14",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.4.0",
