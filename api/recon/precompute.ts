@@ -200,8 +200,71 @@ interface SlugBuildOutcome {
   error?: string
 }
 
+/**
+ * How old the aggregate may be before the read path stops trusting it.
+ *
+ * The scrape runs daily, so 48h tolerates exactly one missed run before the
+ * data is treated as unusable. The value that matters is not the precise
+ * number — it is that ANY ceiling exists. Without one, a stale aggregate is
+ * served forever: a MISSING aggregate self-heals via the fallback below, while
+ * a stale one silently wins the fast path. That asymmetry is what let the
+ * corpus sit 72 days out of date with nothing reporting a fault.
+ */
+export const AGGREGATE_MAX_AGE_MS = 48 * 60 * 60 * 1000
+
+/** Marker written when a rebuild BEGINS. See `claimRebuild`. */
+export const REBUILD_STARTED_KEY = 'recon:agg:rebuild-started'
+
+/**
+ * How long a claimed rebuild suppresses further triggers. Comfortably longer
+ * than an observed rebuild (~23s) so a slow run is never double-started, short
+ * enough that a rebuild killed mid-flight retries within the same hour.
+ */
+const REBUILD_CLAIM_TTL_MS = 15 * 60 * 1000
+
+/**
+ * Try to become the one request that triggers a rebuild.
+ *
+ * The read-path fallback fires per REQUEST, so once the aggregate goes stale
+ * every hit would start its own rebuild — each holding ~20MB and running ~23s.
+ * That turns one stale aggregate into a self-inflicted pile-up, which is a
+ * worse failure than the staleness it is reacting to.
+ *
+ * Deliberately advisory, not a lock: KV has no compare-and-set, so two requests
+ * arriving in the same instant can both claim. That is fine — the cost is one
+ * redundant rebuild, and the alternative (a real lock) is not something KV can
+ * express. It converts a stampede into at most a couple of runs.
+ *
+ * Fails OPEN: if the marker cannot be read, allow the rebuild. Never let
+ * bookkeeping be the reason the data stays stale.
+ */
+export async function claimRebuild(kv: KVNamespace): Promise<boolean> {
+  try {
+    const raw = await kv.get<{ startedAt: string }>(REBUILD_STARTED_KEY, 'json')
+    if (raw?.startedAt) {
+      const age = Date.now() - new Date(raw.startedAt).getTime()
+      if (Number.isFinite(age) && age >= 0 && age < REBUILD_CLAIM_TTL_MS) return false
+    }
+  } catch {
+    // fall through — see "fails OPEN" above
+  }
+  return true
+}
+
 export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]): Promise<void> {
   const startedAt = Date.now()
+
+  // Record that a rebuild BEGAN, before any of the work that can kill the
+  // isolate. `recon:agg:last-build` is written at the very end and therefore
+  // cannot report the failure mode that actually happens here — an OOM
+  // terminates the isolate, so nothing downstream of it ever runs. A start
+  // marker with no matching finish is the only in-band evidence that a rebuild
+  // died, and it is what `claimRebuild` reads to avoid a stampede.
+  await kv.put(
+    REBUILD_STARTED_KEY,
+    JSON.stringify({ startedAt: new Date(startedAt).toISOString(), slugs: slugs.length })
+  )
+
   const outcomes: SlugBuildOutcome[] = []
   const collected: ScoredIssue[][] = []
 

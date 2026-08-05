@@ -47,6 +47,8 @@ import {
   applyClaimOverlay,
   sortComparator,
   buildAndWriteAggregates,
+  claimRebuild,
+  AGGREGATE_MAX_AGE_MS,
   type AggregateSortField
 } from './precompute'
 import { computeDispatchReadiness } from './dispatch-readiness'
@@ -577,12 +579,31 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       const limit = limitParam ? Math.min(500, Math.max(1, parseInt(limitParam, 10) || 100)) : null
       const isPaginated = limitParam !== null
 
-      // Try pre-aggregated KV key first (fast path: 1 KV read)
-      const aggregateIssues = await getAggregate(kv, sort)
+      // Version FIRST — it is a tiny KV read, and it decides whether the
+      // ~20MB aggregate is worth reading at all.
+      //
+      // A stale aggregate is treated as MISSING. Without this the fast path
+      // wins unconditionally no matter how old the data is, which is precisely
+      // how this served a 72-day-old corpus while every scrape reported
+      // success: a missing aggregate self-heals through the fallback below, a
+      // stale one never does. Now both take the same route.
+      const versionMeta = await getAggregateVersion(kv)
+      const aggregateAgeMs = versionMeta ? Date.now() - versionMeta.version : Infinity
+      const aggregateFresh = aggregateAgeMs < AGGREGATE_MAX_AGE_MS
+      if (!aggregateFresh) {
+        console.warn(
+          `all-scored-issues: aggregate is stale (age=${
+            Number.isFinite(aggregateAgeMs)
+              ? Math.round(aggregateAgeMs / 3600000) + 'h'
+              : 'no version'
+          }), serving live and rebuilding`
+        )
+      }
+
+      // Fast path: 1 KV read, only when the aggregate is actually current.
+      const aggregateIssues = aggregateFresh ? await getAggregate(kv, sort) : null
 
       if (aggregateIssues) {
-        const versionMeta = await getAggregateVersion(kv)
-
         // Apply direction, then killed filter. Count/repoCount reflect the
         // filtered set so UI paginators don't show phantom pages.
         const ordered = dir === 'desc' ? [...aggregateIssues].reverse() : aggregateIssues
@@ -630,7 +651,22 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
       // Fallback: N+1 KV reads (pre-aggregate keys not yet built)
       // Build aggregates in background so the next request gets the fast path
       const slugs = await getScrapedSlugs(kv)
-      c.executionCtx.waitUntil(buildAndWriteAggregates(kv, slugs))
+      // Only ONE request in flight should trigger the rebuild. This fallback
+      // runs per-request, so an aggregate that is missing or stale would
+      // otherwise have every hit start its own ~23s, ~20MB rebuild.
+      // Also .catch() — this used to hand waitUntil a promise nobody handled,
+      // so a rebuild that threw vanished without trace.
+      if (await claimRebuild(kv)) {
+        c.executionCtx.waitUntil(
+          buildAndWriteAggregates(kv, slugs).catch(err => {
+            console.error(
+              `all-scored-issues: background rebuild threw: ${
+                err instanceof Error ? err.message : String(err)
+              }`
+            )
+          })
+        )
+      }
 
       const envelopes = await Promise.all(
         slugs.map(async slug => {

@@ -3,7 +3,9 @@ import {
   computeAndStore,
   computeAndStoreAll,
   applyClaimOverlay,
-  buildAndWriteAggregates
+  buildAndWriteAggregates,
+  claimRebuild,
+  REBUILD_STARTED_KEY
 } from '../precompute'
 import {
   createMockKV,
@@ -243,5 +245,53 @@ describe('buildAndWriteAggregates', () => {
     const slugsInAgg = new Set(agg.map(i => i.repoSlug))
     expect(slugsInAgg.has('ollama-ollama')).toBe(true)
     expect(slugsInAgg.has('fastify-fastify')).toBe(true)
+  })
+})
+
+// ============================================================================
+// claimRebuild — stampede guard for the read-path fallback
+// ============================================================================
+
+describe('claimRebuild', () => {
+  it('allows a rebuild when no marker exists', async () => {
+    const kv = createMockKV()
+    expect(await claimRebuild(kv)).toBe(true)
+  })
+
+  it('suppresses a second trigger while a rebuild is in flight', async () => {
+    const kv = createMockKV()
+    await kv.put(REBUILD_STARTED_KEY, JSON.stringify({ startedAt: new Date().toISOString() }))
+    // The read-path fallback runs per REQUEST. Without this, every hit on a
+    // stale aggregate starts its own ~23s, ~20MB rebuild.
+    expect(await claimRebuild(kv)).toBe(false)
+  })
+
+  it('allows a retry once the claim has aged out', async () => {
+    const kv = createMockKV()
+    const old = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    await kv.put(REBUILD_STARTED_KEY, JSON.stringify({ startedAt: old }))
+    // A rebuild killed mid-flight (OOM) never clears its own marker, so the
+    // claim MUST expire or the aggregate can never recover.
+    expect(await claimRebuild(kv)).toBe(true)
+  })
+
+  it('fails OPEN on an unreadable or malformed marker', async () => {
+    const kv = createMockKV()
+    await kv.put(REBUILD_STARTED_KEY, 'not json at all')
+    // Bookkeeping must never be the reason the data stays stale.
+    expect(await claimRebuild(kv)).toBe(true)
+  })
+})
+
+describe('buildAndWriteAggregates start marker', () => {
+  it('records that a rebuild BEGAN, before doing any work', async () => {
+    const kv = createMockKV()
+    await buildAndWriteAggregates(kv, [])
+    const marker = await kv.get(REBUILD_STARTED_KEY, 'json')
+    // `recon:agg:last-build` is written at the very END and so cannot report an
+    // OOM — the isolate dies first. A start marker with no matching finish is
+    // the only in-band evidence that a rebuild died.
+    expect(marker).toBeTruthy()
+    expect((marker as { startedAt: string }).startedAt).toBeTruthy()
   })
 })
