@@ -3,29 +3,12 @@
  * Uses @wolffm/themes for consistent theming across all apps
  */
 
-/* Light themes - explicit color scheme */
-.oss-aggregator-container[data-theme='light'],
-.oss-aggregator-container[data-theme='coffee-light'],
-.oss-aggregator-container[data-theme='nature-light'],
-.oss-aggregator-container[data-theme='lavender-light'],
-.oss-aggregator-container[data-theme='strawberry-light'],
-.oss-aggregator-container[data-theme='ocean-light'],
-.oss-aggregator-container[data-theme='cyberpunk-light'],
-.oss-aggregator-container[data-theme='pink-light'] {
-  color-scheme: light;
-}
-
-/* Dark themes - explicit color scheme, tells Dark Reader not to invert */
-.oss-aggregator-container[data-theme='dark'],
-.oss-aggregator-container[data-theme='coffee-dark'],
-.oss-aggregator-container[data-theme='nature-dark'],
-.oss-aggregator-container[data-theme='lavender-dark'],
-.oss-aggregator-container[data-theme='strawberry-dark'],
-.oss-aggregator-container[data-theme='ocean-dark'],
-.oss-aggregator-container[data-theme='cyberpunk-dark'],
-.oss-aggregator-container[data-theme='pink-dark'] {
-  color-scheme: dark only;
-}
+/* No color-scheme enumeration here: @wolffm/themes >= 3.0.14 declares
+   color-scheme on every theme block, so which theme names are light and which
+   are dark is the package's business, not ours. The hand-written list this
+   replaced had gone stale — izakaya was missing, so those two themes got no
+   color-scheme at all and their scrollbars and form controls rendered for the
+   wrong mode. */
 
 /* Dark Reader detection helper */
 .oss-aggregator-container[data-dark-theme='true'] {
