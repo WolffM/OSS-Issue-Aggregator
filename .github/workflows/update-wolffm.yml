@@ -103,7 +103,14 @@ jobs:
           fi
 
           git add package.json pnpm-lock.yaml
-          git commit -m "chore: auto-update @wolffm/* to latest"
+          # --no-verify: same rationale as publish.yml's version-sync commit
+          # (run 30952500237). Whether the dev pre-commit hook fires here
+          # depends on leftover runner state — husky's `prepare` from any
+          # earlier pnpm install in the same workdir sets core.hooksPath, and
+          # checkout@v6 reuses the .git dir. When it fires it typechecks (which
+          # can reinstall node_modules) and re-bumps the version because
+          # package.json is staged. A bot commit of dep updates needs neither.
+          git commit --no-verify -m "chore: auto-update @wolffm/* to latest"
 
           for i in 1 2 3; do
             if git push; then
