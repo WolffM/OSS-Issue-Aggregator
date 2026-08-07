@@ -117,7 +117,7 @@ jobs:
           
           # Update package.json with new version if it changed
           if [ "$new_version" != "$current_version" ]; then
-            node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); pkg.version = process.argv[1]; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');" "$new_version"
+            node -e "const fs = require('fs'); const p = 'package.json'; const src = fs.readFileSync(p, 'utf8'); const next = src.replace(/(\"version\"\s*:\s*\")[^\"]*(\")/, (m, a, b) => a + process.argv[1] + b); if (next === src) { console.error('could not patch version in ' + p); process.exit(1); } fs.writeFileSync(p, next);" "$new_version"
 
             echo "✅ Version bumped: $current_version → $new_version"
             echo "bumped=true" >> $GITHUB_OUTPUT
