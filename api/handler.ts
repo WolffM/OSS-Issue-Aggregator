@@ -76,7 +76,7 @@ export function createOSSHandler(basePath = '/oss/api') {
         success: true as const,
         data: {
           status: 'healthy' as const,
-          service: 'oss-issues-api' as const,
+          service: 'oss-recon-api' as const,
           timestamp: new Date().toISOString()
         }
       },

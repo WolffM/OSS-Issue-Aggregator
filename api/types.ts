@@ -25,7 +25,7 @@ export interface OSSEnv {
    * Service-tier key for scraper outbound (X-User-Key, NOT Bearer — scraper
    * backend dropped Bearer support 2026-05-05). Pulled from vault key
    * OSS_SCRAPER_KEY via `python scripts/administration.py cloudflare-secrets
-   * oss-issues-api`.
+   * oss-recon-api`.
    */
   SCRAPER_USER_KEY?: string
   /**

@@ -50,7 +50,7 @@ export const HealthResponseSchema = z
     success: z.literal(true),
     data: z.object({
       status: z.literal('healthy'),
-      service: z.literal('oss-issues-api'),
+      service: z.literal('oss-recon-api'),
       timestamp: z.string()
     })
   })
