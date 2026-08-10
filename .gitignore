@@ -31,7 +31,11 @@ pnpm-debug.log*
 # Testing
 coverage/
 .nyc_output/
-api/recon/__tests__/fixtures/
+# NOT api/recon/__tests__/fixtures/ — those are COMMITTED.
+# They are a hand-captured snapshot of public GitHub data for fastify/fastify
+# with no generator script, so ignoring them meant production-data.test.ts
+# could only ever run on the one machine that happened to have them, and would
+# have been unreproducible if that disk died. ~412KB, no secrets.
 test-results/
 e2e/screenshots/
 

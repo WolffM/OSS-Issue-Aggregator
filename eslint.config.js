@@ -111,6 +111,11 @@ export default [
         URLSearchParams: 'readonly',
         console: 'readonly',
         KVNamespace: 'readonly',
+        // The ctx argument every Worker handler receives. Needed here because
+        // the test helpers now TYPE their mock as ExecutionContext rather than
+        // returning a bare object literal — no-undef does not know Workers
+        // ambient types, so a correct annotation reads as an undefined name.
+        ExecutionContext: 'readonly',
         crypto: 'readonly',
         atob: 'readonly',
         btoa: 'readonly',

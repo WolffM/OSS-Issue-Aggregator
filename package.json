@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/hadoku-aggregator",
-  "version": "3.0.14",
+  "version": "3.0.15",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "packageManager": "pnpm@11.5.0",
@@ -37,7 +37,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "vitest run --config vitest.config.api.ts",
     "test:watch": "vitest --config vitest.config.api.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.api.json --noEmit",
     "prepare": "husky"
   },
   "dependencies": {

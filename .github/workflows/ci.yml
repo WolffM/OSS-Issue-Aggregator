@@ -93,6 +93,14 @@ jobs:
         if: steps.scope.outputs.run == 'true'
         run: pnpm run typecheck
 
+      # CI ran typecheck + lint and NO TESTS AT ALL, so 423 tests never executed
+      # here — which is how a test importing gitignored fixtures survived: it
+      # could only ever pass on the machine that happened to have them, and CI
+      # never noticed because CI never ran it. The fixtures are committed now.
+      - name: Test
+        if: steps.scope.outputs.run == 'true'
+        run: pnpm test
+
   lint:
     name: lint
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","hadoku-builder"]') }}

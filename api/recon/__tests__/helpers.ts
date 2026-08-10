@@ -62,13 +62,44 @@ export function createMockKV(initial: Record<string, unknown> = {}): KVNamespace
 // ============================================================================
 
 /* eslint-disable @typescript-eslint/no-empty-function */
-export function createMockExecutionCtx() {
+/**
+ * Typed as ExecutionContext so call sites do not have to cast.
+ *
+ * It was returning a bare object literal, so every `app.fetch(..., ctx)` in the
+ * suite failed to typecheck — the same TS2345 in three files. The mock is
+ * structurally complete for what the handlers use; the cast records that it is
+ * a stand-in rather than the real runtime object.
+ */
+export function createMockExecutionCtx(): ExecutionContext {
   return {
     waitUntil: (_promise: Promise<unknown>) => {},
     passThroughOnException: () => {}
-  }
+  } as unknown as ExecutionContext
 }
 /* eslint-enable @typescript-eslint/no-empty-function */
+
+// ============================================================================
+// Response helpers
+// ============================================================================
+
+/**
+ * Read a JSON response body in a test.
+ *
+ * `Response.json()` is typed `unknown` — correctly, since it is parsed network
+ * data. Tests then assert on known response shapes, which is where 294 of this
+ * package's 303 type errors came from: `const body = await res.json()` followed
+ * by `body.success`, repeated across three files.
+ *
+ * The default type parameter is deliberately permissive. These tests assert
+ * against the shape a route returns, and re-declaring those shapes here would
+ * duplicate the production schemas and then rot independently of them — the
+ * cure being worse than the disease. Pass an explicit type argument where a
+ * test wants the real contract enforced.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function readJson<T = any>(res: Response): Promise<T> {
+  return (await res.json()) as T
+}
 
 // ============================================================================
 // Fixtures

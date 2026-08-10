@@ -1,0 +1,2269 @@
+{
+  "success": true,
+  "data": {
+    "slug": "fastify/fastify",
+    "data_type": "comments",
+    "issue_count": 75,
+    "thread_count": 20,
+    "api_calls": 170,
+    "duration_ms": 46642,
+    "threads": {
+      "2955": {
+        "issueNumber": 2955,
+        "comments": [
+          {
+            "author": "barenko",
+            "authorAssociation": "NONE",
+            "body": "I discovered the fastify yesterday and I really liked the way that it handle errors. I always have to rebuild the default error handler of the frameworks that I use (java-spring, node-express, and others). This is the first time I read the doc, tested some exceptions and flows and I did have no adjust to do. The plugin concept, testing strategy and benchmark tools are also so interesting! Congratulations to you all! Fastify is a amazing piece of enginheering.",
+            "createdAt": "2021-04-22T03:31:11Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 16 }
+          },
+          {
+            "author": "rdsedmundo",
+            "authorAssociation": "NONE",
+            "body": "I'll have to play the Devil's advocate a bit here. Tried to use `fastify` and gave up at the end, it's certainly a good library but its API is nowhere near Express's simplicity.\r\n\r\nA few examples:\r\n1) Had to write this to use an in-house logger instead of Pino, because Pino writes directly to `process.stdout` and Jest transformers rely on `console.log` for trimming the output:\r\n```\r\nclass FastifyLogger {\r\n  info = logger.info.bind(logger);\r\n  error = logger.error.bind(logger);\r\n  debug = logger.debug.bind(logger);\r\n  fatal = logger.error.bind(logger);\r\n  warn = logger.warn.bind(logger);\r\n  // eslint-disable-next-line no-console\r\n  trace = console.trace;\r\n  child = () => new FastifyLogger();\r\n}\r\n```\r\n\r\nIf you comment any of those methods on the class, fastify ignores your custom class and uses Pino instead without throwing any errors.\r\n\r\n2) Had to use `app.after` otherwise my basicAuth hook would throw (but what is \"after\"? after what? well, now I know the answer to that after I faced a",
+            "createdAt": "2021-07-04T20:15:17Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "Thanks for your feedback @rdsedmundo - all those points you mentions have fundamental reason on _why_ they are done in that way. They are a few of the key reason Fastify exists.\n\nI would recommend you to open issues in the help repo in case you need help or you would like to debate those further: we should certainly improve the docs and knowing more about your use case is important. Anyway, I'm going to hide your comment as wildly off topic for this issue.",
+            "createdAt": "2021-07-04T22:03:20Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mashpie",
+            "authorAssociation": "NONE",
+            "body": "coming from `express` --to--> `fastify`\r\nstill reminds me of stepping from `apache` --to--> `nginx`",
+            "createdAt": "2021-08-17T10:25:55Z",
+            "reactions": { "thumbsUp": 17, "thumbsDown": 0, "heart": 7 }
+          },
+          {
+            "author": "jessekrubin",
+            "authorAssociation": "NONE",
+            "body": "I wrote and published a plugin that might help resolve this issue: https://github.com/jessekrubin/fastify-shitty\r\n\r\nFeedback/thoughts/tips appreciated.",
+            "createdAt": "2021-08-20T18:39:57Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "vithalreddy",
+            "authorAssociation": "NONE",
+            "body": "fastify ecosystem :heart: \r\n\r\n- swagger\r\n- ajv\r\n- error handling\r\n- ....",
+            "createdAt": "2021-08-22T12:26:09Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "GabCores",
+            "authorAssociation": "NONE",
+            "body": "I agree ! , Just provide , pleased , more samples about Fastify contribution to microservicies scenarios.  I feel/guess that this framework has a huge potential in helping on migration processes from monolithic into micros . Thanks for all your effort , @mcollina  @delvedor @marcobiraghi ",
+            "createdAt": "2021-08-26T22:21:45Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "Just wanted to say I agree 100%. This is such a great example of a community-driven project that I've been spending the last few weeks learning the inner workings of Fastify so that I can start contributing ASAP. Thank you!",
+            "createdAt": "2022-01-25T12:27:05Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 6 }
+          },
+          {
+            "author": "ghost",
+            "authorAssociation": "NONE",
+            "body": "Your average web developer 👨‍🔧😏 presents: [A Classified-ads web-app](https://github.com/bacloud22/classified-ads) based on Fastify 🙏 \r\n\r\n> Fastify can be defined as an amazing peace of code, or an amazing team.\r\n\r\n",
+            "createdAt": "2022-02-17T08:13:39Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "soulsam480",
+            "authorAssociation": "NONE",
+            "body": "I also love fastify, can anybody tell me how it's so fast ? ",
+            "createdAt": "2022-04-04T03:44:00Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ghost",
+            "authorAssociation": "NONE",
+            "body": "@soulsam480  I think it is a combination of things, it is built performance \"in mind\", it is fast, plus its whole ecosystem. I think for the simplest API level, it avoids `JSON.stringify` which most other frameworks find themselves doing to deliver a response. It does Stringify objects somehow (I don't know how, based on keys and types ?), \r\nPlus, logging is taking care of, plugins could be registered at app level, route level but also a chosen list of routes level (encapsulation).\r\nI know I am aware of these which are some of Fastify options to perform better, you should check docs and videos about it.\r\nNote that this is my understanding and I'm using it as a \"black-box\", so maybe not 100% accurate.",
+            "createdAt": "2022-04-04T07:14:42Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "raviroshanmehta",
+            "authorAssociation": "NONE",
+            "body": "I am looking for some references to use @fastify with gRPC.  Any reference would be appreciated. Please suggest if anyone did it.",
+            "createdAt": "2022-10-03T06:12:07Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ghost",
+            "authorAssociation": "NONE",
+            "body": "I am learning fastify rn and I love it! It is cleaner than express!",
+            "createdAt": "2023-01-24T18:35:19Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ghost",
+            "authorAssociation": "NONE",
+            "body": "@jessekrubin bruh thats awesome",
+            "createdAt": "2023-01-24T19:22:44Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "olawalejuwonm",
+            "authorAssociation": "NONE",
+            "body": "Can someone advice please. I'm in the middle of making decision between fastify and expressjs\r\n\r\nI know fastify and great but I'm afraid that It doesn't have the community, plugins and libraries as expressjs does.",
+            "createdAt": "2024-04-06T09:08:56Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:22.429970+00:00"
+      },
+      "2379": {
+        "issueNumber": 2379,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "A few interesting points: Fastify was the first framework for Node.js to support HTTP/2 and this was part of the initial idea of using our own custom `Request` and `Reply` objects. I was one of the devs that added HTTP/2 support on Node.js. I expect we add HTTP/3 support as soon as it lands on core. We have little to do here until that happens.\r\n\r\nI would recommend you to join the discussion in core and see if you could help in implementing some of it.\r\n\r\ncc @jasnell ",
+            "createdAt": "2020-07-07T12:52:57Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 5 }
+          },
+          {
+            "author": "aggarwaldev",
+            "authorAssociation": "NONE",
+            "body": "@mcollina Thank you so much for considering me. I would love to take this opportunity. Do let me know if you need any help",
+            "createdAt": "2020-07-07T13:56:31Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "niklasgrewe",
+            "authorAssociation": "NONE",
+            "body": "i would also be happy if fastify is one of the first web frameworks for nodejs that support QUIC 👍 As I have seen, iOS 14 seems to have implemented QUIC experimentally.\r\n\r\n![1606B76F-AF10-43F0-8BFE-7ED1D5BCEB53](https://user-images.githubusercontent.com/61348836/91485650-72206a00-e8ab-11ea-86ce-86965717622a.jpeg)\r\n",
+            "createdAt": "2020-08-27T19:23:02Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "aggarwaldev",
+            "authorAssociation": "NONE",
+            "body": "@mcollina Node.js v15 (Current) supports QUIC.\r\n\r\nRef: https://github.com/nodejs/node/releases/tag/v15.0.0",
+            "createdAt": "2020-10-22T09:05:09Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I'd be happy to review some (external) modules/plugins etc that can enable us to use QUIC/HTTP3 internally. There is no HTTP/3 in core, nor any binary of Node.js with Quic enabled.... because we need a patch on top of OpenSSL that they are not adding: https://www.openssl.org/blog/blog/2020/02/17/QUIC-and-OpenSSL/.  ",
+            "createdAt": "2020-10-22T10:07:52Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jasnell",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "@aggarwaldev ... The quic support in Node.js 15 is still under active development, is not yet officially supported, and still has a long way to go, not to mention the fact that it relies on an unofficial patch to openssl that is unsupported. I'm currently exploring a few options to move things forward, but, given that the Openssl omc has decided not to pick up official quic support until well after openssl 3.0 is out the door, it's going to take some time",
+            "createdAt": "2020-10-22T12:28:24Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "adminy",
+            "authorAssociation": "NONE",
+            "body": "Suppose Node.js releases a final working quic with nothing experimental could fastify core benefit from Quic out of the box or will the api have to be exposed in a certain manner to benefit from it?",
+            "createdAt": "2020-12-16T15:20:53Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jasnell",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Out of the box, no, there would need to be some work in fastify to enable it because it would be a different set of APIs. Once that internal work is done, however, for end users of fastify it should require nothing more than a configuration option.",
+            "createdAt": "2020-12-16T15:51:14Z",
+            "reactions": { "thumbsUp": 5, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flawnn",
+            "authorAssociation": "NONE",
+            "body": "How is it looking as of today with QUIC?",
+            "createdAt": "2021-08-31T20:01:53Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "> How is it looking as of today with QUIC?\n\nSame as 9 months ago.",
+            "createdAt": "2021-08-31T20:49:18Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "erulabs",
+            "authorAssociation": "NONE",
+            "body": "Are the any behind the scenes happenings now that Node.js 17 uses OpenSSL 3.0? https://github.com/nodejs/node/blob/master/doc/changelogs/CHANGELOG_V17.md#openssl-30 - seems this can move forward? Edit: It is moving forward! More info here: https://github.com/nodejs/node/pull/38233",
+            "createdAt": "2021-12-15T00:47:12Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ivanjeremic",
+            "authorAssociation": "NONE",
+            "body": "> Are the any behind the scenes happenings now that Node.js 17 uses OpenSSL 3.0? https://github.com/nodejs/node/blob/master/doc/changelogs/CHANGELOG_V17.md#openssl-30 - seems this can move forward? Edit: It is moving forward! More info here: [nodejs/node#38233](https://github.com/nodejs/node/pull/38233)\r\n\r\nAwesome, hope fastify will be first to use quic.",
+            "createdAt": "2022-03-19T08:47:33Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mrinc",
+            "authorAssociation": "NONE",
+            "body": "hows this going?",
+            "createdAt": "2023-06-20T17:55:54Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "We need to wait this: https://github.com/nodejs/node/pull/44325\r\n",
+            "createdAt": "2023-06-20T19:45:53Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 5 }
+          },
+          {
+            "author": "MarianoFacundoArch",
+            "authorAssociation": "NONE",
+            "body": "This is finally merged!",
+            "createdAt": "2024-10-11T00:57:20Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "doesn't look like it",
+            "createdAt": "2024-10-11T15:42:22Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "hg0428",
+            "authorAssociation": "NONE",
+            "body": "How's this going?",
+            "createdAt": "2024-12-13T15:47:20Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jasnell",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Progress is being made... albeit slowly. I'm hoping to actually finish up the last few bits to be able to land the experimental API by end of december. Will update here when it's done.",
+            "createdAt": "2024-12-13T15:49:59Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "hg0428",
+            "authorAssociation": "NONE",
+            "body": "> Progress is being made... albeit slowly. I'm hoping to actually finish up the last few bits to be able to land the experimental API by end of december. Will update here when it's done.\r\n\r\nThanks for the update and for working on this. This is definitely a feature that would be nice to implement.",
+            "createdAt": "2024-12-13T15:52:44Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "stevebrainng",
+            "authorAssociation": "NONE",
+            "body": "Hi, How's this going in 2025? How are you doing brother? @jasnell ",
+            "createdAt": "2025-07-05T01:29:13Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:22.615984+00:00"
+      },
+      "4434": {
+        "issueNumber": 4434,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "+1",
+            "createdAt": "2022-11-21T14:34:31Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "I have some blog posts in my todo-list about AST to deal with eslint plugins and graphql documents.\r\n\r\nI didn't think about this useful use case, I may start a POC in a couple of weeks if you did not start yet 😄 \r\n\r\n",
+            "createdAt": "2022-11-21T18:06:11Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Well, tbh i just used the eslint template generator to create a project and just that it uses requireindex npm package and create some PRs for that package. Lol\r\n\r\nLooking currently for a simple plugin where i can copy paste and modify to get the async await issue as a rule. I guess it takes a day or two to grok it.",
+            "createdAt": "2022-11-21T18:28:31Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "Instead of `eslint` plugin, `Language Server Protocol` provide more advantages.\r\nSince `Language Server Protocol` is not only for `VSCode` but all the IDE that support.",
+            "createdAt": "2022-12-01T06:28:37Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 1, "heart": 0 }
+          },
+          {
+            "author": "paulius-valiunas",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> Instead of `eslint` plugin, `Language Server Protocol` provide more advantages. Since `Language Server Protocol` is not only for `VSCode` but all the IDE that support.\r\n\r\neslint is much more versatile as it can be called from anywhere: IDE plugin, developer terminal, CI pipeline etc. There are also many IDE integrations for eslint, I would even argue probably more IDEs support eslint than language server. Fastify is not a whole new language, it's just a simple library for Javascript. It doesn't make sense to use something as powerful as language server for it.",
+            "createdAt": "2024-08-21T09:57:37Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "> eslint is much more versatile as it can be called from anywhere: IDE plugin, developer terminal, CI pipeline etc.\r\n\r\nA Language Server can solve the issue of TypeScript plugin typings, schema transform without type-provider, etc.\r\nI don't see how `eslint` would provides such ability. I means it can certainly detect bad patterns but not as good as a language server.",
+            "createdAt": "2024-08-21T10:36:42Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "An LSP can provide all of the functionality of eslint, but not the other way around.",
+            "createdAt": "2024-08-21T10:40:53Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "paulius-valiunas",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> > eslint is much more versatile as it can be called from anywhere: IDE plugin, developer terminal, CI pipeline etc.\r\n> \r\n> A Language Server can solve the issue of TypeScript plugin typings, schema transform without type-provider, etc. I don't see how `eslint` would provides such ability. I means it can certainly detect bad patterns but not as good as a language server.\r\n\r\nEslint covers all the use cases described in this issue. If you have more use cases that it wouldn't cover, please share them, I'm curious.\r\n\r\nEither way, I strongly believe that relying on a separate language server is horrible developer experience. Then you need a new file extension for your Fastify files, your existing Typescript-specific IDE plugins won't work and you can't easily mix it with generic Typescript code in the same file.\r\n\r\n> An LSP can provide all of the functionality of eslint, but not the other way around.\r\n\r\nI disagree. I've already listed eslint behaviors/use cases that LSP just cannot replica",
+            "createdAt": "2024-08-21T11:06:54Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "voxpelli",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Happy to help out here 👋 (co-lead of @eslint-community)\r\n\r\n> An LSP can provide all of the functionality of eslint, but not the other way around.\r\n\r\nWhile eg. [`svelte-check`](https://www.npmjs.com/package/svelte-check) is based around an LSP approach I'm not aware of any generic LSP-based linting approach and would say that ESLint is the go-to linting tool in the JS-ecosystem\r\n\r\n> Then you need a new file extension for your Fastify files, your existing Typescript-specific IDE plugins won't work and you can't easily mix it with generic Typescript code in the same file.\r\n\r\nOne can [provide plugins](https://www.typescriptlang.org/tsconfig/#plugins) for the TypeScript LSP, and there actually exists an ESLint plugin for it: https://github.com/Quramy/typescript-eslint-language-service\r\n",
+            "createdAt": "2024-08-21T12:32:38Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "I didn't make any comment about what should be done to satisfy this issue. I stated a truth being overlooked in regard to the two technologies. In my opinion, do both if you're interested. Or one. But suggesting eslint can do everything an LSP could theoretically provide is not at all accurate. ",
+            "createdAt": "2024-08-21T13:04:46Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "paulius-valiunas",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> But suggesting eslint can do everything an LSP could theoretically provide is not at all accurate.\r\n\r\nI don't think anyone tried to suggest that. I merely explained why eslint is better in my opinion _for this specific use case_.",
+            "createdAt": "2024-08-22T08:10:41Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jairmedeiros",
+            "authorAssociation": "NONE",
+            "body": "any update or workaround? I'm setup a fastify project with eslint and it's pretty annoying to handle with async-await issues",
+            "createdAt": "2024-09-11T20:35:46Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "I’d love to create this esLint plugin. I really enjoy working with AST parsing, and it's something I've been thinking about very recently. Fastify supports multiple paradigms, which can be confusing for beginners (e.g. of rules I can think of only-async-hooks, only-async-plugins, await-ready, await-close, no-error-sent, only-fastify-plugin, etc.).\n\nBesides that, having static analysis would greatly improve DX by catching issues before boot or runtime errors occur. ",
+            "createdAt": "2025-05-09T11:04:29Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "I created this repo: https://github.com/fastify/eslint-plugin-fastify\nBut yeah, I didn't get the chance to push meaningful code there!",
+            "createdAt": "2025-05-11T07:41:29Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "@fastify/collaborators\n@melroy89 ping.\n\nLet me know if you think of any rules that would be helpful.",
+            "createdAt": "2025-05-11T11:56:57Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "@Eomm \nI can see it but it is a private repository.",
+            "createdAt": "2025-05-11T12:07:51Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "\nI’ve started working on this, but it’s going to take some time as it’s not a trivial task.\nWe need to implement a scoped tracker.\n\nThe core issue is that to enforce certain rules, we need to confirm that methods like `register`, `addHook`, etc., are being called on actual Fastify instances not just any `MemberExpression` (e.g. `courseService.register(course)`).\nWe can’t reserve those method names globally.\n\nHere’s the first problematic case:\n\n```js\nconst app = Fastify()\n\nconst { register } = app\nregister(async function myPlugin () {\n  console.log('hello')\n})\n\nawait app.ready()\n```\n\nThis mostly doesn’t work because the `this` context is lost.\nSo, the first rule we can introduce is `no-instance-destructuring`.\n\nAnother case:\n\n```js\nimport factory from 'fastify';\nconst redeclaredFactory = factory;\nassignedFactory = redeclaredFactory;\n```\n\n```js\nconst factory = require('fastify');\nconst redeclaredFactory = factory;\nassignedFactory = redeclaredFactory;\n```\n\nThis is not that hard to track, ",
+            "createdAt": "2025-05-11T18:14:01Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "The more I think about it, the more I realize it's gonna be complex.\nWe have to follow exports too... \n\n```js\nimport factory from 'fastify'\n\nexport function getApp() {\n  const app = factory()\n\n  // some code...\n\n  return app\n}\n```\n\n```js\nimport getApp' from './app'\n\nconst app = getApp()\napp.register()\n// ...\n```\n\nAnd what about exported plugin functions?\n\nNot compatible with Autoloading.\n\nAt static time, certain rules are very complex to implement.\nNeed to study this more, but I think we could create a plugin that impose constraints at bootime.",
+            "createdAt": "2025-05-12T08:22:48Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "> I can see it but it is a private repository.\n\nThe idea was to make it public later - when we would have something.\n\n> The more I think about it, the more I realize it's gonna be complex.\n\nSame - my initial goal was a single rule:\n\n- `no-mix-async-callback`: an async hook funcion can't have the `next` callback arg",
+            "createdAt": "2025-05-12T10:39:33Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:22.784698+00:00"
+      },
+      "4960": {
+        "issueNumber": 4960,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "Thanks for reporting!\r\n\r\nCan you provide steps to reproduce? We often need a [reproducible example](https://stackoverflow.com/help/minimal-reproducible-example), e.g. some code that allows someone else to recreate your problem by just copying and pasting it. If it involves more than a couple of different file, create a new repository on GitHub and add a link to that.",
+            "createdAt": "2023-08-09T07:55:58Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "uniquenode",
+            "authorAssociation": "NONE",
+            "body": "We have the same issue but its because we are assigning the fastify instance to a variable with type FastifyInstance. Since we don't specify the generics the logger type defaults to FastifyBaseLogger, which doesn't seem to be compatible with any pino instance. Seems like the new FastifyBaseLogger type is not correct.",
+            "createdAt": "2023-08-10T07:38:45Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "pavelkornev",
+            "authorAssociation": "NONE",
+            "body": "> We have the same issue but its because we are assigning the fastify instance to a variable with type FastifyInstance. Since we don't specify the generics the logger type defaults to FastifyBaseLogger, which doesn't seem to be compatible with any pino instance. Seems like the new FastifyBaseLogger type is not correct.\r\n\r\nYeah, we also assign the server to a variable of type `FastifyInstance` and it fails starting `v4.20.0`.",
+            "createdAt": "2023-08-10T08:04:50Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ziimakc",
+            "authorAssociation": "NONE",
+            "body": "@mcollina this is example:\r\n```\r\nimport { fastify, type FastifyInstance } from \"fastify\";\r\nimport { pino } from \"pino\";\r\n\r\n// all latest versions\r\nconst log2 = pino();\r\nconst app2: FastifyInstance = fastify({\r\n\tlogger: log2,\r\n});\r\n```\r\n\r\nMaybe related to https://github.com/fastify/fastify/pull/4928",
+            "createdAt": "2023-08-10T15:20:07Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Why should it be related #4928?",
+            "createdAt": "2023-08-10T15:46:29Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "@ZiiMakc I've literally tested your example with the top-most version of Fastify, Pino and TypeScript and I could not reproduce. Please provide a full repro including the `tsconfig.json` and all relevant assets.",
+            "createdAt": "2023-08-11T08:15:47Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ziimakc",
+            "authorAssociation": "NONE",
+            "body": "@mcollina here it is: https://github.com/ZiiMakc/fastify-type-errr\r\n\r\nrun:\r\n```\r\npnpm i\r\npnpm lint\r\n```",
+            "createdAt": "2023-08-11T10:22:23Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "This is confirmed only with `\"strict\": true` in the `tsconfig.json`.\r\n\r\nThere seem to be an issue with:\r\n\r\n```\r\nType 'FastifyBaseLogger' is not assignable to type 'Logger<LoggerOptions | DestinationStream>'\r\n```\r\n\r\nWhich I think it's due to:\r\n\r\nhttps://github.com/fastify/fastify/blob/c235d2dc136a67c51095f188742c743d8cb32839/types/logger.d.ts#L24\r\n\r\nnot being compatible with\r\n\r\nhttps://github.com/pinojs/pino/blob/91a3505cfaef323f565e3cfe93f5d5077320faff/pino.d.ts#L83\r\n\r\nI don't know why this problem shows up only in strict mode and how to change this. At a first glance these seems very similar. However some of those generics are slightly different.\r\n\r\nAnyhow, this fixes your problem:\r\n\r\n```ts\r\nimport { fastify, type FastifyInstance, type FastifyBaseLogger } from \"fastify\";\r\nimport { pino } from \"pino\";\r\n\r\n// all latest versions\r\nconst log = pino();\r\nconst app: FastifyInstance = fastify({\r\n  logger: log as FastifyBaseLogger,\r\n});\r\n```",
+            "createdAt": "2023-08-11T10:49:01Z",
+            "reactions": { "thumbsUp": 13, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "rdzidziguri",
+            "authorAssociation": "NONE",
+            "body": "We faced the same problem, and the only solution is to use the `as` keyword which is not ideal, but it does the job for now.",
+            "createdAt": "2023-10-29T21:25:38Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "NotEvenANeko",
+            "authorAssociation": "NONE",
+            "body": "In the\r\n\r\n```typescript\r\nconst log = pino();\r\nconst app: FastifyInstance = fastify({\r\n  logger: log,\r\n});\r\n\r\n```\r\n\r\ncase, we are assigning `FastifyInstance<..., pino.Logger, ...>` to `FastifyInstance<..., FastifyBaseLogger, ...>`, so the type of `FastifyInstance<..., pino.Logger, ...>.childLoggerFactory` (or some other functions) need to be compatible with `FastifyInstance<..., FastifyBaseLogger, ...>.childLoggerFactory`.\r\n\r\nAnd the `childLoggerFactory` function takes a `this` parameter as type `FastifyInstance`, so it means we need to assign a `(this: FastifyInstance<..., pino.Logger, ...>): ...` to `(this: FastifyInstance<..., FastifyBaseLogger, ...>): ...`.\r\n\r\nAnd function parameters in TypeScript are **contravariant** when `strict: true` or `strictFunctionTypes: true`, which means even though `pino.Logger` is the **subtype** of `FastifyBaseLogger` (`FastifyBaseLogger` is `pino.BaseLogger` with a `child` function), the function `(this: FastifyInstance<..., pino.Logger, ...>): ...` i",
+            "createdAt": "2023-11-23T08:40:23Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "How would you fix it?",
+            "createdAt": "2023-11-23T08:54:57Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "@flakey5 could you take a look?",
+            "createdAt": "2023-11-23T08:55:23Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flakey5",
+            "authorAssociation": "NONE",
+            "body": "From my testing I believe I can second what @NotEvenANeko said about this.\r\n\r\nIt's not so much `FastifyBaseLogger` being incompatible with `Logger<LoggerOptions | DestinationStream>`, this works without error\r\n```typescript\r\nconst log = pino();\r\nconst a: FastifyBaseLogger = log;\r\nconst b: boolean | FastifyLoggerOptions<RawServerDefault> & PinoLoggerOptions | Logger = log; // type of the `logger` property in `FastifyOptions`\r\n```\r\nbut instead `pino.Logger` becoming the base type rather than `FastifyBaseLogger`. So for example a function `abc(logger: Logger)` needs either an instance of a `pino.Logger` or something that extends `pino.Logger`.\r\n\r\nIt does appear to be connected to #4760, removing `childLoggerFactory` from the `FastifyInstance` type fixes the problem\r\n\r\nFew things we can do to fix it (starting with good ending with bad),\r\n\r\n 1. Swapping this line https://github.com/fastify/fastify/blob/9ab24be4621e4988e682686843664a42f4071f3d/types/instance.d.ts#L484 for `childLoggerFactory",
+            "createdAt": "2023-11-23T20:11:06Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "@flakey5 would you like to send a PR for option 1?",
+            "createdAt": "2023-12-26T21:00:36Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:22.979522+00:00"
+      },
+      "6468": {
+        "issueNumber": 6468,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "cc @fastify/leads @fastify/collaborators @fastify/core @fastify/plugins ",
+            "createdAt": "2026-01-28T08:21:43Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "Shut it off. ",
+            "createdAt": "2026-01-28T11:03:59Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "+1",
+            "createdAt": "2026-01-28T11:30:23Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "Huge +1.",
+            "createdAt": "2026-01-28T12:57:22Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ilteoood",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "+1",
+            "createdAt": "2026-01-28T13:32:49Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "I agree to close the HackerOne, it is better to manage the vulnerabilities in a single place.\nI check Github more often than email notification.",
+            "createdAt": "2026-01-28T16:57:40Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": "+1",
+            "createdAt": "2026-01-29T07:56:40Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "onlybugs05-hackerone",
+            "authorAssociation": "NONE",
+            "body": "Huge +1",
+            "createdAt": "2026-02-08T03:17:51Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:23.168312+00:00"
+      },
+      "5555": {
+        "issueNumber": 5555,
+        "comments": [
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "100% on board. Whatever my quibbles with `node:test` may be, the new position of `tap` is untenable. ",
+            "createdAt": "2024-07-08T18:28:05Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": "+1",
+            "createdAt": "2024-07-08T18:30:31Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "Can we delay this work until `fastify@5` is released as latest?\r\nCurrently, most new PR is landed in `main` then back-ported to `4.x`. Such changes would break the automatic back-porting immediately.\r\n\r\nFor plugin, I think that should be fine. Most of them not frequently updated.",
+            "createdAt": "2024-07-09T03:22:23Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I think so!",
+            "createdAt": "2024-07-09T05:42:27Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "Yes. Dev dependencies do not affect releases. ",
+            "createdAt": "2024-07-09T10:01:32Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "marios-codes",
+            "authorAssociation": "NONE",
+            "body": "Hello! Sorry if this a dumb question. Regarding the issue does someone need to also rewrite all the test cases to use node:test?",
+            "createdAt": "2024-08-14T12:23:04Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "The needed rewrite is usually trivial.",
+            "createdAt": "2024-08-14T12:57:43Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "marios-codes",
+            "authorAssociation": "NONE",
+            "body": "Thank you for the clarification. Can I try it?",
+            "createdAt": "2024-08-14T14:02:58Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "Feel free to jump in and work on this task!\r\n\r\nWe've decided not to assign the issue to avoid any [\"cookie licking\"](https://www.redhat.com/en/blog/dont-lick-cookie), so please remember these simple guidelines:\r\n\r\n- First, check if there are any existing Pull Requests (PRs) related to this issue. Just check the notification in this page.\r\n\r\n- If you create a PR or draft PR, make sure to link it to this issue using the [GitHub keyword method](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword). It helps keep things organized, and you'll see a nice message here.\r\n\r\nDon't worry about whether this issue is assigned to your GitHub handle or not—just dive right in. We're all about collaboration here!",
+            "createdAt": "2024-08-14T14:16:12Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "marios-codes",
+            "authorAssociation": "NONE",
+            "body": "Thank you very much🙂\n\nOn Wed, Aug 14, 2024 at 5:16 PM, James Sumners ***@***.***(mailto:On Wed, Aug 14, 2024 at 5:16 PM, James Sumners <<a href=)> wrote:\n\n> Feel free to jump in and work on this task!\n>\n> We've decided not to assign the issue to avoid any [\"cookie licking\"](https://www.redhat.com/en/blog/dont-lick-cookie), so please remember these simple guidelines:\n>\n> -\n>\n> First, check if there are any existing Pull Requests (PRs) related to this issue. Just check the notification in this page.\n>\n> -\n>\n> If you create a PR or draft PR, make sure to link it to this issue using the [GitHub keyword method](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword). It helps keep things organized, and you'll see a nice message here.\n>\n> Don't worry about whether this issue is assigned to your GitHub handle or not—just dive right in. We're all about collaboration here!\n>\n> —\n> Reply to this email",
+            "createdAt": "2024-08-14T14:18:10Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Just for you to get an idea of the \"rewrite\" part.\r\n\r\nbefore\r\n```js\r\n'use strict'\r\n\r\nconst { test } = require('tap')\r\nconst { isAsyncFunction } = require('../../lib/is-async-function.js')\r\n\r\ntest('isAsyncFunction returns true for async functions', (t) => {\r\n  t.plan(1)\r\n  t.ok(isAsyncFunction(async () => { }))\r\n})\r\n\r\ntest('isAsyncFunction returns false for non-async functions', (t) => {\r\n  t.plan(1)\r\n  t.notOk(isAsyncFunction(() => { }))\r\n})\r\n\r\n```\r\n\r\nafter:\r\n```js\r\n'use strict'\r\n\r\nconst { test } = require('node:test')\r\nconst { isAsyncFunction } = require('../../lib/is-async-function.js')\r\n\r\ntest('isAsyncFunction returns true for async functions', (t) => {\r\n  t.plan(1)\r\n  t.assert.ok(isAsyncFunction(async () => { }))\r\n})\r\n\r\ntest('isAsyncFunction returns false for non-async functions', (t) => {\r\n  t.plan(1)\r\n  t.assert.ok(!isAsyncFunction(() => { }))\r\n})\r\n\r\n```\r\n\r\n",
+            "createdAt": "2024-08-14T14:23:15Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "marios-codes",
+            "authorAssociation": "NONE",
+            "body": "Which node version does main branch (v5) support as I cannot find it in the usual places? Thank you!",
+            "createdAt": "2024-08-14T15:05:37Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "as it was expressed by @climba03003 [here](https://github.com/fastify/fastify/issues/5555#issuecomment-2216337784) we will not migrate fastify as long as we did not release v5 of fastify. You can migrate one of the many plugins. ",
+            "createdAt": "2024-08-14T15:08:16Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "marios-codes",
+            "authorAssociation": "NONE",
+            "body": "Can you please elaborate a bit more as I am totally new to contributing? I mean should I work on the main (on a different branch of course) or should I work on v4 regarding the migration of the unit tests? ",
+            "createdAt": "2024-08-14T15:17:00Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "https://github.com/search?q=topic%3Afastify-plugin+org%3Afastify&type=Repositories\r\n\r\nPick one of these. Start with an easy one. E.g. fastify-helmet ",
+            "createdAt": "2024-08-14T15:51:28Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "I think a good blueprint for this task is the migration made by @dancastillo for @fastify/routes\r\n\r\nhttps://github.com/fastify/fastify-routes/pull/107",
+            "createdAt": "2024-08-16T08:07:44Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "nimesh0505",
+            "authorAssociation": "NONE",
+            "body": "Hello @mcollina,\r\n\r\nI'm working on this issue. While starting this task for the [pre-commit](https://github.com/fastify/pre-commit) repo, I realized we should first address the Node.js version support.\r\n\r\nGiven that Node.js 16 has reached its end of life, I propose the following steps before proceeding with the test framework migration:\r\n\r\n1. Remove Node.js 16 from the CI configuration in `.github/workflows/ci.yml`.\r\n   ```\r\n   node-versions: '[\"18\", \"20\", \"22\"]'\r\n   ```\r\n2. Update the `package.json` to reflect the new minimum supported Node.js version:\r\n   ```json\r\n   \"engines\": {\r\n     \"node\": \">=18\"\r\n   }\r\n   ```\r\n\r\nThis change aligns with the current LTS versions of Node.js and ensures we're not supporting EOL versions.\r\n\r\nAfter making these changes, I'll proceed with the migration from tap to node:test.\r\n\r\nWhat are your thoughts on this approach? \r\nThank you for your guidance!",
+            "createdAt": "2024-09-05T10:10:42Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "We are targeting v20+ for all the new releases of Fastify, go ahead with that in pre-commit too.",
+            "createdAt": "2024-09-05T10:50:44Z",
+            "reactions": { "thumbsUp": 3, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "narendra-reddy-nf",
+            "authorAssociation": "NONE",
+            "body": "Hi @mcollina,\n\nI will be working on migrating the tests from `tap` to `node:test` in the [fastify-flash](https://github.com/fastify/fastify-flash) repository, using Node.js v20 as the baseline, as suggested.\n\nLet me know if you have any further instructions!",
+            "createdAt": "2024-09-06T07:48:46Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "narendra-reddy-nf",
+            "authorAssociation": "NONE",
+            "body": "\nHello @mcollina,\n\nI’m migrating the fastify-flash repo to use node:test and could use your advice on a few things:\n\n1. TypeScript Compatibility: The project tests are written in TypeScript, since node:test doesn’t support TypeScript by default, I’ve been exploring options. I’ve found that tsx and ts-node can run TypeScript tests without precompiling, which is helpful. I’m also looking into test loaders but still need to test this setup.\n2. Test Reporting: Right now, the project uses tap-mocha-reporter, and I saw that node:test has a built-in JUnit reporter. I’m not sure how well it will work with TypeScript tests, so I may need to experiment to figure that out.\n3. Considering borp: I found a test runner called borp, which works with TypeScript and uses node:test. It seems like a good option since it also handles coverage with c8 and provides reporting tools. I’m wondering if switching to it might make things easier overall.\n\nI’d appreciate any thoughts you have on the best way to hand",
+            "createdAt": "2024-09-08T07:46:44Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I actually `borp` for that specific reason. Also using `tsx` would work very well for this.",
+            "createdAt": "2024-09-11T14:57:15Z",
+            "reactions": { "thumbsUp": 4, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "reidn3r",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Can i work on this issue too? Maybe by refactoring a module?",
+            "createdAt": "2024-09-14T13:15:11Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "Yeah! Everyone’s contributions are welcome!",
+            "createdAt": "2024-09-14T15:55:01Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "atharva123a",
+            "authorAssociation": "NONE",
+            "body": "hello folks! This looked like a good first issue, so i decided to clone the repo and run tests to start off just to make sure everything is working alright.\r\n\r\nBut there are some issues that are showing up when I run npm run test:\r\n\r\nSome files are failing tests: \r\n`FAILED: fastify/test/http-methods/proppatch.test.js`\r\n\r\nand I get this warning:\r\n\r\n> Warning:: Test \"Encapsulation works\" generated asynchronous activity after the test ended. This activity created the error \"TypeError: Cannot read properties of undefined (reading 'strictEqual')\" and would have caused the test to fail, but instead triggered an uncaughtException event.\r\nWarning:: Test \"Encapsulation works\" generated asynchronous activity after the test ended. This activity created the error \"FastifyError [FST_ERR_PLUGIN_TIMEOUT]: fastify-plugin: Plugin did not start in time: '(instance, opts, done) => { -- instance.decorate('use', () => true)'. You may have forgotten to call 'done' function or to resolve a Promise\" and would",
+            "createdAt": "2024-12-08T19:09:37Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "> I want to work on this and could really use any help/guidance related to this!\r\n\r\nPlease update your node version to at least `20.15.0`.\r\nI recommend to always use the latest LTS version, since we only guarantee to works on latest version of each major.",
+            "createdAt": "2024-12-09T03:39:07Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "SamSalvatico",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Is anybody working on this in relation to [Fastify Autoload](https://github.com/fastify/fastify-autoload)?\r\nI've seen that there we have mixed vitest/tap approaches, maybe I could work on this step by step\r\nI cannot see any related PR, but just want to ensure",
+            "createdAt": "2025-01-14T17:26:28Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Back in those days vitest was the best solution. For the sake of uniformity I would also recommend to move to node test runner.",
+            "createdAt": "2025-01-14T18:42:51Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "> Is anybody working on this in relation to [Fastify Autoload](https://github.com/fastify/fastify-autoload)?\r\nI've seen that there we have mixed vitest/tap approaches, maybe I could work on this step by step\r\nI cannot see any related PR, but just want to ensure\r\n\r\nBasically we need to support all those test frameworks because they do quite a lot of funky things with the Node.js process and transpilation. All tap tests should move to `node:test`, the rest should stay as they are.",
+            "createdAt": "2025-01-14T18:52:09Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "SamSalvatico",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> > Is anybody working on this in relation to [Fastify Autoload](https://github.com/fastify/fastify-autoload)?\r\n> > I've seen that there we have mixed vitest/tap approaches, maybe I could work on this step by step\r\n> > I cannot see any related PR, but just want to ensure\r\n> \r\n> Basically we need to support all those test frameworks because they do quite a lot of funky things with the Node.js process and transpilation. All tap tests should move to `node:test`, the rest should stay as they are.\r\n\r\nDigging into it I noticed the need of the vitest coverage, thanks \r\nI will work on the tap ones",
+            "createdAt": "2025-01-14T19:35:53Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "IcaroSilvaFK",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "```js \ntest('async hooks', (t, done) => {\n  t.plan(21)\n  const fastify = Fastify({ exposeHeadRoutes: false })\n  fastify.addHook('onRequest', async function (request, reply) {\n    await sleep(1)\n    request.test = 'the request is coming'\n    reply.test = 'the reply has come'\n    if (request.raw.method === 'DELETE') {\n      throw new Error('some error')\n    }\n  })\n\n  fastify.addHook('preHandler', async function (request, reply) {\n    await sleep(1)\n    t.assert.equal(request.test, 'the request is coming')\n    t.assert.equal(reply.test, 'the reply has come')\n    if (request.raw.method === 'HEAD') {\n      throw new Error('some error')\n    }\n  })\n\n  fastify.addHook('onSend', async function (request, reply, payload) {\n    await sleep(1)\n    t.assert.ok('onSend called')\n  })\n\n  fastify.addHook('onResponse', async function (request, reply) {\n    await sleep(1)\n    t.assert.ok('onResponse called')\n  })\n\n  fastify.get('/', function (request, reply) {\n    t.assert.equal(request.test, 'the request",
+            "createdAt": "2025-04-20T19:09:31Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "avifenesh",
+            "authorAssociation": "NONE",
+            "body": "@mcollina @gurgunday @ofek29\nIs there a place where the tests needing migration are tracked, to know where contribution is needed?",
+            "createdAt": "2025-04-29T18:34:50Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "@IcaroSilvaFK what is your question?",
+            "createdAt": "2025-04-29T20:34:11Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "@avifenesh no, this is the only tracking issue we have. You'll need to grep for `tap` and make sure the one you pick doesn't already have an open PR.",
+            "createdAt": "2025-04-29T20:34:50Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "avifenesh",
+            "authorAssociation": "NONE",
+            "body": "> @avifenesh no, this is the only tracking issue we have. You'll need to grep for `tap` and make sure the one you pick doesn't already have an open PR.\n\n@ofek29",
+            "createdAt": "2025-04-29T20:55:32Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Deepcoders30",
+            "authorAssociation": "NONE",
+            "body": "Hi! I’d like to work on this issue as my first contribution. Could you please assign it to me? Thanks!\n",
+            "createdAt": "2025-07-06T11:00:07Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "Feel free to jump in and work on this task!\r\n\r\nWe've decided not to assign the issue to avoid any [\"cookie licking\"](https://www.redhat.com/en/blog/dont-lick-cookie), so please remember these simple guidelines:\r\n\r\n- First, check if there are any existing Pull Requests (PRs) related to this issue. Just check the notification in this page.\r\n\r\n- If you create a PR or draft PR, make sure to link it to this issue using the [GitHub keyword method](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword). It helps keep things organized, and you'll see a nice message here.\r\n\r\nDon't worry about whether this issue is assigned to your GitHub handle or not—just dive right in. We're all about collaboration here!",
+            "createdAt": "2025-07-06T11:30:32Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:23.393731+00:00"
+      },
+      "5061": {
+        "issueNumber": 5061,
+        "comments": [
+          {
+            "author": "DemonHa",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Maybe we can use assertions to keep track of registered plugins, so plugins don't have to do declaration merging.\r\n\r\n@mcollina \r\n[Proof of concept](https://tsplay.dev/wX1GQN)",
+            "createdAt": "2023-09-27T09:29:12Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "> Maybe we can use assertions to keep track of registered plugins, so plugins don't have to do declaration merging.\r\n\r\nWow! I'm learning new magic. This could work well inside a single file.\r\nHow would that work across files? The most common form of Fastify plugin has no clue on what was registered before.  \r\n\r\n",
+            "createdAt": "2023-09-27T09:39:15Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "@webstrand gave us few weeks/months ago an asssessment regarding builder api.\r\n\r\nhttps://github.com/fastify/fastify/issues/4081#issuecomment-1639170677\r\n\r\n",
+            "createdAt": "2023-09-27T09:41:14Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "The builder API does not travel well across files... we need a solution that allows us to define in TS that plugin A requires plugin B and therefore those decorators are available.",
+            "createdAt": "2023-09-27T09:44:30Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "DemonHa",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "@mcollina Exactly, I am working on a library which had the exact same problem. Can I add you as a contributor so you can see it in action?",
+            "createdAt": "2023-09-27T09:48:30Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "Absolutely.",
+            "createdAt": "2023-09-27T10:06:46Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I did a quick check but I could not orient myself to see how you fixed this. Could you give me some pointers (here, in an issue there, or privately).",
+            "createdAt": "2023-09-27T10:32:45Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "DemonHa",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "@mcollina How can I contact you?",
+            "createdAt": "2023-09-27T10:46:22Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "email, twitter dm, discord dm (there is a fastify discord)",
+            "createdAt": "2023-09-27T11:29:01Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flakey5",
+            "authorAssociation": "NONE",
+            "body": "> ```ts\r\n> import fp from 'fastify-plugin'\r\n> import { FastifyStaticMixin } from '@fastify/static'\r\n> \r\n> export default fp(async function (app: FastifyInstance & FastifyStaticMixin, opts: object) {\r\n> \r\n> }, {\r\n>   decorators: {\r\n>     reply: FastifyStaticMixin\r\n>   }\r\n> })\r\n> ```\r\n\r\nContinuing the usage of fastify static as an example, would the `app: FastifyInstance & FastifyStaticMixin` and `decorators` object be in the fastify static codebase and globally modify the `FastifyInstance` and `FastifyReply` types after the fastify static plugin is registered, or would this code be what the user would write when they have registered fastify static and want to use `reply.sendFile` for example?",
+            "createdAt": "2023-11-08T23:12:17Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "> would this code be what the user would write when they have registered fastify static and want to use reply.sendFile for example?\r\n\r\nThat (or something similar) is the code that a user would write to get the mixin. Maybe we can simplify it a bit.",
+            "createdAt": "2023-12-27T11:33:50Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flakey5",
+            "authorAssociation": "NONE",
+            "body": "What would be the purpose of the `decorators` object? ",
+            "createdAt": "2023-12-28T21:22:01Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "The purpose is to add the necessary mixins to the passed in FastifyInstance so that `reply.sendFile` exists.",
+            "createdAt": "2023-12-29T07:59:26Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flakey5",
+            "authorAssociation": "NONE",
+            "body": "Been playing around the past couple days to see what I could get working:\r\n\r\n1. Each type that's being extended needs its own mixin (e.g. for fastify static to add properties onto `FastifyInstance` we can make `FastifyStaticMixin`, and for adding properties to `FastifyReply` we can make `FastifyStaticReplyMixin`)\r\n\r\n2. Instead of fp taking in just `FastifyInstance` for example, it will need to take in generic that extend those types (see [Playground Link](https://www.typescriptlang.org/play?#code/JYOwLgpgTgZghgYwgAgGJwM5mDAngSRCzhCWQG8AoZZDAewFsIwALUAcwGVHm2R2AXLTBQOAbkoBfSpVCRYiFOiw5cnMHGwIAssAAeoCtVo9WHAKIAbDBCEAjOnUsQSE6ZTC4ADkszY8AAqWAK7soADyXth0RMgAvBSSEpQA9CnIAGrQuLTADF6WOMAQACbIAG7QGMAxyHQwyKwoCMFQUBDgyCUQCJZwUJo1IHUNMF6p6d29-SgwwaTRw2MAFBM06zAgQstwXl5Cyv4ERBqkEAA0dVEYQnR2AFY9YACU8QB8FXTAJedr61eLDAAfgOflUQVCESiQwwa2eQnKXxKyTSyG0dBKRVKXR6fQGi0aLE0yDglksdAA7hhkDA6FBCSgGPpQLCpnjZvMEASxgAeQjEM7ICB6SAgErUw6qfmnMgJSV4aUkJBvVY0TbbXb7ZCKs6XOjXW4PJ6vOIfRHfX40fWAkFoMGBEJhECRQGUeGfb4yFY7Pa",
+            "createdAt": "2024-01-01T22:32:30Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "1. yes\n2. yes\n3. no\n\n> How would people feel about an api for using request & reply mixins that's similar to the proposed way to use mixins for FastifyInstance?\n\nUnfortunately this is not good. There can be _tens_ of plugins registered, so this would become untenable in the route definition.\nI'm ok for this to be in the plugin definition, because in this case things can be reused.\n\n---\n\nNote that `fp` is only an utility on top facilities in Fastify, so we would need to design something for pure `register` (if possible).",
+            "createdAt": "2024-01-02T09:28:32Z",
+            "reactions": { "thumbsUp": 3, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flakey5",
+            "authorAssociation": "NONE",
+            "body": "I was thinking about the decorators object wrong and was able to get it _partially_ working: [Playground Link](https://www.typescriptlang.org/play?#code/C4TwDgpgBAYghgZ2ASwGYgEoHsCuwIAScAdgCYA2EATgDwYRjkgB8UAvFABRUNMBcUeoxABKdqwBuWZKQDcAWABQS5MXxVUcAMbR4SNCACSxJCR11eIdrEQp0QpqwDeSqFARYAthGAALVQDmAMpePv7EAQJIVIEKim5UuPicviQU1AJ6dphJhGmUtA4sIpm2BsamxOZFzEoAvkoqatSaOjb66EHAcChaALLIAB6qUC7x7qF+gQCi5AgQAgBGWFiUJHENyoqq6q26ZfaWo64T3lMRRVHAMREbjYoA9ABUT65PUAByEBCkCFDAWCgi2gcCgWnIiAQABooDsWtoIH9SFhiAByYBQCDDJBQHpQKg4NTIbxvKBBVRtKZ-ZB-UHgyEwgDu0C0JHRuNIpFxxCsPAAjjhkDxvGpqcQoAEIMRqMgtH8-HiqZjBvgyH8sgYiqSgRBWTh5lBmaiudKfv9AcTGP9fNA4RoEVAbTwAHSk0kAdRZuHIXLgc0BpAgqFU0CViG5UCwiwAVrrgDDFnhrVLDdBGd7SGiMcDcYtKOb-jw8cgMeHQaBINzSNrke5gDhUKgoORkABraAAAw1h2EUAAZO1sl0erKigNhsQO28Hkp6Qh1QcQMPemOhiMxm55mQYMhKJwwD1fFcbgESlApDJRptNkoK-sOiAAArkHABVQAeTAKBRCAsvY4JAsNYG5QIGWhYFQPQQQgAggQklgCFq4zXnESgPA8jrAMAYAwehphaK2WASC05BYIyzrgZ4DxwA8AAsACc9EAEwABwAMwAGwAAxoS8pIACqIsA1JNuW4C2n8HaAR2MJoBMybijw9ZUOKoKBpoODkBid6uv",
+            "createdAt": "2024-01-02T21:31:18Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "The playground link is ok.\r\n\r\nAn alternatvie API that we could consider is the following:\r\n\r\n```ts\r\nconst _app = app.withAppMixin<StaticAppMixin>().withRequestMixin<StaticRequestMixin>().withReplyMixin<StaticReplyMixin>()\r\n```\r\n\r\nWdyt of this?",
+            "createdAt": "2024-01-09T11:20:51Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flakey5",
+            "authorAssociation": "NONE",
+            "body": "> Wdyt of this?\r\n\r\nWould that replace the `register` function adding the types to the `FastifyInstance`? Or would that be for calling `fp(..)`. If it's the former I think it looks good, but I wonder if those functions would only just add the types to the `FastifyInstance` or if it would entirely replace the use case of `register()`?",
+            "createdAt": "2024-01-09T23:29:43Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "yes, it would replace the use case for adding this to `register()` and will be complimentary to the one of `fastify-plugin`. ",
+            "createdAt": "2024-01-11T16:21:04Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flakey5",
+            "authorAssociation": "NONE",
+            "body": "So the full api would be something like this?\r\n\r\n`app.ts`:\r\n```typescript\r\nconst app = fastify({...})\r\napp.register(fastifyStatic, ...)\r\n\r\nconst _app = app\r\n  .withAppMixin<StaticAppMixin>()\r\n  .withRequestMixin<StaticRequestMixins>()\r\n  .withResponseMixin<StaticResponseMixin>();\r\n\r\n// _app.route or something\r\n```\r\n\r\n`some-plugin.ts`:\r\n```typescript\r\nfp((app) => {\r\n  // app.route or something\r\n}, {\r\n  decorators: {\r\n    app: StaticAppMixin,\r\n    reply: StaticReplyMixin\r\n  }\r\n})\r\n```",
+            "createdAt": "2024-01-17T20:30:46Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I would say go ahead for the mixins. Maybe let's keep iterating on top of the plugin APIs.\r\nAny opinion on that @DemonHa?\r\n\r\nSomething that would be rad is to have:\r\n\r\n```js\r\nlet app = fastify({...})\r\napp = app.register(fastifyStatic, ...)\r\n```\r\n\r\nI guess we can start adding the Mixins and build on top of that.",
+            "createdAt": "2024-01-19T17:44:44Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "dirkdev98",
+            "authorAssociation": "NONE",
+            "body": "Nb. not much experience with the existing Fastify API's and types setup. Got interested in this issue while evaluating Fastify and the ecosystem :) \r\n\r\nI think if mixins are added in the proposed way, a few extra types and generics are necessary on `FastifyInstance`. It should then be possible for plugins to specify their dependencies via either `fp<Dependency>(...)` or `fp((app: FastifyPluginHelper<Dependency>) => ...)`, see the [playground](https://www.typescriptlang.org/play?#code/PTAEDECcHsFsC5QAsAuKAOBneJMoIYDGA1tAG4CmkAZgDbQDuAdIXMPsAKwAMAzAOycATAA4AbACgUAT3QVQAVQB2AS2hKAKtACSSlFUwVCKNUoA8CgHygAvBNCgAFAtAUAHvqUATTKHxLpUAB+JzdEBQBKG0syaBUvUEQlCkpICNcPCm9fR0cw0BUlaipQbSiYuK90kO1E0GTUiSaZOQh8PBVqaV08f0IKMwBZFTdC33dPHz8AgG0AXWsbRVV1LV19SENjUzMAb3tQGYBpCkDC0GJT6GpQYdGlXznEABEjaEh8fS8egiV+oZGY2OpzmMwARJAKABHACuFDwYLmABpboCHsDpKCIRR0LRpIjrAAyUAAeVgKhQAPumAxyNA2Nh8JQYIAPtjcfjLBIAL4zJQw2AAIyoCwA3E1ChtqER5K9WB8vj8+gMAErQuF4FFqjnWfYOSGMvCINWGlDi-U4vHGy3ScXc8USSVUaX9UAAZQIJkId3OetA1Gg0EQKEgc",
+            "createdAt": "2024-02-12T16:27:45Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "simoneb",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "@ShogunPanda @marco-ippolito as discussed, ptal 🙏 ",
+            "createdAt": "2024-03-29T10:58:03Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "Quick addition: whatever solution we find needs to be able to work via JSdoc too.",
+            "createdAt": "2024-04-29T13:06:56Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "DemonHa",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> I would say go ahead for the mixins. Maybe let's keep iterating on top of the plugin APIs. Any opinion on that @DemonHa?\r\n> \r\n> Something that would be rad is to have:\r\n> \r\n> ```js\r\n> let app = fastify({...})\r\n> app = app.register(fastifyStatic, ...)\r\n> ```\r\n> \r\n> I guess we can start adding the Mixins and build on top of that.\r\n\r\nI'm more into this API, since with the mixins API looks like we are duplicating ourself. Also by using mixins we can `fake` our types, but if we integrate it on the `register` api, we are sure that the plugin is registered, and therefore we get the types.",
+            "createdAt": "2024-05-01T12:51:12Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "What we need is a set of 3 PRs that essentially go together to PoC this:\n\n1. fastify\n2. fastify-static\n3. fastify-plugin",
+            "createdAt": "2024-05-01T13:03:37Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "DemonHa",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> What we need is a set of 3 PRs that essentially go together to PoC this:\r\n> \r\n> 1. fastify\r\n> 2. fastify-static\r\n> 3. fastify-plugin\r\n\r\nI already build a PoC as discussed. You can check it out on [this PR](https://github.com/fastify/fastify/pull/5093).\r\n\r\nIf you navigate to `examples/typescript-plugin-safety.ts` and scroll to the end, you can see the API working as intended and you can play around with it.\r\n\r\nI merged all the points on this single PR, so if we agree I can split this on specific PR's.",
+            "createdAt": "2024-05-01T14:51:46Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "flakey5",
+            "authorAssociation": "NONE",
+            "body": "If it's worth anything, I have a draft pr for adding mixins to fastify-static here fastify/fastify-static#427",
+            "createdAt": "2024-05-01T19:04:31Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "What can we do to ship this before July?",
+            "createdAt": "2024-05-02T07:57:15Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "DemonHa",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> What can we do to ship this before July?\r\n\r\nGetting feedback as early as possible would be a great help.",
+            "createdAt": "2024-05-02T09:59:24Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jessekrubin",
+            "authorAssociation": "NONE",
+            "body": "I would be extremely interested in hearing what @sinclairzx81 thinks/recommends; they are super/ultra skilled at ts-typing.",
+            "createdAt": "2024-07-31T22:51:30Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "voxpelli",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Threw together something loosely based on how I have solved this elsewhere: https://github.com/fastify/fastify/pull/5648",
+            "createdAt": "2024-08-27T21:08:00Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "arthurfiorette",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "One of the biggest drawbacks of Fastify is its reliance on declaration merging. This approach has not been actively promoted by TypeScript in quite some time.\r\n\r\n**TL;DR**: https://github.com/arthurfiorette/typed-fastify-concept\r\n\r\nAfter some consideration, I came up with a reasonable implementation that could work within our current setup without any changes to runtime behavior (this is strictly a type-related issue and should remain within the realm of type definitions).\r\n\r\nThis may still seem complicated but after deeply studying how Elysia did this, I don't think there's an easy way on our side :/\r\n\r\n**This solution can be implemented with a lot fewer changes than other alternatives proposed while having the least verbosity and being quite compatible with current code and plugins.**\r\n\r\nWhile developer experience can be subjective, this solution seemed to offer the best balance between minimal typing overhead and complexity.\r\n\r\n-> **We want to avoid adding more verbosity and complic",
+            "createdAt": "2024-12-16T03:57:26Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "@arthurfiorette \r\nDid you take look at https://github.com/fastify/fastify/pull/5672?",
+            "createdAt": "2024-12-16T07:37:11Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "arthurfiorette",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Of course! And it's very similar but doesn't work like the one proposed above for dependencies between plugins neither I could see the usage of `asserts` in it to automatically infer types (maybe it's incomplete?).\r\n\r\nOther minor things could be improved like reducing the type of complexity there otherwise it will break into large-scale systems (Elysia has a test of an instance with 1000+ plugins attached to see if TS will get slow, we should test it as well). Avoiding any kind of type complexity will reduce our chance of breaking into a scenario with a lot of modules.\r\n\r\nI could try to PR it there but I think (unless already decided to go that way) to attempt a new PR :)",
+            "createdAt": "2024-12-16T12:03:13Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "rozzilla",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Hi @arthurfiorette! 👋🏼 \r\nI have looked at your suggestion, which is interesting!\r\nI have a bunch of questions about it:\r\n1. Currently, you propose all of the `safe...` [TypeScript methods](https://github.com/arthurfiorette/typed-fastify-concept/blob/master/src/tests.ts#L34) parts of the `InternalFastifyInstance.` How will those methods work at runtime? Can you explain it a bit further? 🙏🏼 \r\n2. [Here](https://github.com/arthurfiorette/typed-fastify-concept/blob/master/src/fastify.ts#L18) you say that some adjustments to `safeFastify` will be needed for generics. Can you provide some examples of existing code that will break? Also, is there a way we can avoid that? In general, if this change will break the existing TS code, we should include it in a new major of Fastify.\r\n3. Overall, I like the idea. It would be great if we could find a way to avoid breaking changes to existing TypeScript types. We can demonstrate that, for instance, by running existing `tsd` tests on `fastify` repos wit",
+            "createdAt": "2024-12-19T16:37:51Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "arthurfiorette",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "1. They won't. They will be the same as our current ones without `safe`. I just used `safe` as a prefix because I couldn't have a method using the same name as the interface I'm extending from with different types. Once this gets ported to fastify, replace the `safeX` methods with just `X`.\r\n\r\n2. Sorry, that comment was misleading. Just like fastify already [has some generics](https://github.com/fastify/fastify/blob/a9d62d38b519e267671719d890cbdaa0da4ad182/types/instance.d.ts#L120-L124), and since this type-safe implementation needs a generic parameter, it needs to be added as other generics into fastify, ideally without any changes to the previous one.\r\n\r\n3. I could try to start a new pr here already migrating those changes proposed in my draft. I'm pretty sure another major release for Fastify is NOT desired so backward compatibility will be my focus.",
+            "createdAt": "2024-12-20T03:04:13Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 3 }
+          },
+          {
+            "author": "rozzilla",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "That's all great! Waiting your follow up PR :)",
+            "createdAt": "2024-12-20T07:23:51Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "PandaWorker",
+            "authorAssociation": "NONE",
+            "body": "@arthurfiorette Is there any progress in typed fastify?",
+            "createdAt": "2025-02-13T17:04:23Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "arthurfiorette",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "It's just a matter of time until I can work on it, but sadly not yet... ",
+            "createdAt": "2025-02-18T06:37:25Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "arthurfiorette",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "I started a draft by trying to implement it as a Fastify plugin, where it provides and replaces all `fastify` types with a `Composable` alternative, following this [proof of concept](https://github.com/arthurfiorette/typed-fastify-concept/blob/master/src/fastify.ts) because a plugin would be the only way to implement this in a non-major version.\n\nHowever, this approach quickly revealed itself as unmaintainable and as something that I'm referring to as Generic Madness:\n\nhttps://github.com/arthurfiorette/fastify-composable/blob/main/lib/instance.d.ts\nhttps://github.com/arthurfiorette/fastify-composable/blob/main/lib/reply.d.ts\n\nReplicating all `fastify` types to propagate down `PluginExtensions` generics and replace each `FastifyInstance`/`FastifyRequest`/`FastifyReply` alternative will be so hard to maintain and keep in sync that it may not be worth the hassle.\n\nThe other alternative would be to add and change Fastify's own types and push it as a PR to the main codebase. This probably t",
+            "createdAt": "2025-05-04T04:10:51Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "PandaWorker",
+            "authorAssociation": "NONE",
+            "body": "Most likely, you will have to make a new version that will completely remove declaration merging, as well as all plugins and modules will also need to be updated to the new version.",
+            "createdAt": "2025-05-04T10:14:17Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "In practice, I stick to [getDecorator api](https://fastify.dev/docs/latest/Reference/Decorators/#getdecorator-api) for my business logic and it works fine. I consider this issue fixed for custom plugins, but I understand that some might prefer another paradigm.\n\nRegarding core plugins, I'm not sure how they can expose their decorators without leaking them on every instance.\nBut removing all declared module blocks from core plugins would be a massive breaking change, maybe it can be deprecated slowly, but why? Projects that use multiple isolated Fastify instances are pretty rare no? And they can wrap core decorators in an adapter if having `sendFile` (or similar) on every `FastifyReply` is a problem. They probably already have.\n\nFor now, the rabbit hole of nested generics and edge-effect inference is hard to reason about, and I tend to avoid this kind of mental gymnastics as much as possible.\n\nGood luck with your investigations!",
+            "createdAt": "2025-05-04T10:55:29Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:23.631409+00:00"
+      },
+      "5603": {
+        "issueNumber": 5603,
+        "comments": [
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "[Promise.withResolvers()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/withResolvers) is available on `node@22`\r\n\r\n[Promise.try()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/try) is available on `node@23`\r\n\r\nWe might start exploring and create a simple ponyfill to support old version.",
+            "createdAt": "2025-01-06T07:59:51Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "Promise.try polyfill: https://github.com/tc39/proposal-promise-try?tab=readme-ov-file#polyfills",
+            "createdAt": "2025-01-06T08:18:10Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Fdawgs",
+            "authorAssociation": "MEMBER",
+            "body": "Logical assignment operators like [Logical OR assignment](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Logical_OR_assignment) and [Nullish coalescing assignment](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Nullish_coalescing_assignment) are things i'd like to look at now that we no longer have to support Node 14.\r\n\r\nFrom reviewing all of the Fastify repos over the past two weeks i've seen a lot of:\r\n`opts.a = opts.a || {}`, which could be simplified to `opts.a ||= {}`\r\n\r\n\r\nNot a drastic change but should simplify the code and save a few bytes.",
+            "createdAt": "2025-01-12T09:58:18Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "I find those new operators very confusing. ",
+            "createdAt": "2025-01-16T11:56:18Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:23.883042+00:00"
+      },
+      "5448": {
+        "issueNumber": 5448,
+        "comments": [
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "Draft 7 and Draft 2020-12 is great different.\r\nIt also provides a large set of incompatibility.",
+            "createdAt": "2024-05-06T07:38:24Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "kibertoad",
+            "authorAssociation": "MEMBER",
+            "body": "@climba03003 Do you mean that existing Draft 7 schemas will stop working under Draft 2020?",
+            "createdAt": "2024-05-06T07:39:13Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "> Do you mean that existing Draft 7 schemas will stop working under Draft 2020?\r\n\r\nMostly, yes. If it can works, I don't see a reason why, `ajv` would split into different version.\r\n\r\nhttps://json-schema.org/draft/2019-09/release-notes\r\nhttps://json-schema.org/draft/2020-12/release-notes",
+            "createdAt": "2024-05-06T07:40:42Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": "Draft-2020 is also marked as `non-backwards compatible` by `ajv`: https://ajv.js.org/json-schema.html#draft-2020-12\r\n\r\nIt would be nice but a lot of schemas uses mostly the 2019-draft, and doing this make them prone to break and cause friction with the adoption of Fastify v5.\r\n\r\nMight be better to allow them do it if they want or still use 2019's draft",
+            "createdAt": "2024-05-06T07:52:41Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "It's also important to note that, and this is what changed my mind on this, the AJV docs recommend sticking with 07 if we don't need the two new properties as **all schemas will be affected by the reduced performance required to support them**\r\n\r\nhttps://github.com/fastify/ajv-compiler/issues/105#issuecomment-1722434616\r\nhttps://ajv.js.org/guide/schema-language.html#draft-2019-09-and-draft-2020-12\r\n\r\nSo it seems logical for me to keep the default 7 and let the user configure the setting",
+            "createdAt": "2024-05-06T08:20:48Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "Switching the ajv version is as easy as writing:\r\n\r\n```\r\nconst factoryValidator = require('@fastify/ajv-compiler')()\r\n\r\nconst app = fastify({\r\n  schemaController: {\r\n    compilersFactory: {\r\n      buildValidator: factoryValidator\r\n    }\r\n  }\r\n})\r\n```\r\n\r\nSince changing the default would be a massive breaking change for the user (as it should rewrite all its schemas) - we could just ship a new `@fastify/ajv-compiler` major with `ajv/2020` and let those users that want the new standard set the `buildValidator` option accordingly.\r\n",
+            "createdAt": "2024-05-06T08:34:56Z",
+            "reactions": { "thumbsUp": 6, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I think we would need fast-json-stringify to support it first.",
+            "createdAt": "2024-05-06T11:14:02Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "imjuni",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "When upgrading the version of ajv, I often encountered difficulties due to [@fastify/swagger](https://github.com/fastify/fastify-swagger). @fastify/swagger is an important third-party plugin but only supports JSON Schema draft-07. While @fastify/swagger is flexible with JSON Schema versions, [json-schema-resolver](https://www.npmjs.com/package/json-schema-resolver) only supports [draft-07](https://github.com/Eomm/json-schema-resolver/blob/63020a0dbaaac1b088e16e6e17435af8670cd8af/ref-resolver.js#L26).",
+            "createdAt": "2024-07-22T06:11:22Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jviotti",
+            "authorAssociation": "NONE",
+            "body": "Hey there! JSON Schema TSC here, and I accidentally came across this thread. \r\n\r\nTo address the compatibility questions, good JSON Schema implementations support multiple JSON Schema dialects at the same time. Depending on your `$schema` value, the same JSON Schema implementation should be able to work with any schema given to it.\r\n\r\nIn any case, keep in mind AJV is known to be very non-compliant, in fact being one of the worst. See https://bowtie.report/#/implementations/js-ajv for its official compliance scores across tested dialects. Right now, AJV is failing on 661 compliance test cases (quite a lot). The problem though is that there are not many good JSON Schema implementations that are fast. AJV gets away with its lack of compliance because it is pretty fast.\r\n\r\nIn case its interesting to anybody, I'm personally working on a high performance validator capable of nano-second schema validation (>200x faster than AJV) that has 100% compliance scores and supports every dialect of JSO",
+            "createdAt": "2024-10-14T02:17:47Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "> Right now, AJV is failing on 661 compliance test cases (quite a lot).\r\n\r\nWhen I see this test (about 130 format test) to be failed, \r\n![image](https://github.com/user-attachments/assets/b9f39d9e-8f4d-41ce-9e75-db919cc3514d)\r\n\r\nit seems to be unfair on `ajv` since the format part is supported by plugin.\r\n![image](https://github.com/user-attachments/assets/3677135b-33a6-49f4-a910-1708ad2c6690)\r\n\r\n",
+            "createdAt": "2024-10-14T03:58:24Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jviotti",
+            "authorAssociation": "NONE",
+            "body": "@climba03003 That error is different. Is testing that if you set `format` (whether supported or not) but you pass something that is not a string, it must succeed, unless `type: string` is also present. Even without the plugin, that is non-compliant behaviour.",
+            "createdAt": "2024-10-14T13:30:02Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "> In case its interesting to anybody, I'm personally working on a high performance validator capable of nano-second schema validation (>200x faster than AJV) that has 100% compliance scores and supports every dialect of JSON Schema at once. It's C++ and mainly targeted at low-latency API gateways, but I'm experimenting with doing JS bindings without sacrificing on performance. Would be fun to try a Fastify plugin at some point!\r\n\r\nThis sounds awesome, please do release a node version\r\n\r\nI don't think we ship binaries in general, but it could indeed be interesting who knows",
+            "createdAt": "2024-10-14T19:43:00Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 2 }
+          },
+          {
+            "author": "jviotti",
+            "authorAssociation": "NONE",
+            "body": "We are experimenting with an MIT/Apache-2.0 distribution running on WebAssembly, without involving Node.js native add-ons. I'll share the link once we have it!",
+            "createdAt": "2024-10-14T20:21:49Z",
+            "reactions": { "thumbsUp": 4, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Relequestual",
+            "authorAssociation": "NONE",
+            "body": "May wish to consider something which is more compliant by default.\r\nI eagarly await @jviotti's validator in wasam. It may be a little expensive on application load. If Node.js bindings materialise, great!\r\n\r\nOtherwise, might be worth looking into the very compliant https://github.com/hyperjump-io/json-schema\r\nWill depend on what features from AJV you'd consider essential.",
+            "createdAt": "2025-01-10T10:39:16Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jviotti",
+            "authorAssociation": "NONE",
+            "body": ":+1: on @Relequestual 's HyperJump suggestion. As an update on Blaze, we finished the last optimisations we wanted to do for its paper & launch a couple of weeks ago. We will be publishing the paper hopefully in the next month (showing Blaze significantly outperforming every other validator in every tested case) and will continue working on the bindings.",
+            "createdAt": "2025-01-10T11:36:42Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "Yeah if I could find a proper benchmark for https://github.com/hyperjump-io/json-schema, I'd maybe propose it for Fastify v6, but I'm still really interested by Blaze",
+            "createdAt": "2025-01-12T11:30:22Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jviotti",
+            "authorAssociation": "NONE",
+            "body": "> but I'm still really interested by Blaze\r\n\r\nIf anybody here has JS and C++ Node.js bindings experience, and is interested in contributing to make it happen faster just let me know! ",
+            "createdAt": "2025-01-13T13:13:21Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:24.053540+00:00"
+      },
+      "3618": {
+        "issueNumber": 3618,
+        "comments": [
+          {
+            "author": "luisorbaiceta",
+            "authorAssociation": "MEMBER",
+            "body": "cc @fastify/plugins",
+            "createdAt": "2022-01-13T20:06:25Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "+1",
+            "createdAt": "2022-01-13T20:14:13Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "Overengineering time: a script that fetch the package.json for each module and read the `tags`.\r\nSo the website will be able to filter by those (approved/filtered) tags",
+            "createdAt": "2022-01-13T20:32:05Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "luisorbaiceta",
+            "authorAssociation": "MEMBER",
+            "body": "> Overengineering time: a script that fetch the package.json for each module and read the `tags`. So the website will be able to filter by those (approved/filtered) tags\r\n\r\nI think we could start by including them in our `Ecosystem.md` file to avoid fetching the data from every package in our current build process (It's already taking quite a while... 😬) and then add the option to filter them",
+            "createdAt": "2022-01-15T21:18:29Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "nooreldeensalah",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "I think https://github.com/fastify/pacchetto has the ecosystem plugins categorized, visit https://fastify.github.io/pacchetto/ if you would like to view the categories",
+            "createdAt": "2022-09-15T12:26:19Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Subham-KRLX",
+            "authorAssociation": "NONE",
+            "body": "Hi there 👋\nI'm interested in helping out with this. Is this issue still available? Thanks!",
+            "createdAt": "2025-06-19T16:35:20Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "@Subham-KRLX \n\n> Is this issue still available?\n\nProbably - but I think we should first agree on the main categories.\nFiltering by tags could be useful, but if we end up with more tags than plugins, wouldn't that defeat the purpose of organizing things in the first place?",
+            "createdAt": "2025-06-19T21:11:11Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "hashda04",
+            "authorAssociation": "NONE",
+            "body": "Hi everyone! \nI’m new to open source and would love to help with organizing the plugins into categories.\nI’ve read the discussion above and checked out the Pacchetto categories. I think grouping plugins into main categories (like Databases, Auth/Security, Logging, etc.) makes sense and will help users find what they need faster.\nCould we agree on a list of top-level categories to use?\nOnce we do, I’m happy to help update the Ecosystem.md file, or anywhere else you think fits best.\n\nThanks for the guidance, I’m excited to contribute!",
+            "createdAt": "2025-08-11T16:23:16Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": "I believe we can start with the following ones:\n\n- Auth\n- Database\n- Web (e.g. HTTP2, OAS tooling although debatable, etc.)\n- Observability (Otel and other tooling)\n- Misc (ones that doesn't fit right into any of the previous)\n\nMore categories might arise, but this can be a good starting point. cc: @Eomm ",
+            "createdAt": "2025-08-12T06:43:44Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "hashda04",
+            "authorAssociation": "NONE",
+            "body": "Thanks for the quick feedback! I’ll start organizing the plugins in Ecosystem.md using these categories. If I find any plugins that don’t clearly fit, I’ll put them in Misc for now. If you prefer a different approach, please let me know!\n\nI’ll draft a PR soon. ",
+            "createdAt": "2025-08-12T07:29:53Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "hashda04",
+            "authorAssociation": "NONE",
+            "body": "Hi! I see there are 700+ plugins listed in ECOSYSTEM.md. Should I categorize all of them in one PR, or would you prefer I start with a smaller batch and submit them incrementally?\nThanks!",
+            "createdAt": "2025-08-12T08:53:14Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": "I'd suggest to start with smaller chunks, maybe one PR per category; to keep the review easy and possibly also the effort you'll need workable ",
+            "createdAt": "2025-08-12T19:54:23Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Alejorotp",
+            "authorAssociation": "NONE",
+            "body": "Is this issue still available? I am new to open-source projects.",
+            "createdAt": "2026-02-09T20:33:54Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:24.245503+00:00"
+      },
+      "4513": {
+        "issueNumber": 4513,
+        "comments": [
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "The stack trace should be hidden behind a flag. Maybe even setting Error.stackTraceLimit to 0 should be an option to not break fastify at runtime. Thats why i provided for fastify-autoload(? Or was it somewhere else?) a patch were we use the stacktrace to determine the function name to even handle the case when stackTraceLimit is set to 0. So we should have performance gains by disabling the stacktrace generation. \r\n\r\nBut e.g. serialization errors by fast-json-stringify should maybe not expose the values but only the schema ref location. I could provide a PR for that. Maybe behind a flag, where you can choose if you want the values shown or just the location @ivan-tymoshenko ",
+            "createdAt": "2023-01-13T11:22:39Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Fdawgs",
+            "authorAssociation": "MEMBER",
+            "body": "I'd say yes, I use a [customised error handler](https://github.com/Fdawgs/ydh-sider-obfuscation-service/blob/b10a3179661d57cf414424bd55cd13797e653b92/src/server.js#L131-L148) and `internalServerError()` from @fastify/sensible to hide this from end users.\r\nWould be nice to have a simpler way of doing this!",
+            "createdAt": "2023-01-13T11:48:47Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "> The stack trace should be hidden behind a flag.\r\n\r\nI don't think so. The user can always override this. It's just a matter of showing the error message and stacktrace in the default response.\r\n\r\n> Maybe even setting Error.stackTraceLimit to 0 should be an option to not break fastify at runtime. \r\n\r\nWe should not be changing global objects.\r\n\r\n\r\n",
+            "createdAt": "2023-01-13T15:24:44Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jackdbd",
+            "authorAssociation": "NONE",
+            "body": "Maybe showing the stack trace when `NODE_ENV=development`?\r\n\r\nOr vice versa hiding it when `NODE_ENV=production`?\r\n\r\nI have just started using fastify though, so I'm not sure about its stance in regard of `NODE_ENV` and environment variables in general.",
+            "createdAt": "2023-05-30T09:35:25Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "We basically dont rely on NODE_ENV, as it was always a bad pattern implemented by expressjs",
+            "createdAt": "2023-05-30T10:10:06Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "> I have just started using fastify though, so I'm not sure about its stance in regard of `NODE_ENV` and environment variables in general.\r\n\r\nWe recommend _never_ using `NODE_ENV`. Set it to \"production\" in all environments and do not rely on it. If your app, for some reason, needs to know about the \"kind\" of environment it is running under, use your own variable like `APP_ENV` or something (though relying on such a variable is an antipattern in and of itself). The `NODE_ENV` variable not being set to \"production\" _will_ cause you issues at some point, as there many libraries out there assuming people are using it and enabling all sorts of non-performant paths when it is not set correctly.",
+            "createdAt": "2023-05-30T13:11:57Z",
+            "reactions": { "thumbsUp": 4, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "camsteffen",
+            "authorAssociation": "NONE",
+            "body": "I have an app that is factored into multiple plugins and I want to have a shared handler for 500 (unanticipated) errors. I would think this is a very common use case but it's not clear how best to achieve this. At first I thought that my plugin error handler could rethrow the error to propagate it to the parent context's error handler, but that didn't work - the error skipped to the fastify default error handler.\r\n\r\nMaybe that is slightly tangential but the original motivation was to not return stack traces for 500 errors.",
+            "createdAt": "2023-12-13T16:09:13Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "@camsteffen open a new issue please\r\n\r\n<details>\r\n  <summary>it works</summary>\r\n\r\nit works:\r\n\r\n```\r\nconst app = require('fastify')({ logger: true })\r\n\r\napp.setErrorHandler(function (error, request, reply) {\r\n  console.log('parent')\r\n  reply.status(500).send({ ok: false })\r\n})\r\n\r\napp.register(function plugin (app, opts, next) {\r\n  app.setErrorHandler(function (error, request, reply) {\r\n    console.log('child')\r\n    throw error\r\n  })\r\n\r\n  app.get('/', () => { return Promise.reject(new Error('asd')) })\r\n\r\n  next()\r\n})\r\n\r\napp.listen({ port: 8080 })\r\n\r\n```\r\n</details>",
+            "createdAt": "2023-12-14T11:51:59Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "noamokman",
+            "authorAssociation": "NONE",
+            "body": "Just published this package if we need a reference for a reusable error handler\r\nhttps://github.com/osskit/fastify-error-handler",
+            "createdAt": "2024-06-17T07:08:37Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "uncaught",
+            "authorAssociation": "NONE",
+            "body": "I was a bit shocked when I noticed that my SQL errors ended up in the client - even with `production` environment.\r\n\r\n```json\r\n{\r\n    \"statusCode\": 500,\r\n    \"code\": \"ER_BAD_FIELD_ERROR\",\r\n    \"error\": \"Internal Server Error\",\r\n    \"message\": \"(conn:141, no: 1054, SQLState: 42S22) Unknown column 'username' in 'field list'\\nsql: SELECT id, username FROM users WHERE username = ? - parameters:['foo']\"\r\n}\r\n```\r\n\r\nThis _cannot_ be a good default behavior!\r\n\r\nEspecially since the documentation does not mention this at all, rather it suggests the [opposite to be true](https://fastify.dev/docs/latest/Reference/Errors/#errors-in-fastify):\r\n\r\n![image](https://github.com/user-attachments/assets/74319d48-d803-4ef3-ad51-379a02aff701)\r\n\r\nThat above is in no way a _generic 500_.\r\n",
+            "createdAt": "2024-11-17T10:14:44Z",
+            "reactions": { "thumbsUp": 4, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "vjau",
+            "authorAssociation": "NONE",
+            "body": "Sorry, but this cannot be called \"battle tested\" with this default behaviour. \nAt least it should be mentionned in the doc. \nI can provide a PR for the doc if that helps. ",
+            "createdAt": "2025-04-02T14:46:52Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "A PR would be highly welcomed, thanks",
+            "createdAt": "2025-04-04T14:58:50Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Bluzzi",
+            "authorAssociation": "NONE",
+            "body": "I remember being surprised by this behavior in the past as well. In any case, I’ve always needed to use a custom error handler.\n\nHowever, after re-testing the default behavior while reading this issue, it seems that the error stack is no longer shown in the response. The error message itself is still there though. So, is this issue still valid?\n\nFrom my point of view, having only the error message could be a good default as long as it’s clearly explained in the documentation. But I think it’s important to gather more opinions on this, since it’s indeed a sensitive topic.",
+            "createdAt": "2025-11-11T22:42:55Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:24.415773+00:00"
+      },
+      "4341": {
+        "issueNumber": 4341,
+        "comments": [
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Imho:\r\nWhile serialization check if reply header has set content-type, if so check if serializer is available and serialize or if not throw Internal Server Error.\r\nIf no content-type is set on reply, use request accept header to determine serializer. If possible serialize. If not either fallback to json or by a configurable strictReplyContentTypeWhatever flag return a 406 Not Acceptable Error\r\n",
+            "createdAt": "2022-10-15T12:55:32Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "iifawzi",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> Imho: While serialization check if reply header has set content-type, if so check if serializer is available and serialize or if not throw Internal Server Error. If no content-type is set on reply, use request accept header to determine serializer. If possible serialize. If not either fallback to json or by a configurable strictReplyContentTypeWhatever flag return a 406 Not Acceptable Error\r\n\r\nI think the serializer determination process needs to be 100% controlled from the backend, determining the serializer automatically based on something coming from the requests (`accept` header) in any case, might lead to unexpected and unwanted behavior",
+            "createdAt": "2022-10-15T14:47:25Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "But this is how HTTP content negotation works.\r\n\r\nhttps://developer.mozilla.org/en-US/docs/Web/HTTP/Content_negotiation",
+            "createdAt": "2022-10-15T15:14:02Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I feel we might want to bring all aspects of content-negotiation in.",
+            "createdAt": "2022-10-16T08:35:37Z",
+            "reactions": { "thumbsUp": 3, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": "Agree with @Uzlopak, that will fit better. If there's no serializer set for content type our best effort is to assess the `Accept` header for content negotiation. Tho, we should be careful and maybe just support a handful of content types (the most common ones) as trying to support all of them might be a gigantic task.\r\n\r\nJust a bunch and fallback to HTTP 406 sounds reasonable and a good starting point 🙂 \r\n",
+            "createdAt": "2022-10-16T21:07:39Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "Does this flow recap all the cases?\r\n\r\n<img width=\"907\" alt=\"image\" src=\"https://user-images.githubusercontent.com/11404065/196106128-1de5a252-61c6-4bf0-b7cb-83dbd9d587aa.png\">\r\n",
+            "createdAt": "2022-10-17T06:39:28Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "iifawzi",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "I think yes it recaps all cases.\r\n\r\nwhen it comes to the `is the serializer function set`, wdyt about this?\r\n\r\n> * The json schema `content` config will add a new reply serializer by calling `setReplySerializer` but limited to the route itself. If the reply serializer is already defined, the JSON schema will win _(or should we throw an error?)_\r\n> \r\n\r\nwouldn't it be better if the JSON schema win only for that route? and other routes use the generally defined serializer? i don't know how applicable it's since `content` config will use the same `setReplySerializer` but we can find a solution for that if agreed. \r\n\r\n",
+            "createdAt": "2022-10-17T07:29:03Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "I propose this:\r\n\r\n```mermaid\r\nflowchart TB\r\n  IF_CONTENTTYPE_HEADER{reply has<br>content-type<br>header?}\r\n  IF_ACCEPT_HEADER{request has<br>accept<br>header?}\r\n  IF_SERIALIZER_ACCEPT{serializer<br>registered?}\r\n  IF_FALLBACK{fallback<br>to default<br>serializer?}\r\n  IF_SERIALIZER_CONTENTTYPE{serializer<br>registered?}\r\n  START(reply.send)\r\n  ERROR500(500 Internal Server Error)\r\n  ERROR406(406 Not Acceptable Error)\r\n  SERIALIZE([serialize])\r\n  SERIALIZE_DEFAULT([serialize by default serializer])\r\n  NEGOTIATE_ACCEPT[[accept negotiation]]\r\n  SEND(send)\r\n\r\n  START --> IF_CONTENTTYPE_HEADER\r\n  IF_CONTENTTYPE_HEADER -->|false| IF_ACCEPT_HEADER\r\n  IF_CONTENTTYPE_HEADER -->|true| IF_SERIALIZER_CONTENTTYPE\r\n  IF_SERIALIZER_CONTENTTYPE -->|true| SERIALIZE\r\n  IF_SERIALIZER_CONTENTTYPE -->|false| ERROR500\r\n  IF_ACCEPT_HEADER -->|false| SERIALIZE_DEFAULT\r\n  IF_ACCEPT_HEADER -->|true| NEGOTIATE_ACCEPT\r\n  NEGOTIATE_ACCEPT -->|null| IF_FALLBACK\r\n  NEGOTIATE_ACCEPT -->|any| IF_SERIALIZER_ACCEPT\r\n  IF",
+            "createdAt": "2022-10-17T08:38:34Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Potential FAQ\r\n\r\nHow did you make that awesome diagram?\r\n> It is a [mermaid diagram](https://github.blog/2022-02-14-include-diagrams-markdown-files-mermaid/) .\r\n\r\nWhy do you throw a 500 Error when manually setting the content-type header but 406 Error when using the accept header?\r\n> From a developer point of view, when a developer sets explicitly the content-type it is expected to override and enforce the serialization based on the set value. It would make debugging hard, if we wont check if the value is actually a valid value to serialize. E.g. You explicitly set text/yaml as reply content-type header and would get a json result. Where is the origin of the error? In the framework? In the handler? Why is it returning a json? Throw a 500 Error and know that you are missing the serializer. \r\n\r\nWhy is accept negotiation a subprocedure?\r\n> @fastify/accept-negotiator is initalized with an array of valid values. It then provides an optimized function where you provide the accept header and ",
+            "createdAt": "2022-10-17T09:08:57Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "The function here is complicated and may not meet the user expectation in certain case.\r\nFor example, when you send a file `stream` with proper `content-type`, the user wouldn't expect to have a serializer for it. I don't expect someone need to specify all the `seriallizer` for each `content-type`.\r\n\r\nWhen the `default serializer` is `*/*` with `noop`. Then, there is no much sense to provide such feature.\r\n\r\nThat being say, `content negotiation` is somehow the data that can be represent in different format. And this behavior should be controlled by the developer.\r\nFor example `application/json` and `application/xml` can be bidirectional transform. `image/*` can be changed by a `serializer`.",
+            "createdAt": "2022-10-17T09:25:54Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "As I wrote already as second suggestion: For avoiding such issue we could utilize the `reply.type()` method. ",
+            "createdAt": "2022-10-17T11:28:22Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "Given this has had no activity since 2022, I'm unsure this would ever be done. I'll remove the v5 label",
+            "createdAt": "2024-09-03T07:34:19Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "DibyodyutiMondal",
+            "authorAssociation": "NONE",
+            "body": "I suppose '@fastify/accepts-serializer' is to be used for this, correct?\n\nOr is something you guys are still discussing internally?",
+            "createdAt": "2024-11-12T20:37:47Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:24.619850+00:00"
+      },
+      "5671": {
+        "issueNumber": 5671,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "Can you clarify what part of the autocomplete is not working?",
+            "createdAt": "2024-09-13T17:08:02Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "LucasESchuster",
+            "authorAssociation": "NONE",
+            "body": "The solution I found was specify the type of querystring, params and body, when necessary. \r\n\r\nLike: \r\n\r\n```js\r\nimport Fastify from \"fastify\";\r\nimport { serializerCompiler, validatorCompiler, ZodTypeProvider } from \"fastify-type-provider-zod\";\r\nimport z from \"zod\";\r\n\r\nconst app = Fastify()\r\n\r\n// Add schema validator and serializer\r\napp.setValidatorCompiler(validatorCompiler);\r\napp.setSerializerCompiler(serializerCompiler);\r\n\r\nconst createUserQuerySchema = z.object({\r\n  name: z.string(),\r\n});\r\n\r\ntype CreateUserQuerySchema = z.infer<typeof createUserQuerySchema>;\r\n\r\napp.withTypeProvider<ZodTypeProvider>().route<{Querystring: CreateUserQuerySchema }>({\r\n  method: 'GET',\r\n  url: '/user',\r\n  schema: {\r\n    querystring: createUserQuerySchema,\r\n    response: {\r\n      200: createUserQuerySchema,\r\n    }\r\n  },\r\n  handler: function (request, reply) {\r\n    reply.send(request.query.name)\r\n  }\r\n})\r\n\r\n\r\napp.listen({ port: 4949 });\r\n```",
+            "createdAt": "2024-09-23T12:30:53Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "assafBarash",
+            "authorAssociation": "NONE",
+            "body": "> The solution I found was specify the type of querystring, params and body, when necessary.\r\n> \r\n> Like:\r\n> \r\n> ```js\r\n> import Fastify from \"fastify\";\r\n> import { serializerCompiler, validatorCompiler, ZodTypeProvider } from \"fastify-type-provider-zod\";\r\n> import z from \"zod\";\r\n> \r\n> const app = Fastify()\r\n> \r\n> // Add schema validator and serializer\r\n> app.setValidatorCompiler(validatorCompiler);\r\n> app.setSerializerCompiler(serializerCompiler);\r\n> \r\n> const createUserQuerySchema = z.object({\r\n>   name: z.string(),\r\n> });\r\n> \r\n> type CreateUserQuerySchema = z.infer<typeof createUserQuerySchema>;\r\n> \r\n> app.withTypeProvider<ZodTypeProvider>().route<{Querystring: CreateUserQuerySchema }>({\r\n>   method: 'GET',\r\n>   url: '/user',\r\n>   schema: {\r\n>     querystring: createUserQuerySchema,\r\n>     response: {\r\n>       200: createUserQuerySchema,\r\n>     }\r\n>   },\r\n>   handler: function (request, reply) {\r\n>     reply.send(request.query.name)\r\n>   }\r\n> })\r\n> \r\n> \r\n> app.listen({ port: 4949 })",
+            "createdAt": "2024-10-07T13:07:12Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "assafBarash",
+            "authorAssociation": "NONE",
+            "body": "@segevfiner  here is a *partial* workaround for using it with the default `ajv`, hope its not too hacky\r\n\r\n```.ts\r\nimport { AnySchema } from 'ajv';\r\nimport { JTDDataType } from 'ajv/dist/jtd';\r\nimport {\r\n  FastifySchema,\r\n  FastifyRequest,\r\n  FastifyReply,\r\n  RouteOptions,\r\n} from 'fastify';\r\n\r\ntype FastifySchemas = Partial<Record<keyof FastifySchema, AnySchema>>;\r\n\r\ntype HandlerSchemaProps<Schema extends FastifySchemas> = {\r\n  schema: Schema;\r\n  handler: (\r\n    req: FastifyRequest<{\r\n      Querystring: JTDDataType<Schema['querystring']>;\r\n      Body: JTDDataType<Schema['body']>;\r\n    }>,\r\n    res: FastifyReply\r\n  ) => void | Promise<void>;\r\n};\r\n\r\nconst buildFastifyRouteOptions = <T extends FastifySchemas>(\r\n  config: Omit<RouteOptions, 'handler' | 'schema'> & HandlerSchemaProps<T>\r\n) => config as RouteOptions;\r\n\r\nconst GET = buildFastifyRouteOptions({\r\n  url: '/test',\r\n  method: 'GET',\r\n  schema: {\r\n    body: {\r\n      type: 'object',\r\n      properties: {\r\n        boo: { type: 'string'",
+            "createdAt": "2024-10-07T15:25:41Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Andi-Code",
+            "authorAssociation": "NONE",
+            "body": "\r\n\r\n\r\n> Can you clarify what part of the autocomplete is not working?\r\n\r\nHi i am currently new to Fastify and and i have the same issue. I can type my schema but i do not get code completion because vscode thinks the type is unknown.\r\n\r\n```typescript\r\n/**\r\n * Schemas in Fastify follow the JSON-Schema standard. For this reason\r\n * we have opted to not ship strict schema based types. Instead we provide\r\n * an example in our documentation on how to solve this problem. Check it\r\n * out here: https://github.com/fastify/fastify/blob/main/docs/Reference/TypeScript.md#json-schema\r\n */\r\nexport interface FastifySchema {\r\n  body?: unknown;\r\n  querystring?: unknown;\r\n  params?: unknown;\r\n  headers?: unknown;\r\n  response?: unknown;\r\n}\r\n```\r\n\r\nI looked in to it and found this comment that linked me to the docs but in the docs i only find ways to use zod or typebox but i currently do not have the need to use zod but want auto completion. Am i something missing in the docs? \r\n\r\n",
+            "createdAt": "2024-11-01T16:38:06Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "irzix",
+            "authorAssociation": "NONE",
+            "body": "> ```ts\n> https://github.com/fastify/fastify/blob/main/docs/Reference/TypeScript.md#json-schema\n> ```\n\nyou should use FastifyRequest schema",
+            "createdAt": "2024-11-10T14:05:59Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "JakobJingleheimer",
+            "authorAssociation": "NONE",
+            "body": "@mcollina this appears to just not work. For instance, here is the example from the docs ([Fastify: Type Providers → Json Schema to Ts](https://fastify.dev/docs/latest/Reference/Type-Providers/#json-schema-to-ts))\n\n```text\nProperty 'bar' does not exist on type 'unknown'.ts(2339)\n```\n\n![image](https://github.com/user-attachments/assets/553d15a6-b00a-4be9-b8a7-d3076d945450)",
+            "createdAt": "2025-06-10T10:31:27Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "Can you past that example for ease of testing?",
+            "createdAt": "2025-06-10T11:19:30Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "JakobJingleheimer",
+            "authorAssociation": "NONE",
+            "body": "> Can you past that example for ease of testing?\n\n```ts\nimport type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';\nimport fastify from 'fastify';\n\nconst server = fastify().withTypeProvider<JsonSchemaToTsProvider>();\n\nserver.get(\n  '/route',\n  {\n    schema: {\n      querystring: {\n        type: 'object',\n        properties: {\n          foo: { type: 'number' },\n          bar: { type: 'string' },\n        },\n        required: ['foo', 'bar'],\n      },\n    },\n  },\n  (request, reply) => {\n    // type Query = { foo: number, bar: string }\n    const { foo, bar } = request.query; // type safe!\n\n    console.log({ foo, bar });\n  }\n);\n```",
+            "createdAt": "2025-06-10T11:32:18Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jgburet",
+            "authorAssociation": "NONE",
+            "body": "I could not replicate your issue @JakobJingleheimer , it just works here 🤔 . Restart your IDE maybe?\n\nIn case anyone is interested in having other validation libraries to work with Fastify, I've created this package that supports Standard Schema compatible validation libraries: https://www.npmjs.com/package/fastify-type-provider-standard-schema\nI hope that may help someone.",
+            "createdAt": "2025-08-09T08:31:22Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "What is standard schema?",
+            "createdAt": "2025-08-09T13:24:19Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "dphil",
+            "authorAssociation": "NONE",
+            "body": "> > Can you past that example for ease of testing?\n> \n> import type { JsonSchemaToTsProvider } from '@fastify/type-provider-json-schema-to-ts';\n> import fastify from 'fastify';\n> \n> const server = fastify().withTypeProvider<JsonSchemaToTsProvider>();\n> \n> server.get(\n>   '/route',\n>   {\n>     schema: {\n>       querystring: {\n>         type: 'object',\n>         properties: {\n>           foo: { type: 'number' },\n>           bar: { type: 'string' },\n>         },\n>         required: ['foo', 'bar'],\n>       },\n>     },\n>   },\n>   (request, reply) => {\n>     // type Query = { foo: number, bar: string }\n>     const { foo, bar } = request.query; // type safe!\n> \n>     console.log({ foo, bar });\n>   }\n> );\n\nThat example works for me. An equivalent one using zod does not:\n\n```typescript\nimport fastify from 'fastify';\nimport type { ZodTypeProvider } from 'fastify-type-provider-zod';\nimport { z } from 'zod';\n\nconst server = fastify().withTypeProvider<ZodTypeProvider>();\n\nserver.get(\n  '/route',\n  ",
+            "createdAt": "2025-11-01T18:29:52Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jgburet",
+            "authorAssociation": "NONE",
+            "body": "@dphil could not reproduce\n<img width=\"687\" height=\"477\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/1537c6dc-7246-40c2-a4ab-5e3b6208ce87\" />",
+            "createdAt": "2025-11-01T19:40:19Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "dphil",
+            "authorAssociation": "NONE",
+            "body": "@jgburet Would you mind sharing your installed package versions for fastify, fastify-type-provider-zod, zod and typescript? Another user [here](https://github.com/turkerdev/fastify-type-provider-zod/issues/157#issuecomment-3380691068) appears to have it working with zod as well, so there must be some issue specific to version dependencies or something about the dev environment.",
+            "createdAt": "2025-11-01T19:45:44Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jgburet",
+            "authorAssociation": "NONE",
+            "body": "@dphil \n```json\n    \"dependencies\": {\n        \"fastify\": \"^5.3.2\",\n        \"fastify-type-provider-standard-schema\": \"^0.1.0\",\n        \"fastify-type-provider-zod\": \"^6.1.0\",\n        \"zod\": \"^4.1.12\"\n    },\n    \"devDependencies\": {\n        \"@types/node\": \"^22.15.24\",\n        \"typescript\": \"^5.8.3\"\n    }\n```\n\nDumb question, but did you restart your editor and language servers? I've had similar issues in the past and these were at fault 🙈 ",
+            "createdAt": "2025-11-01T19:56:35Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "dphil",
+            "authorAssociation": "NONE",
+            "body": "@jgburet Thanks, and I did, yes. I set up a new project from scratch with just the above test and exact same version dependencies as in my problematic project, and cannot reproduce the issue - the types are inferred in the handler. The context in which I'm seeing the issue is a much larger project with npm workspaces. I am suspecting some sort of conflict between dependencies in my larger project. I'll look into it further on my end, then. Thanks again.",
+            "createdAt": "2025-11-01T20:06:39Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "dphil",
+            "authorAssociation": "NONE",
+            "body": "In my case, it turned out to be a gnarly dependency hoisting issue with npm workspaces. fastify-type-provider-zod was hoisted and ended pulling in a zod v3 dependency (instead of the zod v4 it expected) that was also hoisted from another package in my monorepo.",
+            "createdAt": "2025-11-02T03:14:56Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:24.807417+00:00"
+      },
+      "6236": {
+        "issueNumber": 6236,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I'll escalate this to the Cross Project Council, and possibly up to the Board.",
+            "createdAt": "2025-06-26T20:58:37Z",
+            "reactions": { "thumbsUp": 6, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "Cool. ",
+            "createdAt": "2025-06-26T21:37:29Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "> decline any contribution if use of AI is either known or suspected.\n\nThe term **“suspected”** may be problematic here. We should define a clear process for assessing whether code or documentation is at risk of being generated by an LLM. One possible approach might involve using an external tool, to avoid giving contributors the feeling that their work is being refused subjectively.\n\nIt may also seem rude - I've seen PRs that look like they were generated by LLMs based on writing style or heavy use of emojis, but I don't feel comfortable suggesting this to the contributor.",
+            "createdAt": "2025-06-27T08:37:01Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ljharb",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Most refused contributions are done subjectively, though - that's what any non-CI-based review _is_.",
+            "createdAt": "2025-06-27T15:36:13Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "> Most refused contributions are done subjectively, though\n\nNot on the base that it might be generated by AI, unless you think AI is only able to generate bad quality code and doc, in such case is there a need to prohibit anything?\n\n\n",
+            "createdAt": "2025-06-27T15:43:41Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "ljharb",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "It's open source - they can be refused on any basis, including \"i don't feel like it\".",
+            "createdAt": "2025-06-27T15:46:03Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "I only wonder about the utility of explicitly prohibiting the use of LLM to generate code.\n\nIs having a document declaring this necessary for legal reasons? \n\nIs it something we could/should refer to in order to refuse code for this specific reason? \n> Hello X, We suspect that your PR was generated by an LLM, we cannot accept it.",
+            "createdAt": "2025-06-27T15:54:10Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "My understanding matches what Tobie is mentioning in https://github.com/openjs-foundation/cross-project-council/issues/1509#issuecomment-3016437655.\n\nTherefore, I recommend we adopt a policy like https://github.com/nodejs/admin/pull/942.\nEssentially, if something is AI slop, it's not acceptable. If it's valuable, it's up to us to verify.\n\nI personally use AI relatively often to fix \"trivial\" issues while doing other tasks.",
+            "createdAt": "2025-07-01T12:37:20Z",
+            "reactions": { "thumbsUp": 3, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "gulbaki",
+            "authorAssociation": "NONE",
+            "body": "First of all, I would like to state that I am new to the open source ecosystem, I have read everything written in its entirety, there were cases that I did not understand, copyright etc.\n\nBut I have a question regarding AI. When we talk about the use of AI, do we mean having the code entirely written by AI, or just getting help from it? \nFor example, since I am new, I may have difficulty understanding some of the issues and it is fast and efficient to progress by discussing the tasks I do not understand with artificial intelligence. Maybe I should ask the members and move forward, but if the problem I am stuck with is an easy task, I do not want to waste the members' time. There is also a time to respond to the written article. In addition, I can experience hesitation, wondering if it is something simple or not, and I can overcome such situations with artificial intelligence. Of course, when I cannot figure out the problem, I solve it by asking questions to the members.\nBeing able to c",
+            "createdAt": "2025-07-02T10:43:52Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "I think Qemu's text is much clearer. The admin policy linked is very sparse and doesn't address the bit that I think is most important: the muddy legal status. From the linked foundation policy:\n\n> If any pre-existing copyrighted materials (including pre-existing open source code) authored or owned by third parties are included in the AI tool’s output, prior to contributing such output to the project, the Contributor should confirm that they have have permission from the third party owners–such as the form of an open source license or public domain declaration that complies with the project’s licensing policies–to use and modify such pre-existing materials and contribute them to the project. Additionally, the contributor should provide notice and attribution of such third party rights, along with information about the applicable license terms, with their contribution.\n\nI don't see how that is at all possible to satisfy. How is someone supposed to verify that tool output includes or doe",
+            "createdAt": "2025-07-02T11:04:28Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "@gulbaki The problem with AI is, that it is not a person, who created it. So it has not copyright. E.g. books written and illustrated by AI can be bought on amazon. But i can also buy them, scan them and then host it for free. Nobody can sue me, because nobody is the author. \nThe prompts on the other hand could have been copyrighted.\nAnd here is the risk: what if i license code which is actually license free...\n\nWe use copilot so that it gives a smarter text completion. You implement an idea, which you broke down in smaller steps. Your idea\n\nAn AI \"slob\" is what?",
+            "createdAt": "2025-07-02T14:32:34Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "https://github.com/ghostty-org/ghostty/pull/8289/files",
+            "createdAt": "2025-08-20T11:14:25Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I have absolutely no problem with that wording. It's not a ban; it just states how that was produced.\n\nI have been using AI a lot lately for minor things that otherwise would not get fixed, and it has been working reasonably well. I usually catch most of the slop before it's out.",
+            "createdAt": "2025-08-22T14:57:45Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "This is relevant: https://github.com/github/ai-moderator",
+            "createdAt": "2025-08-27T16:45:15Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "I think that's using a tool with an extremely high likelihood of false positives to solve issues GitHub themselves should be solving, and does not really address the issue at hand.",
+            "createdAt": "2025-08-28T12:52:36Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:25.136635+00:00"
+      },
+      "6149": {
+        "issueNumber": 6149,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "go for it!!",
+            "createdAt": "2025-05-31T23:04:12Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Parthjain1382",
+            "authorAssociation": "NONE",
+            "body": "Can I create a official documentation beginner friendly!\n ",
+            "createdAt": "2025-06-23T10:57:32Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "@Parthjain1382 \n\nWe're currently discussing this internally, I'd prefer the overall structure to be done by the Core developers, but feedback from the community will be appreciated and necessary.",
+            "createdAt": "2025-06-23T11:11:07Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "@fastify/core\n\nDo you think I can start working on this? Any feedback?\n\nThe tutorial would be short, basic features, but tackle the trickier parts effectively with in-depth explanations, examples and references. I've often seen people struggle with plugin registration and error handling, for example.\n\nI plan to start by building a REST api in pure JavaScript, without any other tools or architectural paradigm.\nI'll only use ESM and Core plugins related to security, observability and probably Swagger.\n\nI plan to keep the authentication part pretty simple with a simple session, and links to more advanced resources.\n\nThen I'll create a separate section on architecture divided into several chapters including TypeScript, autoloader and how to implement more advanced architectural patterns.\n\nI would do a PR by chapter, not sure if it should be published directly on the website or here.",
+            "createdAt": "2025-06-28T09:34:32Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "Keeping it short, it's easier to maintain but is also an opportunity to refer to books and other content created by the community.",
+            "createdAt": "2025-06-28T09:39:47Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Parthjain1382",
+            "authorAssociation": "NONE",
+            "body": "Ok sure I can do that",
+            "createdAt": "2025-06-28T09:41:12Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Parthjain1382",
+            "authorAssociation": "NONE",
+            "body": "Ok I will create it Tommorow ",
+            "createdAt": "2025-06-28T15:22:54Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Fdawgs",
+            "authorAssociation": "MEMBER",
+            "body": "I'm tentative on this.\n\nBasic functionality and setup? Sure, as long as examples can be toggled between both CJS and ESM like fastify.dev supports.\n\nAdvanced architectural patterns? It could get opinionated, and I'm pretty sure this is why similar ideas were shot down before, as there's no right way of setting up an API with Fastify. I hate the MVC pattern, others like it, all personal opinion and preference.",
+            "createdAt": "2025-06-28T15:23:02Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Parthjain1382",
+            "authorAssociation": "NONE",
+            "body": "give me. A day or two buisness days I will put the video up and edit accordingly ",
+            "createdAt": "2025-06-28T16:07:43Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "@Fdawgs \n\n> examples can be toggled between both CJS and ESM \n\nI could be wrong, but I think ESM is increasingly the default for modern Node.js applications.\nIf this is the case, is it necessary to present both? What would be the advantage?\n\n> Advanced architectural patterns? It could get opinionated\n\nLet's skip that section for now. I'll take the initiative to provide some resources and packages regarding architecture by myself.",
+            "createdAt": "2025-06-28T17:39:23Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": ">I could be wrong, but I think ESM is increasingly the default for modern Node.js applications.\nIf this is the case, is it necessary to present both? What would be the advantage?\n\nIt can be the default, but I'd definitely still capture them as there are plenty of introductory courses outside that still default to `CJS` and can be confusing.\nUnless the adoption share is 100%, I wouldn't advice to drop it.\n\n",
+            "createdAt": "2025-06-29T08:33:32Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "I can work on this later, but I was also thinking of creating a short chapter introducing the community - people who aren't interested can just skip it.\n\nI don't know exactly how to phrase it, but the idea would go something like this:\n\n1. Active maintainers\nThe team is quite active - we regularly respond to issues and pull requests, and we do our very best to do fair and qualitative code reviews.\n\n2. Notable contributors\nSome people, like Matteo, are deeply involved in the Node.js runtime and contribute significantly to the ecosystem at large. It's worth pointing out that they are part of the Fastify ecosystem.\n\n3. Fastify philosophy\nWe are a community of volunteers and actively encourage the participation of framework users. \nWe don't fix bugs that don't affect us directly, but we do really appreciate efforts that help improve the ecosystem.",
+            "createdAt": "2025-06-29T09:07:43Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "How does https://fastify.dev/docs/latest/Guides/Getting-Started/ not solve this?",
+            "createdAt": "2025-06-29T12:31:13Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jean-michelet",
+            "authorAssociation": "MEMBER",
+            "body": "> How does https://fastify.dev/docs/latest/Guides/Getting-Started/ not solve this?\n\nI want to go deeper into each topic mentioned in Getting-Started, while limiting the number of features. \nI'm also using several Core plugins, introducing TypeScript and autoloading in a separate section.\nYou can give your feedback on the PR I've created if you want.",
+            "createdAt": "2025-06-29T12:59:15Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:25.325933+00:00"
+      },
+      "5899": {
+        "issueNumber": 5899,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I’ve moved it to Fastify as a feature request.\r\n\r\nI think this is _possible_, I just wonder what would be the actual benefit.",
+            "createdAt": "2024-12-16T07:23:31Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "I don't think it is an useful feature, it can even be replaced by a hook or anything in the middle.\r\nIf you don't like to use array property access, we might default it as \"wildcard\"? or exist in both?",
+            "createdAt": "2024-12-16T09:32:58Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jelmerdemaat",
+            "authorAssociation": "NONE",
+            "body": "Thanks for moving the issue. :) \r\n\r\nIt's not that it adds anything super powerful, it's just that I don't like the array access via `params['*']` as I feel like it is more error-prone for developers. So as a developer experience feature, I would like to be able to rename it to be able to do `params.randomName`.\r\n\r\nPossibly it could also be easier to write types, for TypeScript users? But I wouldn't know about that.\r\n\r\nIt's really only about ease of writing. \r\n\r\nIn my experience it's a very nice feature in Nuxt for example, where you can [create and name catch-all routes](https://nuxt.com/docs/guide/directory-structure/pages#catch-all-route) using:\r\n\r\n\r\n```vue:pages/[...slug].vue\r\n// Vue file = pages/[...mySlug].vue\r\n\r\n<template>\r\n  <p>{{ $route.params.mySlug }}</p>\r\n</template>\r\n```\r\n\r\n",
+            "createdAt": "2024-12-18T12:17:33Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "electrovir",
+            "authorAssociation": "NONE",
+            "body": "Note that Express v5 now _requires_ wildcards to have parameter names (https://expressjs.com/en/guide/migrating-5.html#path-syntax). I ran into this while trying to use modern Express path matching in Fastify. (Not trying to say Fastify _must_ match Express's behavior, just noting that this is now a big difference between the two.)",
+            "createdAt": "2025-05-03T14:01:49Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:25.522648+00:00"
+      },
+      "5984": {
+        "issueNumber": 5984,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "cc @Eomm ",
+            "createdAt": "2025-02-12T16:49:44Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "We can now use this https://docs.npmjs.com/trusted-publishers",
+            "createdAt": "2025-08-17T13:00:10Z",
+            "reactions": { "thumbsUp": 2, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I just tested this and it works great.\n\nWhat could be a rollout plan?",
+            "createdAt": "2025-08-17T13:04:56Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "UlisesGascon",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Seems like @wesleytodd did a great research on this as there are some discussions on 2fa support (I didn't tried yet myself): https://bsky.app/profile/notwes.bsky.social/post/3lwgx6llchc2o.",
+            "createdAt": "2025-08-18T11:22:07Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "> I just tested this and it works great.\n> \n> What could be a rollout plan?\n\nWhat do you mean? Wouldn't it be a simple bump of patch version and trigger the workflow again?",
+            "createdAt": "2025-08-18T18:00:55Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "By the way, I'm about to test it in https://github.com/nodejs/is-my-node-vulnerable/pull/37",
+            "createdAt": "2025-08-18T18:01:11Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "> What do you mean? Wouldn't it be a simple bump of patch version and trigger the workflow again?\n\nThis org contains 50+ repositories/modules. Standardizing the release workflow would be necessary, as would some work on NPM to make the links.\n\n@Fdawgs has some way for massively doing edits. ",
+            "createdAt": "2025-08-18T21:29:58Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "I might be missing some context here, so please correct me if I'm wrong @mcollina.\n\nBut I have been using https://github.com/googleapis/release-please-action, and it works very well. The workflow works great in a more scalable org (50+ modules). What do you think about adding support to trusted-packages to this action?",
+            "createdAt": "2025-08-19T14:03:09Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "It probably boils down to me and probably everybody in the org _hate_ conventional commits.",
+            "createdAt": "2025-08-19T17:52:19Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 1 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "Right, so let's define what we would like:\n\n* Automatically create a release PR when:\n  * Running an action manually (`workflow_dispatch`) or\n  * Whenever a commit lands on `main`\n \n* On a remote tag is pushed push the package to npm with provenance enabled. \n  * Each repository should have a `publish.yml` and be synced with npmjs.com just once. \n\n* Action `workflow_dispatch` to land a `semver-patch` release, reverting the last release if needed (?)\n\nWhat else?",
+            "createdAt": "2025-08-19T20:05:47Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": ">Whenever a commit lands on main\n\nI'd like to suggest to not to this, in my experience, this usually doesn't end well.\n\n>Action workflow_dispatch to land a semver-patch release, reverting the last release if needed \n\nThis can be convenient.\n\n",
+            "createdAt": "2025-08-20T06:50:40Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Fdawgs",
+            "authorAssociation": "MEMBER",
+            "body": "I'm happy to pick this up.\nMy idea for this would be to have a shared workflow over in [fastify/workflows](https://github.com/fastify/workflows ) and would be similar to [fastify/workflows/blob/main/.github/workflows/release.yml ](https://github.com/fastify/workflows/blob/main/.github/workflows/release.yml) but obviously with additional npm publish steps. nearform-actions/optic-release-automation-action does all the incrementing of versions and release notes as seen with https://github.com/fastify/workflows/pull/165",
+            "createdAt": "2025-08-20T10:39:37Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "> My idea for this would be to have a shared workflow over in [fastify/workflows](https://github.com/fastify/workflows) and would be similar to fastify/workflows/blob/main/.github/workflows/release.yml\n\nThe main difference is that we won't need OTP code anymore. We just need to link the repository/workflow to NPM directly. ",
+            "createdAt": "2025-08-20T13:15:29Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Fdawgs",
+            "authorAssociation": "MEMBER",
+            "body": "> > My idea for this would be to have a shared workflow over in [fastify/workflows](https://github.com/fastify/workflows) and would be similar to fastify/workflows/blob/main/.github/workflows/release.yml\n> \n> The main difference is that we won't need OTP code anymore. We just need to link the repository/workflow to NPM directly.\n\nI know, but we still need a release workflow!",
+            "createdAt": "2025-08-20T14:11:28Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "This combo is what I have for undici https://github.com/nodejs/undici/blob/main/.github/workflows/release-create-pr.yml https://github.com/nodejs/undici/blob/main/.github/workflows/release.yml",
+            "createdAt": "2025-08-20T14:19:42Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "> This combo is what I have for undici https://github.com/nodejs/undici/blob/main/.github/workflows/release-create-pr.yml https://github.com/nodejs/undici/blob/main/.github/workflows/release.yml\n\nYes, that's my suggestion in https://github.com/fastify/fastify/issues/5984#issuecomment-3202060909\n\n> Automatically create a release PR when:\n>   * Running an action manually (workflow_dispatch) or\n\nand in \n\n> On a remote tag is pushed push the package to npm with provenance enabled.\n>  * Each repository should have a publish.yml and be synced with npmjs.com just once. \n\nThe undici/release.yml is the `publish.yml` I mentioned. Exactly the same as I suggested. But I don't know if we want to stick to optic-release-automation-action. ",
+            "createdAt": "2025-08-20T16:49:56Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "> I'd like to suggest to not to this,\n\nAgreed. ",
+            "createdAt": "2025-08-22T14:12:47Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "This was my general release workflow. Basically listening to the release event. Only annoyance was that after the release I added a commit to add the correct version into the package.json. Then I needed to delete the version tag and retag the commit with the new package.json as the version tag and in the persisted sourcecode zip in the release page the package.json had the state before the retagging. \n\n```yml\nname: Release\non:\n  workflow_call:\n    inputs:\n      version:\n        description: 'Version'\n        required: false\n        type: string\n      branch:\n        description: 'branch'\n        required: true\n        type: string\n        default: master\n      git-tag:\n        description: 'git tag'\n        required: false\n        type: string\n        default: ''\n\npermissions:\n  contents: write\n\njobs:\n  publish:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Determine Version based on input or tag\n        id: version\n        run: if [ \"$VERSION\" != \"\" ]; then echo ::set-output nam",
+            "createdAt": "2025-08-22T14:30:12Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I generically prefer something like this: https://github.com/pinojs/pino/blob/main/.github/workflows/publish-release.yml\n\nThis does not have the problem of the double tag.",
+            "createdAt": "2025-09-03T07:52:07Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "I like it. I'll work on something similar for fastify next week. Is there a preferable release-notes or `npx @matteo.collina/release-notes` would work fine for fastify too?",
+            "createdAt": "2025-09-03T16:28:50Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "That works! I can also be happy to transfer this to the org.",
+            "createdAt": "2025-09-03T17:33:50Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:25.735997+00:00"
+      },
+      "6034": {
+        "issueNumber": 6034,
+        "comments": [
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "<img width=\"608\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/9672417a-309a-4114-b718-2d222553ba85\" />\n\nhttps://github.com/fastify/fastify/actions/runs/15031218154/job/42271467764?pr=6092",
+            "createdAt": "2025-05-15T08:50:49Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "riosje",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "@Eomm we had issues with the repository, but those are fixed now.\nI would appreciate if you re-run the CI\n",
+            "createdAt": "2025-05-15T20:22:11Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "> D:\\a\\fastify\\fastify\\test\\issue-4959.test.js\n\tline: 37, column: 1\n\t\tplan expected 4 assertions but received 1\n\nThis test is a bit unstable - I think we may add a retry (because it relies on a closed connection)",
+            "createdAt": "2025-05-28T11:19:17Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "RafaelGSS",
+            "authorAssociation": "MEMBER",
+            "body": "Do you have some run examples?",
+            "createdAt": "2025-05-28T13:43:01Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Eomm",
+            "authorAssociation": "MEMBER",
+            "body": "Here: https://github.com/fastify/fastify/pull/6141\nhttps://github.com/fastify/fastify/actions/runs/15262508164/job/42922724843?pr=6141",
+            "createdAt": "2025-05-28T19:29:09Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:25.910550+00:00"
+      },
+      "3902": {
+        "issueNumber": 3902,
+        "comments": [
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I think this could be implemented in Fastify using constraints when defining routes, however I don't think fastify-swagger understand any of that.\n\nWould you like to work in implementing this feature?",
+            "createdAt": "2022-05-15T07:16:55Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "GiovanniCardamone",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Yes, sure, I'm already looking at the code.\r\n\r\nfor the fastify-swagger question, the plugin also must implement this new feature to understand what is going on. And in case of combination of \"swagger2\" + \"array of response\", should throw an error pointing that is non possible in swagger2",
+            "createdAt": "2022-05-15T07:28:27Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "iifawzi",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "Hi, I have an interest in working on this, and I've walked through the code to get myself more familiar with how things work.\r\n\r\nHere's how I'm thinking of supporting this: \r\n\r\nI would change how this piece of code is behaving to have multiple schemas for the same status code\r\nhttps://github.com/fastify/fastify/blob/224dc104260ad26f9baa0e46962f917963d41fe5/lib/validation.js#L19-L26\r\n\r\nSo maybe if we detected that the `schema` is an array (different content types are needed) the final `acc[statusCode]` should be an object that has the content types as a key where each has it's  specific compiled schema as a value\r\n```js\r\nacc[statusCode] = {\r\n  \"application/json\":  .....\r\n  \"image/png\": ........\r\n}\r\n\r\n```\r\n\r\nand then this will necessitate a change in how the `getSchemaSerializer` function is working on getting the schema serializer to be based on the `status code` and the `content type` \r\nhttps://github.com/fastify/fastify/blob/16e4b5bb1dbad1772572d9247694259f2419510e/lib/schemas.js#L135",
+            "createdAt": "2022-09-10T01:24:15Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:26.082302+00:00"
+      },
+      "4452": {
+        "issueNumber": 4452,
+        "comments": [
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "I know this is probably not the form of simplification you’re talking about, but there was some talk on removing the non-async, callback-based API for handlers.\r\n\r\nI think that would really help new contributors. Maybe for the long-term?",
+            "createdAt": "2022-12-01T08:58:48Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "climba03003",
+            "authorAssociation": "MEMBER",
+            "body": "> I know this is probably not the form of simplification you’re talking about, but there was some talk on removing the non-async, callback-based API for handlers.\r\n\r\nWhen you are referencing `some talk`, it is better to provide the link of the talk.\r\nIt helps us understand what exactly you are talking about and check the pros and cons through the talk.",
+            "createdAt": "2022-12-01T09:03:47Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "I'm +1 with @climba03003 plan.\n\nI don't think we should drop callbacks. They are extremely useful to handle some edge cases. It's such a massive endeavor that's close to a big bang rewrite.",
+            "createdAt": "2022-12-01T09:12:43Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "mcollina",
+            "authorAssociation": "MEMBER",
+            "body": "Something we should refactor is support some kind of check to throw an error when a plugin needs to do some metadata check (like onRoute) and it's not awaited.",
+            "createdAt": "2022-12-01T09:13:49Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "gurgunday",
+            "authorAssociation": "MEMBER",
+            "body": "> > I know this is probably not the form of simplification you’re talking about, but there was some talk on removing the non-async, callback-based API for handlers.\r\n> \r\n> When you are referencing `some talk`, it is better to provide the link of the talk. It helps us understand what exactly you are talking about and check the pros and cons through the talk.\r\n\r\nYeah you’re right — sorry I was (and still am) in class right now. But that didn’t prevent me from finding [one occurrence](https://github.com/fastify/fastify-compress/pull/224#issuecomment-1118106465)  of that talk 🤣",
+            "createdAt": "2022-12-01T09:24:43Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "jsumners",
+            "authorAssociation": "MEMBER",
+            "body": "> * Extract `lib/server.js` in separate module\r\n\r\nDo you mean a literal `npmjs.com` module, e.g. `@fastify/server`? If so, I disagree. That would make maintenance more difficult, and increase the complexity of the code base.\r\n\r\n> * Better comments for workflow and JSDoc\r\n\r\nThis I agree with. You may have noticed, but I have been requiring JSDoc in all of the code that I have been reviewing that adds new functions.",
+            "createdAt": "2022-12-02T13:10:41Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "cesarvspr",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "I will be happy to work on it @climba03003 \r\n\r\nWould you mind providing a clarification about what you mean by ` Extract lib/server.js in separate module`?  Because this file already have module.exports",
+            "createdAt": "2022-12-03T16:09:45Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "Uzlopak",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "@cesarvspr \r\n\r\nWe have to first discuss, if this is the way to go or not. Also this is not a first-good-issue. I dont think that this is a simple patch. ",
+            "createdAt": "2022-12-03T16:20:29Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "cesarvspr",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "> @cesarvspr \n> \n> We have to first discuss, if this is the way to go or not. Also this is not a first-good-issue. I dont think that this is a simple patch. \n\nYes @Uzlopak you are right, also I appreciate the warning. Just in case this issue has room to me I will be happy to contribute. Otherwise I will understand the outcome of discussing this.",
+            "createdAt": "2022-12-03T16:26:19Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "metcoder95",
+            "authorAssociation": "MEMBER",
+            "body": "Just adding my tiny two cents, I agree 100% with the points about adding JSDoc across the codebase, most important on those points where a variable is set in a previous point and there are several dependencies down-level and across callbacks within the same function or even script.\r\n\r\nAlong with the previous point, one of the things that I've seen more friction (and I also have struggled to draw a mental map of it), is how the loading of plugins/routes works in mix with `avvio`.\r\nThat can also be accompanied by @mcollina point of handling better those plugins that require to be `await`ed to work (e.g. those ones that set an `onRoute` hook), which has been subjected to quite a good number of opened issues due to plugins not working due to not waiting for them to be loaded.",
+            "createdAt": "2022-12-06T22:55:47Z",
+            "reactions": { "thumbsUp": 0, "thumbsDown": 0, "heart": 0 }
+          },
+          {
+            "author": "erfanium",
+            "authorAssociation": "CONTRIBUTOR",
+            "body": "I'm also in favor of dropping for callback support for next fastify major versions. I found fastify internal code hard to read, because of this unnecessary complexity.\r\n\r\nthere's always a `done` parameter passing from one function to another, very hard to find out what is really going on there.\r\n\r\n",
+            "createdAt": "2023-01-13T18:15:18Z",
+            "reactions": { "thumbsUp": 1, "thumbsDown": 2, "heart": 0 }
+          }
+        ],
+        "scrapedAt": "2026-02-22T06:47:26.387240+00:00"
+      }
+    }
+  },
+  "error": null
+}

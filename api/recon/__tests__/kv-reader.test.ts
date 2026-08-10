@@ -110,6 +110,9 @@ describe('getRepoHealth', () => {
     const health: RepoHealth = {
       slug: 'test-repo',
       defaultBranch: 'main',
+      // Required by RepoHealth. Omitted here since the fixture was written by
+      // hand rather than via makeRepoHealth(), so the field was simply missed.
+      language: 'TypeScript',
       maintainerHealthScore: 85,
       mergeAccessibilityScore: 72,
       availabilityScore: 68,

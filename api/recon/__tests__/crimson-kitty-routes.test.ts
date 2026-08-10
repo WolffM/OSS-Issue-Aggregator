@@ -12,7 +12,8 @@ import {
   createMockExecutionCtx,
   makeConsolidatedReconData,
   makePRSample,
-  makeRepoMeta
+  makeRepoMeta,
+  readJson
 } from './helpers'
 
 // ============================================================================
@@ -84,7 +85,7 @@ describe('GET /:slug/contributing', () => {
     const res = await app.request('/fastify-fastify/contributing')
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.ai_policy).toBe('unknown')
     expect(body.data.dco_required).toBe(true)
@@ -105,7 +106,7 @@ describe('GET /:slug/contributing', () => {
     const res = await app.request('/fastify-fastify/contributing')
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.ai_policy).toBe('banned')
     expect(body.data.matched_phrase).toBeTruthy()
     expect(body.data.matched_in).toBe('contributing')
@@ -121,7 +122,7 @@ describe('GET /:slug/contributing', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/contributing')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.ai_policy).toBe('allowed')
     expect(body.data.matched_phrase).toMatch(/AI-assisted contributions are welcome/i)
     expect(body.data.matched_in).toBe('contributing')
@@ -137,7 +138,7 @@ describe('GET /:slug/contributing', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/contributing')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.ai_policy).toBe('disclose_required')
     expect(body.data.matched_phrase).toMatch(/must disclose/i)
     expect(body.data.matched_in).toBe('contributing')
@@ -153,7 +154,7 @@ describe('GET /:slug/contributing', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/contributing')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.ai_policy).toBe('disclose_required')
     expect(body.data.matched_phrase).toMatch(/CODING AGENTS/i)
     expect(body.data.matched_in).toBe('contributing')
@@ -169,7 +170,7 @@ describe('GET /:slug/contributing', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/contributing')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.ai_policy).toBe('unknown')
     expect(body.data.matched_phrase).toBeNull()
     expect(body.data.matched_in).toBeNull()
@@ -185,7 +186,7 @@ describe('GET /:slug/contributing', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/contributing')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.license_check_required).toBe(true)
   })
 
@@ -217,7 +218,7 @@ describe('GET /:slug/contributing', () => {
 
     const app = createTestApp(kv, 'test-token')
     const res = await app.request('/fastify-fastify/contributing')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.dco_required).toBe(true)
   })
@@ -231,7 +232,7 @@ describe('GET /:slug/contributing', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contributing')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.ai_policy).toBe('unknown')
     expect(body.data.matched_phrase).toBeNull()
@@ -243,7 +244,7 @@ describe('GET /:slug/contributing', () => {
     const app = createTestApp(undefined as unknown as KVNamespace)
     const res = await app.request('/fastify-fastify/contributing')
     expect(res.status).toBe(500)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(false)
   })
 })
@@ -264,7 +265,7 @@ describe('GET /:slug/pr-template', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/pr-template')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.path).toBeNull()
     expect(body.data.raw_text).toBeNull()
@@ -281,7 +282,7 @@ describe('GET /:slug/pr-template', () => {
     })
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/pr-template')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.sections).toHaveLength(3)
     expect(body.data.sections[0].heading).toBe('Description')
@@ -299,7 +300,7 @@ describe('GET /:slug/pr-template', () => {
     })
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/pr-template')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.front_matter).toMatchObject({ title: 'My PR', labels: 'bug' })
   })
@@ -320,7 +321,7 @@ describe('GET /:slug/pr-template', () => {
 
     const app = createTestApp(kv, 'test-token')
     const res = await app.request('/fastify-fastify/pr-template')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.sections).toHaveLength(1)
     expect(body.data.sections[0].heading).toBe('Description')
@@ -346,7 +347,7 @@ describe('GET /:slug/issue-templates', () => {
     })
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/issue-templates')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.templates).toEqual([])
   })
@@ -371,7 +372,7 @@ describe('GET /:slug/issue-templates', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/issue-templates')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.templates).toHaveLength(1)
     expect(body.data.templates[0].name).toBe('Bug Report')
@@ -399,7 +400,7 @@ describe('GET /:slug/issue-templates', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/issue-templates')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.templates[0].format).toBe('markdown')
     expect(body.data.templates[0].required_fields).toEqual([])
@@ -420,7 +421,7 @@ describe('GET /:slug/codeowners', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/codeowners')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.path).toBeNull()
     expect(body.data.rules).toEqual([])
@@ -441,7 +442,7 @@ describe('GET /:slug/codeowners', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/codeowners')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.path).toBe('.github/CODEOWNERS')
     expect(body.data.rules).toHaveLength(3)
@@ -470,7 +471,7 @@ describe('GET /:slug/codeowners', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/codeowners')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.rules).toHaveLength(1)
     expect(body.data.rules[0].pattern).toBe('*.md')
   })
@@ -501,7 +502,7 @@ describe('GET /:slug/labels', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/labels?prefix=')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.prefix).toBe('')
     expect(body.data.labels).toHaveLength(5)
@@ -517,7 +518,7 @@ describe('GET /:slug/labels', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/labels')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.prefix).toBe('ai')
     expect(body.data.labels.map((l: { name: string }) => l.name)).toEqual([
@@ -536,7 +537,7 @@ describe('GET /:slug/labels', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/labels?prefix=no')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.labels.map((l: { name: string }) => l.name)).toEqual(['no-ai'])
   })
 
@@ -550,7 +551,7 @@ describe('GET /:slug/labels', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/labels?prefix=ai')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.labels).toEqual([])
   })
@@ -565,7 +566,7 @@ describe('GET /:slug/labels', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/labels?prefix=ai')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.labels).toEqual([])
   })
@@ -583,7 +584,7 @@ describe('GET /:slug/labels', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/labels?prefix=ai')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.labels[0]).toMatchObject({
       name: 'ai-policy',
       color: 'fef2c0',
@@ -609,7 +610,7 @@ describe('GET /:slug/agents-md', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/agents-md')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.exists).toBe(false)
     expect(body.data.path).toBeNull()
@@ -630,7 +631,7 @@ describe('GET /:slug/agents-md', () => {
 
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/agents-md')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.exists).toBe(true)
     expect(body.data.path).toBe('AGENTS.md')
@@ -660,7 +661,7 @@ describe('GET /:slug/agents-md', () => {
 
     const app = createTestApp(kv, 'test-token')
     const res = await app.request('/fastify-fastify/agents-md')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data.exists).toBe(true)
     expect(body.data.path).toBe('.github/AGENTS.md')
@@ -686,7 +687,7 @@ describe('GET /:slug/contribution-conventions', () => {
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.success).toBe(true)
     expect(body.data).toMatchObject({
       commit_style: 'freeform',
@@ -708,7 +709,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.signoff_required).toBe(true)
     expect(body.data.evidence.source).toBe('contributing')
     expect(body.data.evidence.raw_excerpt).toContain('Developer Certificate of Origin')
@@ -724,7 +725,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.commit_style).toBe('conventional')
     expect(body.data.title_prefix_pattern).toMatch(/feat|fix/)
     expect(body.data.evidence.source).toBe('contributing')
@@ -755,7 +756,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.commit_style).toBe('conventional')
     expect(body.data.evidence.source).toBe('merged-commits')
     expect(body.data.evidence.raw_excerpt).toMatch(
@@ -786,7 +787,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.commit_style).toBe('prefix-required')
     expect(body.data.title_prefix_pattern).toMatch(/A-Z/)
     expect(body.data.evidence.source).toBe('merged-commits')
@@ -802,7 +803,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.body_structure).toEqual(['Summary', 'Why', 'Test plan'])
     expect(body.data.evidence.source).toBe('pr-template')
   })
@@ -817,7 +818,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.references.close_keyword).toBe('Closes')
     expect(body.data.references.syntax).toBe('Closes #N')
     expect(body.data.references.in_body).toBe(true)
@@ -833,7 +834,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/fastify-fastify/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.references.in_body).toBe(false)
   })
 
@@ -861,7 +862,7 @@ describe('GET /:slug/contribution-conventions', () => {
     })
     const app = createTestApp(kv, 'test-token')
     const res = await app.request('/fastify-fastify/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.commit_style).toBe('conventional')
     expect(body.data.evidence.source).toBe('contributing')
   })
@@ -882,7 +883,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/argoproj-argo-cd/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.signoff_required).toBe(true)
     // Both Closes and Fixes appear; tie-break is fine — just assert it's one of them.
     expect(['Closes', 'Fixes']).toContain(body.data.references.close_keyword)
@@ -904,7 +905,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/apache-airflow/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.references.close_keyword).toBe('Closes')
     expect(body.data.references.syntax).toBe('Closes #N')
   })
@@ -939,7 +940,7 @@ describe('GET /:slug/contribution-conventions', () => {
     })
     const app = createTestApp(kv, 'test-token')
     const res = await app.request('/foo-bar/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.signoff_required).toBe(true)
   })
 
@@ -958,7 +959,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/apache-airflow/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.signoff_required).toBe(true)
   })
 
@@ -980,7 +981,7 @@ describe('GET /:slug/contribution-conventions', () => {
     mockFetch({})
     const app = createTestApp(kv)
     const res = await app.request('/kubernetes-kubernetes/contribution-conventions')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.signoff_required).toBe(true)
   })
 })

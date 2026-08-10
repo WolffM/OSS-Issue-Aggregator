@@ -10,7 +10,8 @@ import {
   makeScoredIssue,
   makeDossier,
   makeKVEnvelope,
-  makePRSample
+  makePRSample,
+  readJson
 } from './helpers'
 
 /**
@@ -45,7 +46,7 @@ describe('GET /:slug/health', () => {
     const res = await app.request('/fastify-fastify/health')
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.status).toBe('pending')
   })
 
@@ -67,7 +68,7 @@ describe('GET /:slug/health', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/health')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.overallViability).toBeGreaterThan(0)
     expect(body.data.killed).toBe(false)
     expect(body.data.slug).toBe('fastify-fastify')
@@ -82,7 +83,7 @@ describe('GET /:slug/issues', () => {
     const res = await app.request('/fastify-fastify/issues')
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.issues).toEqual([])
     expect(body.data.slug).toBe('fastify-fastify')
   })
@@ -95,7 +96,7 @@ describe('GET /:slug/issues', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/issues')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.issues).toHaveLength(1)
     expect(body.data.issues[0].id).toBe(issue.id)
   })
@@ -107,7 +108,7 @@ describe('GET /:slug/scored-issues', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/scored-issues')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.status).toBe('pending')
   })
 
@@ -119,7 +120,7 @@ describe('GET /:slug/scored-issues', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/scored-issues')
-    const body = await res.json()
+    const body = await readJson(res)
 
     expect(body.data.issues).toHaveLength(1)
     expect(body.data.issues[0].id).toBe(scored.id)
@@ -134,7 +135,7 @@ describe('GET /:slug/dossier', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/dossier')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.status).toBe('pending')
   })
 
@@ -145,7 +146,7 @@ describe('GET /:slug/dossier', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/dossier')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.status).toBe('pending')
   })
 
@@ -168,7 +169,7 @@ describe('GET /:slug/dossier', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/dossier')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.slug).toBe('fastify-fastify')
     expect(body.data.generatedAt).toBeDefined()
     expect(body.data.sections).toHaveProperty('overview')
@@ -186,7 +187,7 @@ describe('GET /all-scored-issues', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.issues).toEqual([])
     expect(body.data.totalCount).toBe(0)
     expect(body.data.repoCount).toBe(0)
@@ -205,7 +206,7 @@ describe('GET /all-scored-issues', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.issues).toHaveLength(2)
     expect(body.data.repoCount).toBe(2)
   })
@@ -220,7 +221,7 @@ describe('GET /all-scored-issues', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.issues).toHaveLength(1)
   })
 
@@ -233,7 +234,7 @@ describe('GET /all-scored-issues', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues')
-    const body = await res.json()
+    const body = await readJson(res)
     const issue = body.data.issues[0]
 
     // Essential fields must be present
@@ -281,7 +282,7 @@ describe('POST /:slug/refresh', () => {
     const res = await app.request('/fastify-fastify/refresh', { method: 'POST' })
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.status).toBe('triggered')
   })
 })
@@ -296,7 +297,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.status).toBe('pending')
   })
 
@@ -315,7 +316,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.issue.body).toBe('This is the body preview text...')
     expect(json.data.issue.bodyPreview).toBe('This is the body preview text...')
   })
@@ -336,7 +337,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.issue.body).toBe('Full body text with all the details and code blocks etc.')
     expect(json.data.issue.bodyPreview).toBe('Full body text with all the...')
   })
@@ -353,7 +354,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-999')
     expect(res.status).toBe(404)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.success).toBe(false)
     expect(json.error).toContain('github-fastify-fastify-999')
   })
@@ -378,7 +379,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-777')
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.success).toBe(true)
     expect(json.data.issue.id).toBe('github-fastify-fastify-777')
     expect(json.data.issue.title).toBe('Aged-out bug report')
@@ -424,7 +425,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     })
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.success).toBe(true)
     expect(json.data.issue.id).toBe('github-fastify-fastify-7777')
     expect(json.data.issue.title).toBe('Snapshot-supplied bug')
@@ -451,7 +452,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     })
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.status).toBe('pending')
   })
 
@@ -478,7 +479,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     })
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.issue.claimStatus).toBe('claimed')
     expect(json.data.issue.claimAuthor).toBe('claimer')
   })
@@ -503,7 +504,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-777')
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.issue.claimStatus).toBe('claimed')
     expect(json.data.issue.claimAuthor).toBe('claimer')
     expect(json.data.issue.dataCompleteness).toBe('raw')
@@ -534,7 +535,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
-    const json = await res.json()
+    const json = await readJson(res)
 
     expect(json.data.brief).toContain('# Task:')
     expect(json.data.repoHealth).toBeDefined()
@@ -561,7 +562,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.dispatchReadinessScore).toBe(1.0)
     expect(json.data.dispatchReadinessFlags).toEqual([])
   })
@@ -585,7 +586,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.dispatchReadinessFlags).toEqual(
       expect.arrayContaining(['epic_shape', 'active_linked_pr'])
     )
@@ -617,7 +618,7 @@ describe('GET /:slug/issue-brief/:issueId', () => {
     const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
     expect(res.status).toBe(200)
 
-    const json = await res.json()
+    const json = await readJson(res)
     expect(json.data.issue.subIssues).toEqual({ count: 2, open: 1, closed: 1 })
     expect(json.data.issue.commenterMix).toEqual({ count: 4, distinct: 3, maintainers: 1 })
     expect(json.data.issue.recentTimelineEvents).toHaveLength(1)
@@ -640,7 +641,7 @@ describe('POST /:slug/claim', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.issueId).toBe('github-fastify-fastify-100')
     expect(body.data.claimedBy).toBe('testuser')
     expect(body.data.claimedAt).toBeTruthy()
@@ -668,7 +669,7 @@ describe('POST /:slug/unclaim', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.removed).toBe(true)
   })
 
@@ -682,7 +683,7 @@ describe('POST /:slug/unclaim', () => {
       body: JSON.stringify({ issueId: 'nonexistent' })
     })
 
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.removed).toBe(false)
   })
 })
@@ -709,7 +710,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/fastify-fastify/health')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
@@ -728,7 +729,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/fastify-fastify/health')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       expect(body._meta.scraped_at).toBeNull()
@@ -744,7 +745,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/fastify-fastify/issues')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
@@ -761,7 +762,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/fastify-fastify/scored-issues')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
@@ -778,7 +779,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/fastify-fastify/dossier')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
@@ -801,7 +802,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/fastify-fastify/issue-brief/github-fastify-fastify-100')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
@@ -832,7 +833,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/all-scored-issues')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       // Oldest scraped_at should win
@@ -859,7 +860,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/all-scored-issues')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       // Should have scraped_at from the one repo that has it
@@ -871,7 +872,7 @@ describe('_meta freshness metadata', () => {
       const app = createTestApp(kv)
 
       const res = await app.request('/all-scored-issues')
-      const body = await res.json()
+      const body = await readJson(res)
 
       expectMeta(body._meta)
       expect(body._meta.scraped_at).toBeNull()
@@ -991,7 +992,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&offset=0&limit=2')
-    const body = await res.json()
+    const body = await readJson(res)
 
     expect(body.success).toBe(true)
     expect(body.data.issues).toHaveLength(2)
@@ -1010,7 +1011,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&offset=3&limit=2')
-    const body = await res.json()
+    const body = await readJson(res)
 
     expect(body.data.issues).toHaveLength(2)
     expect(body.data.hasMore).toBe(false)
@@ -1025,7 +1026,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&offset=10&limit=2')
-    const body = await res.json()
+    const body = await readJson(res)
 
     expect(body.data.issues).toHaveLength(0)
     expect(body.data.hasMore).toBe(false)
@@ -1036,7 +1037,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues?sort=title&dir=asc&limit=5')
-    const body = await res.json()
+    const body = await readJson(res)
 
     expect(body.data.issues[0].title).toBe('Alpha')
     expect(body.data.issues[4].title).toBe('Echo')
@@ -1047,7 +1048,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues')
-    const body = await res.json()
+    const body = await readJson(res)
 
     expect(body.data.issues).toHaveLength(5)
     expect(body.data.totalCount).toBe(5)
@@ -1065,7 +1066,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=10')
-    const body = await res.json()
+    const body = await readJson(res)
 
     // Fallback still works, returns all issues
     expect(body.data.issues).toHaveLength(1)
@@ -1100,7 +1101,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
 
     // Sort by title ascending
     const resAsc = await app.request('/all-scored-issues?sort=title&dir=asc&limit=10')
-    const bodyAsc = await resAsc.json()
+    const bodyAsc = await readJson(resAsc)
     expect(bodyAsc.data.issues.map((i: { title: string }) => i.title)).toEqual([
       'Alpha',
       'Bravo',
@@ -1109,7 +1110,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
 
     // Sort by title descending
     const resDesc = await app.request('/all-scored-issues?sort=title&dir=desc&limit=10')
-    const bodyDesc = await resDesc.json()
+    const bodyDesc = await readJson(resDesc)
     expect(bodyDesc.data.issues.map((i: { title: string }) => i.title)).toEqual([
       'Charlie',
       'Bravo',
@@ -1118,12 +1119,12 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
 
     // Sort by CVS ascending
     const resCvsAsc = await app.request('/all-scored-issues?sort=cvs&dir=asc&limit=10')
-    const bodyCvsAsc = await resCvsAsc.json()
+    const bodyCvsAsc = await readJson(resCvsAsc)
     expect(bodyCvsAsc.data.issues.map((i: { cvs: number }) => i.cvs)).toEqual([60, 75, 90])
 
     // Sort by CVS descending
     const resCvsDesc = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=10')
-    const bodyCvsDesc = await resCvsDesc.json()
+    const bodyCvsDesc = await readJson(resCvsDesc)
     expect(bodyCvsDesc.data.issues.map((i: { cvs: number }) => i.cvs)).toEqual([90, 75, 60])
   })
 
@@ -1140,7 +1141,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=1000')
-    const body = await res.json()
+    const body = await readJson(res)
 
     // Should return all 5 (limit clamped to 500, total is 5)
     expect(body.data.issues).toHaveLength(5)
@@ -1154,7 +1155,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     // But recon:agg:invalid won't exist, so it falls through to N+1
     // However recon:agg:cvs does exist when using default 'cvs'
     const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&limit=2')
-    const body = await res.json()
+    const body = await readJson(res)
     expect(body.data.issues[0].cvs).toBe(90)
   })
 
@@ -1203,7 +1204,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const kv = setupAggregateKVWithKilled()
     const app = createTestApp(kv)
     const res = await app.request('/all-scored-issues?sort=cvs&dir=desc')
-    const body = await res.json()
+    const body = await readJson(res)
 
     const slugs = body.data.issues.map((i: { repoSlug: string }) => i.repoSlug)
     expect(slugs).not.toContain('r-dead')
@@ -1215,7 +1216,7 @@ describe('GET /all-scored-issues (paginated with aggregate KV)', () => {
     const kv = setupAggregateKVWithKilled()
     const app = createTestApp(kv)
     const res = await app.request('/all-scored-issues?sort=cvs&dir=desc&includeKilled=true')
-    const body = await res.json()
+    const body = await readJson(res)
 
     const slugs = new Set(body.data.issues.map((i: { repoSlug: string }) => i.repoSlug))
     expect(slugs.has('r-dead')).toBe(true)
@@ -1238,7 +1239,7 @@ describe('GET /all-scored-issues/version', () => {
 
     const res = await app.request('/all-scored-issues/version')
     expect(res.status).toBe(200)
-    const body = await res.json()
+    const body = await readJson(res)
 
     expect(body.success).toBe(true)
     expect(body.data.version).toBe(1700000000000)
@@ -1253,7 +1254,7 @@ describe('GET /all-scored-issues/version', () => {
     const app = createTestApp(kv)
 
     const res = await app.request('/all-scored-issues/version')
-    const body = await res.json()
+    const body = await readJson(res)
 
     expect(body.success).toBe(true)
     expect(body.data.version).toBe(0)

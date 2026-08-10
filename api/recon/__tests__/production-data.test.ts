@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { createReconRoutes } from '../index'
-import { createMockKV, createMockExecutionCtx } from './helpers'
+import { createMockKV, createMockExecutionCtx, readJson } from './helpers'
 import { scoreRepoHealth } from '../health-scorer'
 import { scoreIssues } from '../issue-scorer'
 import { compileDossier } from '../dossier-compiler'
@@ -479,7 +479,7 @@ describe('Production Data: fastify/fastify', () => {
       const res = await app.request(`/${SLUG}/health`)
 
       expect(res.status).toBe(200)
-      const body = await res.json()
+      const body = await readJson(res)
       expect(body.data.slug).toBe(SLUG)
       expect(body.data.killed).toBe(false)
       expect(body.data.overallViability).toBeGreaterThan(0)
@@ -493,7 +493,7 @@ describe('Production Data: fastify/fastify', () => {
       const res = await app.request(`/${SLUG}/scored-issues`)
 
       expect(res.status).toBe(200)
-      const body = await res.json()
+      const body = await readJson(res)
       expect(body.data.issues.length).toBe(76)
       expect(body.data.slug).toBe(SLUG)
 
@@ -510,7 +510,7 @@ describe('Production Data: fastify/fastify', () => {
       const res = await app.request(`/${SLUG}/dossier`)
 
       expect(res.status).toBe(200)
-      const body = await res.json()
+      const body = await readJson(res)
       expect(body.data.sections.overview).toBeTruthy()
       expect(body.data.sections.contributionRules).toBeTruthy()
       expect(body.data.sections.successPatterns).toBeTruthy()
@@ -525,7 +525,7 @@ describe('Production Data: fastify/fastify', () => {
       const res = await app.request('/all-scored-issues')
 
       expect(res.status).toBe(200)
-      const body = await res.json()
+      const body = await readJson(res)
       expect(body.data.issues.length).toBe(76)
       expect(body.data.totalCount).toBe(76)
       expect(body.data.repoCount).toBe(1)
@@ -543,7 +543,7 @@ describe('Production Data: fastify/fastify', () => {
       const res = await app.request(`/${SLUG}/issue-brief/${firstIssueId}`)
 
       expect(res.status).toBe(200)
-      const body = (await res.json()) as {
+      const body = (await readJson(res)) as {
         success: boolean
         data: { issue: ScoredIssue; repoHealth: RepoHealth; brief: string }
       }

@@ -958,6 +958,11 @@ export function registerCrimsonKittyRoutes(app: OpenAPIHono<HonoEnv>) {
           const fetched = await fetchGitHubFile(owner, repo, path, c.env.GITHUB_TOKEN)
           if (!fetched) return null
 
+          // `as const` on each branch, not on the ternary result: without it
+          // TypeScript widens to `string`, and the handler stops matching
+          // IssueTemplatesResponseSchema, which declares 'yaml' | 'markdown'.
+          // The runtime value was always in range — only the TYPE was wrong, so
+          // the fix is to preserve the literal rather than widen the schema.
           const isYaml = /\.(yml|yaml)$/.test(path)
           const name = extractTemplateName(fetched.content, path)
           const required_fields = isYaml
@@ -967,7 +972,7 @@ export function registerCrimsonKittyRoutes(app: OpenAPIHono<HonoEnv>) {
           return {
             name,
             path,
-            format: isYaml ? 'yaml' : 'markdown',
+            format: isYaml ? ('yaml' as const) : ('markdown' as const),
             required_fields
           }
         })

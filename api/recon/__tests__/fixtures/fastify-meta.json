@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "data": {
+    "slug": "fastify/fastify",
+    "data_type": "meta",
+    "api_calls": 14,
+    "duration_ms": 4347,
+    "meta": {
+      "owner": "fastify",
+      "repo": "fastify",
+      "slug": "fastify-fastify",
+      "stars": 35661,
+      "forks": 2588,
+      "language": "JavaScript",
+      "license": "MIT",
+      "hasContributing": true,
+      "contributingContent": "# Fastify is an OPEN Open Source Project\n\n## What?\n\nIndividuals making significant and valuable contributions are given\ncommit-access to the project to contribute as they see fit. This project is more\nlike an open wiki than a standard guarded open source project.\n\nSee our [informal contributing guide](./docs/Guides/Contributing.md) for more\ndetails on contributing to this project.\n\n### I want to be a collaborator!\n\nIf you think you meet the above criteria and we have not invited you yet, we are\nsorry! Feel free to reach out to a [Lead\nMaintainer](https://github.com/fastify/fastify#team) privately with a few links\nto your valuable contributions. Read the [GOVERNANCE](GOVERNANCE.md) to get more\ninformation.\n\n## Rules\n\nThere are a few basic ground rules for contributors:\n\n1. **No `--force` pushes** on `main` or modifying the Git history in any way\n   after a PR has been merged.\n1. **Non-main branches** ought to be used for ongoing work.\n1. **External API changes and significant modifications** ought to be subject to\n   an **internal pull request** to solicit feedback from other contributors.\n1. Internal pull requests to solicit feedback are *encouraged* for any other\n   non-trivial contribution but are left to the discretion of the contributor.\n1. Contributors should attempt to adhere to the prevailing code style.\n1. At least two contributors, or one core member, must approve pull requests\n   before merging.\n1. All integrated CI services must be green before a pull request can be merged.\n1. A lead maintainer must merge SemVer-major changes in this repository.\n1. If it is not possible to reach a consensus in a pull request, the decision\n   is left to the lead maintainer's team.\n\n### Fastify previous versions\n\nEvery version of Fastify has its own branch. All Fastify related\nchanges should be based on the corresponding branch.\n\nWe have a [Long Term Support](./docs/Reference/LTS.md) policy that defines\nthe organization's efforts for each Fastify's version.\n\n|Version|Branch|\n|-------|------|\n**v1.x**|[branch 1.x](https://github.com/fastify/fastify/tree/1.x)|\n**v2.x**|[branch 2.x](https://github.com/fastify/fastify/tree/2.x)|\n**v3.x**|[branch 3.x](https://github.com/fastify/fastify/tree/3.x)|\n**v4.x**|[branch 4.x](https://github.com/fastify/fastify/tree/4.x)|\n\n## Releases\n\nDeclaring formal releases remains the prerogative of the lead maintainers. Do\nnot bump version numbers in pull requests.\n\n## Plugins\n\nContributors to Fastify plugins must follow the same rules as the main Fastify repository,\n with a few adjustments:\n\n1. Any member can publish a release.\n1. The plugin version must follow the [semver](https://semver.org/)\n   specification.\n1. The Node.js compatibility must match with Fastify's main branch.\n1. The new release must have the changelog information stored in the GitHub\n     release. For this we suggest adopting a tool like\n     [`releasify`](https://github.com/fastify/releasify) to achieve this.\n1. PR opened by bots (like Dependabot) can be merged if the CI is green and the\n   Node.js versions supported are the same as the plugin.\n\n## Changes to this arrangement\n\nThis is an experiment and feedback is welcome! This document may also be subject\nto pull requests or changes by contributors where you believe you have something\nvaluable to add or change.\n\n# Fastify Organization Structure\n\nThe Fastify structure is detailed in the [GOVERNANCE](GOVERNANCE.md) document.\n\n### Onboarding Collaborators\n\nWelcome to the team! We are happy to have you. Before you start, please complete\nthe following tasks:\n1. Set up 2 factor authentication for GitHub and NPM\n    - [GitHub\n    2FA](https://help.github.com/en/articles/securing-your-account-with-two-factor-authentication-2fa)\n    - [NPM 2FA](https://docs.npmjs.com/about-two-factor-authentication)\n2. Choose which team to join *(more than one is ok!)* based on how you want to\n   help.\n    - Core team: maintains core Fastify and its documentation\n    - Plugins team: maintains Fastify's plugins and its ecosystem\n3. Open a pull request to\n   [`fastify/fastify:HEAD`](https://github.com/fastify/fastify/pulls) that adds\n   your name, username, and email to the team you have chosen in the\n   [README.md](./README.md) and [package.json](./package.json) *(if you are part\n   of the core team)* files. The member lists are sorted alphabetically by last\n   name; make sure to add your name in the proper order.\n4. Open a pull request to\n   [`fastify/website:HEAD`](https://github.com/fastify/website/pulls) adding\n   yourself to the\n   [team.yml](https://github.com/fastify/website/blob/HEAD/static/data/team.yml)\n   file. This list is also sorted alphabetically so make sure to add your name\n   in the proper order. Use your GitHub profile icon for the `picture:` field.\n5. Read the [pinned announcements](https://github.com/orgs/fastify/discussions/categories/announcements)\n   to be updated with the organization’s news.\n6. The person who does the onboarding must open a pull request to\n   [`fastif",
+      "hasPrTemplate": false,
+      "prTemplateContent": null,
+      "hasCodeOfConduct": true,
+      "hasCodeowners": false,
+      "defaultBranch": "main",
+      "isArchived": false,
+      "openIssueCount": 75,
+      "openPrCount": 33,
+      "lastPushedAt": "2026-02-21T21:48:35Z",
+      "topics": ["hacktoberfest", "nodejs", "performance", "speed", "webframework"],
+      "externalTools": [],
+      "scrapedAt": "2026-02-22T06:45:32.389953+00:00"
+    }
+  },
+  "error": null
+}
