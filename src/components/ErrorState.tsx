@@ -1,3 +1,5 @@
+import { Icon } from '@wolffm/themes'
+
 interface ErrorStateProps {
   message: string
   onRetry?: () => void
@@ -6,7 +8,9 @@ interface ErrorStateProps {
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <div className="error-state">
-      <div className="error-state__icon">⚠️</div>
+      <div className="error-state__icon">
+        <Icon name="warning" />
+      </div>
       <p className="error-state__message">{message}</p>
       {onRetry && (
         <button className="error-state__retry" onClick={onRetry}>

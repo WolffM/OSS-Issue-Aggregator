@@ -3,6 +3,8 @@ import { logger } from '@wolffm/logger/client'
 import App from './App'
 // REQUIRED: Import @wolffm/themes CSS - DO NOT REMOVE
 import '@wolffm/themes/style.css'
+// Icon sizing + accent tiles, unlayered next to style.css (THEME_USAGE_GUIDE).
+import '@wolffm/themes/icons.css'
 // REQUIRED: Import theme picker CSS
 import '@wolffm/task-ui-components/theme-picker.css'
 import '@wolffm/task-ui-components/app-header.css'
