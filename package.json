@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/hadoku-aggregator",
-  "version": "3.1.3",
+  "version": "3.1.4",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "packageManager": "pnpm@11.5.0",
