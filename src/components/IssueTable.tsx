@@ -116,7 +116,7 @@ export function IssueTable({
                     onRepoClick(issue.repoSlug)
                   }}
                 >
-                  {issue.repoSlug.replace('-', '/')}
+                  {issue.project}
                 </button>
               </td>
               <td className="issue-table__cell issue-table__cell--lifecycle">

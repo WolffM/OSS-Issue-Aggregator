@@ -45,7 +45,7 @@ export function IssueCardGrid({ issues, onIssueClick, onRepoClick }: IssueCardGr
               onRepoClick(issue.repoSlug)
             }}
           >
-            {issue.repoSlug.replace('-', '/')}
+            {issue.project}
           </button>
 
           <div className="issue-card__badges">

@@ -40,7 +40,7 @@ export function IssueDetailDrawer({
             >
               {issue.title}
             </a>
-            <span className="issue-detail__repo">{issue.repoSlug.replace('-', '/')}</span>
+            <span className="issue-detail__repo">{issue.project}</span>
           </div>
         </div>
 

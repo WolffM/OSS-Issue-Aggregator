@@ -5,6 +5,8 @@ import type { DossierSections } from '../api/types'
 
 interface DossierDrawerProps {
   slug: string | null
+  /** Display name for `slug` (`owner/repo`); the slug alone cannot be split reliably. */
+  repo: string
   isOpen: boolean
   onClose: () => void
 }
@@ -33,8 +35,7 @@ async function loadMarked(): Promise<(markdown: string) => string> {
   return markedParse
 }
 
-function formatAgentPrompt(slug: string, sections: DossierSections): string {
-  const repo = slug.replace('-', '/')
+function formatAgentPrompt(repo: string, sections: DossierSections): string {
   return [
     `# Agent Instructions: ${repo}`,
     '',
@@ -64,7 +65,7 @@ function formatFullDossier(sections: DossierSections): string {
   return Object.values(sections).join('\n\n---\n\n')
 }
 
-export function DossierDrawer({ slug, isOpen, onClose }: DossierDrawerProps) {
+export function DossierDrawer({ slug, repo, isOpen, onClose }: DossierDrawerProps) {
   const { dossier, isPending, isLoading, error } = useDossier(isOpen ? slug : null)
   const [activeTab, setActiveTab] = useState<SectionKey>('overview')
   const [renderedHtml, setRenderedHtml] = useState('')
@@ -109,11 +110,11 @@ export function DossierDrawer({ slug, isOpen, onClose }: DossierDrawerProps) {
 
   const copyAgentPrompt = useCallback(async () => {
     if (!dossier || !slug) return
-    await navigator.clipboard.writeText(formatAgentPrompt(slug, dossier.sections))
+    await navigator.clipboard.writeText(formatAgentPrompt(repo, dossier.sections))
     showFeedback('Agent prompt copied!')
-  }, [dossier, slug, showFeedback])
+  }, [dossier, slug, repo, showFeedback])
 
-  const title = slug ? `Dossier: ${slug.replace('-', '/')}` : 'Dossier'
+  const title = slug ? `Dossier: ${repo}` : 'Dossier'
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title={title} width={640}>

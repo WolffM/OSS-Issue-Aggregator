@@ -18,6 +18,7 @@ import {
 } from './components'
 import { ossIssuesClient } from './api/client'
 import { loadAggregatorPrefs, saveAggregatorPrefs } from './prefs/aggregatorPrefs'
+import { repoNameFor } from './utils/repoName'
 import type { ScoredIssue } from './api/types'
 import type { OssAggregatorProps } from './entry'
 
@@ -138,6 +139,13 @@ function AppInner(props: OssAggregatorProps & { containerRef: RefObject<HTMLDivE
     }
     return [...seen.entries()].map(([slug, name]) => ({ slug, name }))
   }, [versionProjects, allIssues])
+
+  // Slug -> `owner/repo`. Slugs join both halves with a hyphen and either half may
+  // contain one, so the split point only survives in the project name the API sends.
+  const projectNames = useMemo(
+    () => new Map(derivedProjects.map(p => [p.slug, p.name])),
+    [derivedProjects]
+  )
 
   // Initialize selected projects from the prefs store or select all.
   // Also auto-select newly discovered projects from infinite scroll
@@ -311,6 +319,7 @@ function AppInner(props: OssAggregatorProps & { containerRef: RefObject<HTMLDivE
               isLoading={focusedHealthLoading}
               isPending={focusedHealthPending}
               slug={focusedRepo}
+              repo={focusedRepo ? repoNameFor(focusedRepo, projectNames) : ''}
               onViewDossier={handleRepoClick}
             />
           </aside>
@@ -394,6 +403,7 @@ function AppInner(props: OssAggregatorProps & { containerRef: RefObject<HTMLDivE
 
       <DossierDrawer
         slug={dossierSlug}
+        repo={dossierSlug ? repoNameFor(dossierSlug, projectNames) : ''}
         isOpen={dossierDrawerOpen}
         onClose={() => setDossierDrawerOpen(false)}
       />

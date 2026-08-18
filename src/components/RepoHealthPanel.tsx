@@ -5,6 +5,8 @@ interface RepoHealthPanelProps {
   isLoading: boolean
   isPending: boolean
   slug: string | null
+  /** Display name for `slug` (`owner/repo`); the slug alone cannot be split reliably. */
+  repo: string
   onViewDossier: (slug: string) => void
 }
 
@@ -19,6 +21,7 @@ export function RepoHealthPanel({
   isLoading,
   isPending,
   slug,
+  repo,
   onViewDossier
 }: RepoHealthPanelProps) {
   if (!slug) return null
@@ -26,7 +29,7 @@ export function RepoHealthPanel({
   if (isLoading) {
     return (
       <div className="repo-health">
-        <h3 className="repo-health__title">{slug.replace('-', '/')}</h3>
+        <h3 className="repo-health__title">{repo}</h3>
         <div className="repo-health__loading">Loading health data...</div>
       </div>
     )
@@ -35,7 +38,7 @@ export function RepoHealthPanel({
   if (isPending) {
     return (
       <div className="repo-health">
-        <h3 className="repo-health__title">{slug.replace('-', '/')}</h3>
+        <h3 className="repo-health__title">{repo}</h3>
         <div className="repo-health__pending">Awaiting initial scan</div>
       </div>
     )
@@ -45,7 +48,7 @@ export function RepoHealthPanel({
 
   return (
     <div className="repo-health">
-      <h3 className="repo-health__title">{slug.replace('-', '/')}</h3>
+      <h3 className="repo-health__title">{repo}</h3>
 
       {health.killed ? (
         <div className="repo-health__killed-warning">Not Viable: {health.killReason}</div>
