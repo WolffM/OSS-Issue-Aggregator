@@ -246,6 +246,33 @@ describe('buildAndWriteAggregates', () => {
     expect(slugsInAgg.has('ollama-ollama')).toBe(true)
     expect(slugsInAgg.has('fastify-fastify')).toBe(true)
   })
+
+  it('reports a stray recon: key as not-a-repo rather than as an error', async () => {
+    // `org-repo` is a leftover key with no consolidated record behind it. It
+    // used to fail every rebuild with "no scored issues after compute", which
+    // is indistinguishable in the status from a repo that genuinely broke.
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData({
+        issues: [makeExtendedIssue({ id: 'github-fastify-fastify-1' })]
+      }),
+      'recon:org-repo': {}
+    })
+
+    await buildAndWriteAggregates(kv, ['fastify-fastify', 'org-repo'])
+
+    const status = (await kv.get('recon:agg:last-build', 'json')) as {
+      notRepoSlugs: string[]
+      erroredSlugs: { slug: string }[]
+      zeroIssueSlugs: string[]
+    }
+    expect(status.notRepoSlugs).toEqual(['org-repo'])
+    expect(status.erroredSlugs).toEqual([])
+    expect(status.zeroIssueSlugs).toEqual([])
+
+    // ...and it does not inflate the repo count either.
+    const version = (await kv.get('recon:agg:v', 'json')) as { repoCount: number }
+    expect(version.repoCount).toBe(1)
+  })
 })
 
 // ============================================================================

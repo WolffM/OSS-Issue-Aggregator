@@ -75,6 +75,15 @@ export async function getConsolidatedRecon(
   return readKV<ConsolidatedReconData>(kv, `recon:${slug}`)
 }
 
+/**
+ * Names that live directly under `recon:` but are not repos: the pre-sorted
+ * aggregate (`recon:agg:*`), its build markers, and the scraper's own watchlist
+ * (`recon:watchlist`). Without this, `watchlist` was enumerated as a repo slug,
+ * counted in `repoCount`, and failed every aggregate rebuild with "no scored
+ * issues after compute".
+ */
+const RESERVED_KEY_NAMES = new Set(['agg', 'watchlist'])
+
 export async function getScrapedSlugs(kv: KVNamespace): Promise<string[]> {
   try {
     const slugs = new Set<string>()
@@ -89,8 +98,7 @@ export async function getScrapedSlugs(kv: KVNamespace): Promise<string[]> {
       for (const key of result.keys) {
         // Keys are recon:{slug} or recon:{slug}:{dataType} — extract the slug
         const parts = key.name.split(':')
-        // Skip non-slug keys like recon:agg:*
-        if (parts.length >= 2 && parts[1] !== 'agg') {
+        if (parts.length >= 2 && !RESERVED_KEY_NAMES.has(parts[1])) {
           slugs.add(parts[1])
         }
       }

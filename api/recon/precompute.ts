@@ -204,6 +204,7 @@ interface SlugBuildOutcome {
   computedInline: boolean
   error?: string
   abandoned?: boolean
+  notARepo?: boolean
 }
 
 /**
@@ -315,7 +316,16 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
           // /{slug}/compute may not have written it yet — compute inline so
           // a freshly-added slug isn't silently dropped from the aggregate.
           if (!scored) {
-            await computeAndStore(kv, slug)
+            // `healthComputed` is false only when there is no consolidated
+            // record behind the key at all — so this is a stray `recon:*` key
+            // rather than a repo the scraper ever wrote. `org-repo` is one such
+            // leftover, and reporting it as an error every rebuild buried the
+            // errors that mean something.
+            const computed = await computeAndStore(kv, slug)
+            if (!computed.healthComputed) {
+              outcomes.push({ slug, issueCount: 0, computedInline: false, notARepo: true })
+              return []
+            }
             scored = (await getScoredIssuesEnveloped(kv, slug))?.data ?? null
             computedInline = true
           }
@@ -389,10 +399,11 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
 
   // Write version metadata
   const abandonedSlugs = outcomes.filter(o => o.abandoned).map(o => o.slug)
+  const notRepoSlugs = outcomes.filter(o => o.notARepo).map(o => o.slug)
 
   await putAggregateVersion(kv, {
     version: Date.now(),
-    repoCount: slugs.length - abandonedSlugs.length,
+    repoCount: slugs.length - abandonedSlugs.length - notRepoSlugs.length,
     totalCount: slimmed.length,
     projects
   })
@@ -401,7 +412,7 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
   // (otherwise log-less, waitUntil-backgrounded) rebuild actually did.
   // Read via GET /recon/agg/build-status.
   const zeroIssueSlugs = outcomes
-    .filter(o => o.issueCount === 0 && !o.error && !o.abandoned)
+    .filter(o => o.issueCount === 0 && !o.error && !o.abandoned && !o.notARepo)
     .map(o => o.slug)
   const erroredSlugs = outcomes.filter(o => o.error).map(o => ({ slug: o.slug, error: o.error }))
   const status = {
@@ -411,6 +422,7 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
     processedSlugs: outcomes.length,
     totalIssues: slimmed.length,
     abandonedSlugs,
+    notRepoSlugs,
     zeroIssueSlugs,
     erroredSlugs
   }

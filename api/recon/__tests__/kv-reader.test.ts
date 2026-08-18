@@ -3,6 +3,7 @@ import {
   getConsolidatedRecon,
   getRepoHealth,
   getScoredIssues,
+  getScrapedSlugs,
   getClaims,
   getDossier,
   getRepoHealthEnveloped,
@@ -362,5 +363,32 @@ describe('bare readers delegate to enveloped', () => {
     expect(result).not.toBeNull()
     expect(result!.slug).toBe('test-repo')
     expect(result!.completeness).toBeDefined()
+  })
+})
+
+describe('getScrapedSlugs', () => {
+  it('extracts one slug per repo regardless of how many data keys it has', async () => {
+    const kv = createMockKV({
+      'recon:astral-sh-uv': makeConsolidatedReconData(),
+      'recon:astral-sh-uv:health': {},
+      'recon:astral-sh-uv:scored-issues': [],
+      'recon:fastify-fastify': makeConsolidatedReconData()
+    })
+
+    expect(await getScrapedSlugs(kv)).toEqual(['astral-sh-uv', 'fastify-fastify'])
+  })
+
+  it('skips the keys that live under recon: but are not repos', async () => {
+    // `watchlist` was enumerated as a repo, counted in repoCount, and failed
+    // every aggregate rebuild with "no scored issues after compute".
+    const kv = createMockKV({
+      'recon:fastify-fastify': makeConsolidatedReconData(),
+      'recon:watchlist': { slugs: ['fastify/fastify'] },
+      'recon:agg:v': { version: 1 },
+      'recon:agg:cvs': [],
+      'recon:agg:last-build': {}
+    })
+
+    expect(await getScrapedSlugs(kv)).toEqual(['fastify-fastify'])
   })
 })
