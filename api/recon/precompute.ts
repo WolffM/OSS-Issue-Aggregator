@@ -18,7 +18,12 @@ import type {
   Complexity,
   CompetitionLevel
 } from './types'
-import { getConsolidatedRecon, getClaims, getScrapedSlugs, getScoredIssues } from './kv-reader'
+import {
+  getConsolidatedRecon,
+  getClaims,
+  getScrapedSlugs,
+  getScoredIssuesEnveloped
+} from './kv-reader'
 import {
   putRepoHealth,
   putScoredIssues,
@@ -198,7 +203,25 @@ interface SlugBuildOutcome {
   issueCount: number
   computedInline: boolean
   error?: string
+  abandoned?: boolean
 }
+
+/**
+ * A repo whose scored data has not been refreshed in this long is left out of
+ * the aggregate the dashboard reads.
+ *
+ * The cron scrapes every 6 hours against a 24-hour staleness threshold, so a
+ * month behind is not "between runs" — it is a source the scraper can no longer
+ * reach, and its scores describe a repository as it was a season ago. This is
+ * how `microsoft/*` came to sit at the top of the board: the whole org enforces
+ * SAML SSO on its enterprise, so every authenticated request 403s and all 21
+ * repos froze on 2026-05-28 while the aggregate kept serving them as live.
+ *
+ * Nothing is deleted — the KV keys stay exactly where they are, so a repo
+ * reappears on its own the moment a scrape lands. Direct `/recon/{slug}/*`
+ * reads are also untouched; this only governs what the listing advertises.
+ */
+export const ABANDONED_AFTER_DAYS = 30
 
 /**
  * How old the aggregate may be before the read path stops trusting it.
@@ -273,18 +296,27 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
     const chunkResults = await Promise.all(
       chunk.map(async (slug): Promise<ScoredIssue[]> => {
         try {
-          const [initialScored, claims] = await Promise.all([
-            getScoredIssues(kv, slug),
+          const [envelope, claims] = await Promise.all([
+            getScoredIssuesEnveloped(kv, slug),
             getClaims(kv, slug)
           ])
-          let scored = initialScored
+
+          // Drop repos the scraper stopped reaching before spending any work on
+          // them — an abandoned repo needs no inline compute, and re-scoring
+          // month-old raw data would only restamp it as freshly computed.
+          if (envelope?.scraped_at && daysSince(envelope.scraped_at) > ABANDONED_AFTER_DAYS) {
+            outcomes.push({ slug, issueCount: 0, computedInline: false, abandoned: true })
+            return []
+          }
+
+          let scored = envelope?.data ?? null
           let computedInline = false
           // If scored-issues is missing, the scraper's fire-and-forget
           // /{slug}/compute may not have written it yet — compute inline so
           // a freshly-added slug isn't silently dropped from the aggregate.
           if (!scored) {
             await computeAndStore(kv, slug)
-            scored = await getScoredIssues(kv, slug)
+            scored = (await getScoredIssuesEnveloped(kv, slug))?.data ?? null
             computedInline = true
           }
           if (!scored) {
@@ -356,9 +388,11 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
     .sort((a, b) => a.name.localeCompare(b.name))
 
   // Write version metadata
+  const abandonedSlugs = outcomes.filter(o => o.abandoned).map(o => o.slug)
+
   await putAggregateVersion(kv, {
     version: Date.now(),
-    repoCount: slugs.length,
+    repoCount: slugs.length - abandonedSlugs.length,
     totalCount: slimmed.length,
     projects
   })
@@ -366,7 +400,9 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
   // Observability: persist a build status so operators can see what the
   // (otherwise log-less, waitUntil-backgrounded) rebuild actually did.
   // Read via GET /recon/agg/build-status.
-  const zeroIssueSlugs = outcomes.filter(o => o.issueCount === 0 && !o.error).map(o => o.slug)
+  const zeroIssueSlugs = outcomes
+    .filter(o => o.issueCount === 0 && !o.error && !o.abandoned)
+    .map(o => o.slug)
   const erroredSlugs = outcomes.filter(o => o.error).map(o => ({ slug: o.slug, error: o.error }))
   const status = {
     builtAt: new Date().toISOString(),
@@ -374,6 +410,7 @@ export async function buildAndWriteAggregates(kv: KVNamespace, slugs: string[]):
     requestedSlugs: slugs.length,
     processedSlugs: outcomes.length,
     totalIssues: slimmed.length,
+    abandonedSlugs,
     zeroIssueSlugs,
     erroredSlugs
   }

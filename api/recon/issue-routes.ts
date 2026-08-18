@@ -49,9 +49,11 @@ import {
   buildAndWriteAggregates,
   claimRebuild,
   AGGREGATE_MAX_AGE_MS,
+  ABANDONED_AFTER_DAYS,
   type AggregateSortField
 } from './precompute'
 import { computeDispatchReadiness } from './dispatch-readiness'
+import { daysSince } from './utils'
 
 /**
  * Strip heavy fields from ScoredIssue for the aggregate listing endpoint.
@@ -672,6 +674,12 @@ export function registerIssueRoutes(app: OpenAPIHono<HonoEnv>) {
         slugs.map(async slug => {
           const envelope = await getScoredIssuesEnveloped(kv, slug)
           if (!envelope) return null
+          // Same rule the aggregate builder applies, so the slow path and the
+          // fast path advertise the same repos rather than the fallback
+          // resurrecting repos the scraper stopped reaching a month ago.
+          if (envelope.scraped_at && daysSince(envelope.scraped_at) > ABANDONED_AFTER_DAYS) {
+            return null
+          }
           const claims = await getClaims(kv, slug)
           return {
             issues: applyClaimOverlay(envelope.data, claims ?? []),

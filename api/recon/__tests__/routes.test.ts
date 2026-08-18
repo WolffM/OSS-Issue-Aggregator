@@ -811,17 +811,28 @@ describe('_meta freshness metadata', () => {
   })
 
   describe('all-scored-issues timestamp aggregation', () => {
+    // Timestamps are relative to now, not fixed dates: the read path drops
+    // repos whose data is older than ABANDONED_AFTER_DAYS, so a fixture pinned
+    // to a calendar date silently ages out of the aggregate. What these tests
+    // assert is which of several live timestamps wins, so anchoring them to
+    // "days ago" is what they meant all along.
+    const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString()
+    const NEWER_SCRAPED = daysAgo(2)
+    const NEWER_COMPUTED = daysAgo(1.9)
+    const OLDER_SCRAPED = daysAgo(19)
+    const OLDER_COMPUTED = daysAgo(18.9)
+
     it('uses oldest scraped_at and computed_at across repos', async () => {
       const scored1 = makeScoredIssue({ id: 'issue-1', repoSlug: 'repo-a' })
       const scored2 = makeScoredIssue({ id: 'issue-2', repoSlug: 'repo-b' })
 
       const envelope1 = makeKVEnvelope([scored1], {
-        scraped_at: '2024-06-01T00:00:00Z',
-        computed_at: '2024-06-01T01:00:00Z'
+        scraped_at: NEWER_SCRAPED,
+        computed_at: NEWER_COMPUTED
       })
       const envelope2 = makeKVEnvelope([scored2], {
-        scraped_at: '2024-05-15T00:00:00Z',
-        computed_at: '2024-05-15T01:00:00Z'
+        scraped_at: OLDER_SCRAPED,
+        computed_at: OLDER_COMPUTED
       })
 
       const kv = createMockKV({
@@ -837,8 +848,8 @@ describe('_meta freshness metadata', () => {
 
       expectMeta(body._meta)
       // Oldest scraped_at should win
-      expect(body._meta.scraped_at).toBe('2024-05-15T00:00:00Z')
-      expect(body._meta.computed_at).toBe('2024-05-15T01:00:00Z')
+      expect(body._meta.scraped_at).toBe(OLDER_SCRAPED)
+      expect(body._meta.computed_at).toBe(OLDER_COMPUTED)
     })
 
     it('handles mix of enveloped and bare data for timestamp aggregation', async () => {
@@ -847,8 +858,8 @@ describe('_meta freshness metadata', () => {
 
       // repo-a has envelope, repo-b has bare data
       const envelope1 = makeKVEnvelope([scored1], {
-        scraped_at: '2024-06-01T00:00:00Z',
-        computed_at: '2024-06-01T01:00:00Z'
+        scraped_at: NEWER_SCRAPED,
+        computed_at: NEWER_COMPUTED
       })
 
       const kv = createMockKV({
@@ -864,7 +875,38 @@ describe('_meta freshness metadata', () => {
 
       expectMeta(body._meta)
       // Should have scraped_at from the one repo that has it
-      expect(body._meta.scraped_at).toBe('2024-06-01T00:00:00Z')
+      expect(body._meta.scraped_at).toBe(NEWER_SCRAPED)
+    })
+
+    it('leaves out repos the scraper stopped reaching', async () => {
+      // The SAML case: microsoft/* froze on one day and kept being served as
+      // live for 81 days. A repo past ABANDONED_AFTER_DAYS must not appear in
+      // the listing, and must not drag the freshness metadata back with it.
+      const live = makeScoredIssue({ id: 'issue-live', repoSlug: 'repo-live' })
+      const dead = makeScoredIssue({ id: 'issue-dead', repoSlug: 'repo-dead' })
+
+      const kv = createMockKV({
+        'recon:repo-live': makeConsolidatedReconData(),
+        'recon:repo-dead': makeConsolidatedReconData(),
+        'recon:repo-live:scored-issues': makeKVEnvelope([live], {
+          scraped_at: NEWER_SCRAPED,
+          computed_at: NEWER_COMPUTED
+        }),
+        'recon:repo-dead:scored-issues': makeKVEnvelope([dead], {
+          scraped_at: daysAgo(81),
+          computed_at: daysAgo(81)
+        })
+      })
+      const app = createTestApp(kv)
+
+      const res = await app.request('/all-scored-issues')
+      const body = await readJson(res)
+
+      const ids = body.data.issues.map((i: { id: string }) => i.id)
+      expect(ids).toContain('issue-live')
+      expect(ids).not.toContain('issue-dead')
+      expect(body.data.repoCount).toBe(1)
+      expect(body._meta.scraped_at).toBe(NEWER_SCRAPED)
     })
 
     it('returns null timestamps when no repos have envelope data', async () => {
