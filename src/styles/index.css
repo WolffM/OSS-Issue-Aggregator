@@ -1498,19 +1498,47 @@
    Responsive - Tablet
    ============================================================================ */
 
-@media (max-width: 1024px) {
-  .issue-card-grid {
-    grid-template-columns: 1fr;
-  }
-
+/* The nine-column table needs ~1030px of its own, and the page spends 352px on
+   the sidebar, gap and padding before it gets there — so anything under ~1380px
+   of viewport clips Age and Claim behind the wrapper's horizontal scrollbar.
+   That is the DEFAULT view on a 1280 or 1366 laptop, so the columns go before
+   the scrollbar does: Sent. and Comp. are single dots and both are repeated in
+   the issue drawer, and the title clamp tightens to buy the rest.
+   `.issue-table__cell--*` is on the `th` as well as the `td`, so one rule per
+   column hides the whole column. */
+@media (max-width: 1380px) {
   .issue-table__cell--sentiment,
   .issue-table__cell--competition {
     display: none;
   }
 
-  .issue-table__header-cell:nth-child(6),
-  .issue-table__header-cell:nth-child(7) {
-    display: none;
+  .issue-table__cell--title {
+    max-width: 260px;
+  }
+}
+
+/* Below 1280 the 280px sidebar is what the table cannot afford: side by side it
+   leaves 926px for a seven-column table that wants 918, and every pixel under
+   that goes straight into a scrollbar. Stacked, the table gets the full width
+   minus page padding, which fits down to ~966px. Narrower than that is phone
+   territory, where the 768 rules take over. */
+@media (max-width: 1279px) {
+  .oss-aggregator__body {
+    flex-direction: column;
+  }
+
+  .oss-aggregator__sidebar {
+    width: 100%;
+  }
+
+  .project-selector__list {
+    max-height: 200px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .issue-card-grid {
+    grid-template-columns: 1fr;
   }
 
   .drawer {
@@ -1531,18 +1559,6 @@
   .oss-aggregator__actions {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .oss-aggregator__body {
-    flex-direction: column;
-  }
-
-  .oss-aggregator__sidebar {
-    width: 100%;
-  }
-
-  .project-selector__list {
-    max-height: 200px;
   }
 
   .toolbar {
