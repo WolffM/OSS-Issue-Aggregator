@@ -45,6 +45,26 @@ const rejectedPRs: PRSample[] = prsFixture.data.rejected as PRSample[]
 
 const issues: ExtendedIssue[] = issuesFixture.data.items as ExtendedIssue[]
 
+// The instant this snapshot is treated as "now". Every recency-sensitive
+// assertion in this file is evaluated here.
+//
+// DERIVED from the corpus, deliberately — not from `meta.scrapedAt` and not from
+// a hand-typed literal. A literal is what rots (that is this file's entire bug
+// history), and `meta.scrapedAt` turns out not to cover the corpus: the meta and
+// comment fixtures were captured at 06:45-06:47Z while the freshest issue
+// activity is 14:00Z the same day, so pinning to it puts the clock BEHIND the
+// data and every recency score reads as the future.
+//
+// Taking the newest activity in the corpus is self-maintaining: a re-scrape moves
+// it automatically, so the clock can never drift away from the fixture the way it
+// did on 2026-08-21.
+const FIXTURE_SNAPSHOT_AT = new Date(
+  issues
+    .map(i => Date.parse(i.lastCommentAt ?? i.updatedAt))
+    .filter(t => !Number.isNaN(t))
+    .reduce((a, b) => Math.max(a, b), 0)
+)
+
 // Re-key comments from issue-number → compound-ID
 // Scraper uses issue number as keys; scorer expects compound ID
 const rawThreads = commentsFixture.data.threads as Record<string, CommentThread>
@@ -87,6 +107,39 @@ function createTestApp(kv: KVNamespace) {
 // ============================================================================
 
 describe('Production Data: fastify/fastify', () => {
+  // The fixtures are a STATIC snapshot (`meta.scrapedAt` = 2026-02-22), but the
+  // scorers measure recency against the WALL CLOCK. Left on the real clock every
+  // absolute assertion in this file is a time bomb that detonates on a date, not
+  // on a code change — and the blast radius is the whole file, so the pin belongs
+  // here rather than in any one describe block.
+  //
+  // Both bombs have now gone off, and scoping the first fix to one block is why
+  // the second one landed:
+  //
+  //   90d  health scoring    `daysSince(lastPushedAt)` + a 90-day recent-merge
+  //                          window feed overallViability. "viability > 30"
+  //                          passed for months, then failed at 28.
+  //   180d issue scoring     `classifyLifecycle` returns 'zombie' at
+  //                          `daysSinceActivity > 180` BEFORE any other branch,
+  //                          so on 2026-08-21 (newest fixture activity
+  //                          2026-02-22 + 180d) all 76 issues collapsed to a
+  //                          single stage and "stages.size >= 2" broke for good.
+  //                          CI went red on the 13:00 UTC run the next day, and
+  //                          the innocent commit that happened to be next in
+  //                          line wore it.
+  //
+  // Pinning to the snapshot makes these assertions test the SCORER against known
+  // data instead of testing how old the fixture is. `toFake: ['Date']` only —
+  // faking timers wholesale would stall the async route tests further down.
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(FIXTURE_SNAPSHOT_AT)
+  })
+
+  afterAll(() => {
+    vi.useRealTimers()
+  })
+
   // --------------------------------------------------------------------------
   // Fixture sanity checks
   // --------------------------------------------------------------------------
@@ -99,6 +152,32 @@ describe('Production Data: fastify/fastify', () => {
       expect(mergedPRs.length).toBe(10)
       expect(rejectedPRs.length).toBe(8)
       expect(Object.keys(comments).length).toBe(20)
+    })
+
+    // Guards the CLOCK PIN, which nothing else can. The pin is derived from the
+    // issues corpus, so it covers that fixture by construction — what it CANNOT
+    // see is the other three drifting away from it. A partial re-scrape (fresh
+    // issues, stale meta/PRs/comments) leaves the scorers correlating data from
+    // two different eras, and stays silent: the suite still passes, it just stops
+    // measuring what it claims to.
+    it('all four fixtures come from the same capture', () => {
+      expect(Number.isNaN(FIXTURE_SNAPSHOT_AT.getTime())).toBe(false)
+
+      const metaScrapedAt = Date.parse(metaFixture.data.meta.scrapedAt as string)
+      expect(Number.isNaN(metaScrapedAt)).toBe(false)
+
+      const threadScrapes = Object.values(rawThreads)
+        .map(t => Date.parse((t as unknown as { scrapedAt: string }).scrapedAt))
+        .filter(t => !Number.isNaN(t))
+      expect(threadScrapes.length).toBeGreaterThan(0)
+
+      // One day of slack: a full scrape walks meta -> issues -> PRs -> comments
+      // over minutes, and the current fixture set already spans ~7h.
+      const DAY = 86_400_000
+      const spread =
+        Math.max(metaScrapedAt, ...threadScrapes) - Math.min(metaScrapedAt, ...threadScrapes)
+      expect(spread).toBeLessThan(DAY)
+      expect(Math.abs(FIXTURE_SNAPSHOT_AT.getTime() - metaScrapedAt)).toBeLessThan(DAY)
     })
 
     it('issues have expected structure', () => {
@@ -132,24 +211,6 @@ describe('Production Data: fastify/fastify', () => {
   // --------------------------------------------------------------------------
   describe('health scoring', () => {
     let health: RepoHealth
-
-    // The fixtures are a STATIC snapshot (scraped 2026-02-21), but the health
-    // scorer measures recency against the wall clock — `daysSince(lastPushedAt)
-    // < 7` and a 90-day recent-merge window both feed overallViability. Left on
-    // the real clock the score decays every day the fixture ages, so an absolute
-    // assertion like "viability > 30" is a time bomb: it passed for months, then
-    // started failing at 28 once the snapshot drifted past the 90-day window.
-    //
-    // Pin the clock to the snapshot date so these assertions test the SCORER
-    // against known data instead of testing how old the fixture is.
-    beforeAll(() => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date('2026-02-22T00:00:00Z'))
-    })
-
-    afterAll(() => {
-      vi.useRealTimers()
-    })
 
     it('scores repo health without errors', () => {
       health = scoreRepoHealth(repoMeta, mergedPRs, rejectedPRs)
