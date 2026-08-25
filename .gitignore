@@ -44,3 +44,9 @@ e2e/screenshots/
 
 # per-repo vault key (Phase 2 of per-key ACL plan; never commit)
 .devvault.local.json
+
+# Agent worktrees (`git worktree add .claude/worktrees/<task>`). A worktree is
+# a FULL second checkout, so without this a `git add -A` commits one whole.
+# Scoped deliberately: the REST of .claude/ is tracked (5 files here), and a
+# blanket `.claude/` would silently swallow the next command added to it.
+.claude/worktrees/
