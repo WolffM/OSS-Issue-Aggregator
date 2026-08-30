@@ -45,7 +45,7 @@ jobs:
     # rather than on a claw, which is a persistent machine on a home LAN.
     # author_association is computed by GitHub and cannot be spoofed by the
     # submitter; vars.CI_RUNNER still overrides for the whole fleet.
-    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) && '["ubuntu-latest"]') || vars.CI_RUNNER || '["self-hosted","hadoku-builder"]') }}
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) && '["ubuntu-latest"]') || vars.CI_RUNNER) }}
     timeout-minutes: 15
     steps:
       # fetch-depth: 0 — the scope step diffs against the PR base, and a
@@ -119,7 +119,7 @@ jobs:
     # rather than on a claw, which is a persistent machine on a home LAN.
     # author_association is computed by GitHub and cannot be spoofed by the
     # submitter; vars.CI_RUNNER still overrides for the whole fleet.
-    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) && '["ubuntu-latest"]') || vars.CI_RUNNER || '["self-hosted","hadoku-builder"]') }}
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) && '["ubuntu-latest"]') || vars.CI_RUNNER) }}
     timeout-minutes: 15
     steps:
       # fetch-depth: 0 — the scope step diffs against the PR base, and a
