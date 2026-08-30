@@ -1,6 +1,6 @@
 {
   "name": "@wolffm/hadoku-aggregator",
-  "version": "3.2.8",
+  "version": "3.2.9",
   "description": "OSS Issue Aggregator - Browse beginner-friendly issues across open source projects",
   "type": "module",
   "packageManager": "pnpm@11.5.0",
@@ -30,7 +30,8 @@
     "build": "pnpm build:ui && pnpm build:api",
     "build:ui": "vite build && tsc -p tsconfig.build.json",
     "build:api": "tsup",
-    "lint": "eslint .",
+    "lint": "eslint . && pnpm run lint:icons",
+    "lint:icons": "hadoku-check-icons .",
     "lint:fix": "eslint . --fix",
     "lint:css": "stylelint \"src/**/*.css\" && node node_modules/@wolffm/themes/scripts/check-usage.mjs ./src",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
